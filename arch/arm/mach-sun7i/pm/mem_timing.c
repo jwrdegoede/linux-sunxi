@@ -1,5 +1,6 @@
 #include "pm.h"
 #include "pm_types.h"
+#include "pm_debug.h"
 
 static __u32 cpu_freq = 0;
 static __u32 overhead = 0;

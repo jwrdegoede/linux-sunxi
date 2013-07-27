@@ -35,7 +35,6 @@
 #include <asm/mach/map.h>
 #include <asm/cacheflush.h>
 #include "pm.h"
-
 #include <plat/sys_config.h>
 #include <mach/system.h>
 
@@ -121,8 +120,6 @@ static int sram_restore_start = 0;
 static int late_resume_end = 0;
 #endif
 
-EXPORT_SYMBOL(pm_disable_watchdog);
-EXPORT_SYMBOL(pm_enable_watchdog);
 
 /*
 *********************************************************************************************************
@@ -145,11 +142,6 @@ static int aw_pm_valid(suspend_state_t state)
         return 0;
     }
 
-#ifdef GET_CYCLE_CNT
-        // init counters:
-        init_perfcounters (1, 0);
-#endif
-
     return 1;
 
 }
@@ -165,7 +157,7 @@ static int aw_pm_valid(suspend_state_t state)
 *
 *Return     : return 0 for process successed;
 *
-*Notes      : this is a call-back function, registered into PM core, and this function
+*Notes      : this is a call-back function, registered  PM core, and this function
 *             will be called before devices suspened;
 *********************************************************************************************************
 */
@@ -174,15 +166,13 @@ unsigned int backup_min_freq = 0;
 
 int aw_pm_begin(suspend_state_t state)
 {
+#ifdef CPU_FREQ
     struct cpufreq_policy *policy;
-
+#endif
     PM_DBG("%d state begin:%d\n", state,debug_mask);
 
     //set freq max
-#ifdef CONFIG_CPU_FREQ_USR_EVNT_NOTIFY
-    //cpufreq_user_event_notify();
-#endif
-    
+#ifdef CPU_FREQ    
     backup_max_freq = 0;
     backup_min_freq = 0;
     policy = cpufreq_cpu_get(0);
@@ -198,11 +188,6 @@ int aw_pm_begin(suspend_state_t state)
     policy->user_policy.min = suspend_freq;
     cpufreq_cpu_put(policy);
     cpufreq_update_policy(0);
-
-    /*must init perfcounter, because delay_us and delay_ms is depandant perf counter*/
-#ifndef GET_CYCLE_CNT
-    backup_perfcounter();
-    init_perfcounters (1, 0);
 #endif
 
     if(unlikely(debug_mask&PM_STANDBY_PRINT_REG)){
@@ -214,12 +199,12 @@ int aw_pm_begin(suspend_state_t state)
         show_reg(SW_VA_SRAM_IO_BASE, SRAM_REG_LENGTH*4, "sram");
     }
     return 0;
-
+#ifdef CPU_FREQ
 out:
+
     return -1;
+#endif
 }
-
-
 /*
 *********************************************************************************************************
 *                           aw_pm_prepare
@@ -316,7 +301,6 @@ static int aw_pm_enter(suspend_state_t state)
         /* goto sram and run */
         standby(&standby_info);
 
-    dogMode = pm_enable_watchdog();
 
     if(unlikely(debug_mask&PM_STANDBY_PRINT_REG)){
         printk("after cpu suspend , line:%d\n", __LINE__);
@@ -389,13 +373,8 @@ void aw_pm_finish(void)
 */
 void aw_pm_end(void)
 {
+#ifdef CPU_FREQ
     struct cpufreq_policy *policy;
-
-#ifndef GET_CYCLE_CNT
-    #ifndef IO_MEASURE
-            restore_perfcounter();
-    #endif
-#endif
     if (backup_max_freq != 0 && backup_min_freq != 0)
     {
         policy = cpufreq_cpu_get(0);
@@ -410,8 +389,7 @@ void aw_pm_end(void)
         cpufreq_cpu_put(policy);
         cpufreq_update_policy(0);
     }
-    pm_disable_watchdog(dogMode);
-    
+#endif
     if(unlikely(debug_mask&PM_STANDBY_PRINT_REG)){
         printk("after dev suspend, line:%d\n", __LINE__);
         show_reg(SW_VA_CCM_IO_BASE, (CCU_REG_LENGTH)*4, "ccu");

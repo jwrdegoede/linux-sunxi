@@ -13,16 +13,10 @@
 #include <mach/platform.h>
 #include <mach/uart.h>
 
-#ifdef CONFIG_DEBUG_AW_UART0
-#define UART_PADDR	SW_PA_UART0_IO_BASE
-#define UART_VADDR	SW_VA_UART0_IO_BASE
-#else
-#error "Please select a uart port"
-#endif
 
 	.macro	addruart, rp, rv, tmp
-	ldr	\rv, =UART_VADDR
-	ldr	\rp, =UART_PADDR
+	ldr	\rv, =SW_VA_UART0_IO_BASE
+	ldr	\rp, =SW_PA_UART0_IO_BASE
 	.endm
 
 

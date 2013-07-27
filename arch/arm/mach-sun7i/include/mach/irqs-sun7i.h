@@ -83,7 +83,7 @@
 #define SW_INT_IRQNO_UART5	(AW_IRQ_GIC_START + 18)    /* UART5  */
 #define SW_INT_IRQNO_UART6	(AW_IRQ_GIC_START + 19)    /* UART6  */
 #define SW_INT_IRQNO_UART7	(AW_IRQ_GIC_START + 20)    /* UART7  */
-#define AW_IRQ_KEYPAD     	(AW_IRQ_GIC_START + 21)    /* KEYPAD */
+#define SW_INT_IRQNO_KEYPAD     (AW_IRQ_GIC_START + 21)    /* KEYPAD */
 #define AW_IRQ_TIMER0    	(AW_IRQ_GIC_START + 22)    /* Timer0 */
 #define AW_IRQ_TIMER1    	(AW_IRQ_GIC_START + 23)    /* Timer1 */
 #define SW_INT_IRQNO_ALARM	(AW_IRQ_GIC_START + 24)    /* Timer2 / alarm / watchdog  */
@@ -94,7 +94,7 @@
 #define SW_INT_IRQNO_PIO	(AW_IRQ_GIC_START + 28)    /* GPIO    */
 #define AW_IRQ_TOUCH_PANEL 	(AW_IRQ_GIC_START + 29)    /* touch pannel  */
 #define AW_IRQ_AUDIO_COEC 	(AW_IRQ_GIC_START + 30)    /* AUDIO COEC  */
-#define AW_IRQ_LRADC    	(AW_IRQ_GIC_START + 31)    /* LRADC  */
+#define SW_INT_IRQNO_LRADC    	(AW_IRQ_GIC_START + 31)    /* LRADC  */
 #define SW_INT_IRQNO_SDMC0	(AW_IRQ_GIC_START + 32)    /* MMC0   */
 #define SW_INT_IRQNO_SDMC1	(AW_IRQ_GIC_START + 33)    /* MMC1   */
 #define SW_INT_IRQNO_SDMC2	(AW_IRQ_GIC_START + 34)    /* MMC2   */
@@ -105,8 +105,8 @@
 #define SW_INT_IRQNO_USB1	(AW_IRQ_GIC_START + 39)    /* USB1  */
 #define SW_INT_IRQNO_USB2 	(AW_IRQ_GIC_START + 40)    /* USB2  */
 #define AW_IRQ_SCR       	(AW_IRQ_GIC_START + 41)    /* SCR   */
-#define AW_IRQ_CSI0       	(AW_IRQ_GIC_START + 42)    /* CSI0  */
-#define AW_IRQ_CSI1       	(AW_IRQ_GIC_START + 43)    /* CSI1  */
+#define SW_INT_IRQNO_CSI0       (AW_IRQ_GIC_START + 42)    /* CSI0  */
+#define SW_INT_IRQNO_CSI1       (AW_IRQ_GIC_START + 43)    /* CSI1  */
 #define SW_INT_IRQNO_LCDCTRL0	(AW_IRQ_GIC_START + 44)    /* LCDC0 */
 #define SW_INT_IRQNO_LCDCTRL1	(AW_IRQ_GIC_START + 45)    /* LCDC1 */
 #define AW_IRQ_MP       	(AW_IRQ_GIC_START + 46)    /* MP    */

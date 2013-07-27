@@ -84,8 +84,8 @@
 #define SW_INT_IRQNO_USB1		39
 #define SW_INT_IRQNO_USB2		40
 #define SW_INTC_IRQNO_SCR               41
-#define SW_INTC_IRQNO_CSI0              42
-#define SW_INTC_IRQNO_CSI1              43
+#define SW_INT_IRQNO_CSI0               42
+#define SW_INT_IRQNO_CSI1               43
 
 #define SW_INT_IRQNO_LCDCTRL0           44
 #define SW_INT_IRQNO_LCDCTRL1           45

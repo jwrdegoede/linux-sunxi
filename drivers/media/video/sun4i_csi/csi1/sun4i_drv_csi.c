@@ -2134,8 +2134,8 @@ static struct resource csi1_resource[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= SW_INTC_IRQNO_CSI1,
-		.end	= SW_INTC_IRQNO_CSI1,
+		.start	= SW_INT_IRQNO_CSI1,
+		.end	= SW_INT_IRQNO_CSI1,
 		.flags	= IORESOURCE_IRQ,
 	},
 };

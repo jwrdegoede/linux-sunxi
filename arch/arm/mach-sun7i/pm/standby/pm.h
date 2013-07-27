@@ -15,7 +15,6 @@
 #include "mem_divlibc.h"
 #include "mem_tmr.h"
 #include <mach/ccmu.h>
-#include "mem_timing.h"
 #include <linux/power/aw_pm.h>
 
 #define AXP_IICBUS      (0)

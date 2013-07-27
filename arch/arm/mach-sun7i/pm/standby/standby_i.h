@@ -18,8 +18,8 @@
 #ifndef __STANDBY_I_H__
 #define __STANDBY_I_H__
 
-#include "../pm_types.h" 
-#include "../pm.h"
+#include "pm_types.h" 
+#include "pm.h"
 #include "mem_int.h"
 
 #include <linux/power/aw_pm.h>

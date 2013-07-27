@@ -12,8 +12,8 @@
 #define __DRAM_I_H__
 
 #include <mach/dram.h>
-#include "../pm_types.h" 
-#include "../pm.h"
+#include "pm_types.h" 
+#include "pm.h"
 #include "mem_int.h"
 
 #define DRAMC_IO_BASE       SW_PA_DRAM_IO_BASE

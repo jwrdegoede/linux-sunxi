@@ -1,4 +1,4 @@
-obj-y	 += pm.o standby.o mem_tmr.o mem_timing.o mem_divlibc.o
+obj-y	 += pm.o standby.o
 
 KBUILD_CFLAGS += -I$(srctree)/arch/arm/mach-sun7i/pm/standby
 

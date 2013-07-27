@@ -1,7 +1,6 @@
 #ifndef _PM_DEBUG_H
 #define _PM_DEBUG_H
 
-#include "pm_config.h"
 /*
  * Copyright (c) 2011-2015 yanggq.young@allwinnertech.com
  *
