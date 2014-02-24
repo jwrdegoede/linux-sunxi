@@ -163,6 +163,7 @@ struct nand_flash_dev nand_flash_ids[] = {
 	{NULL}
 };
 
+
 /* Manufacturer IDs */
 struct nand_manufacturers nand_manuf_ids[] = {
 	{NAND_MFR_TOSHIBA, "Toshiba"},
@@ -171,7 +172,7 @@ struct nand_manufacturers nand_manuf_ids[] = {
 	{NAND_MFR_NATIONAL, "National"},
 	{NAND_MFR_RENESAS, "Renesas"},
 	{NAND_MFR_STMICRO, "ST Micro"},
-	{NAND_MFR_HYNIX, "Hynix"},
+	{NAND_MFR_HYNIX, "Hynix", hynix_nand_init},
 	{NAND_MFR_MICRON, "Micron"},
 	{NAND_MFR_AMD, "AMD/Spansion"},
 	{NAND_MFR_MACRONIX, "Macronix"},
