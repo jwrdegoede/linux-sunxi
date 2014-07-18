@@ -450,6 +450,29 @@
 			clock-output-names = "ir1";
 		};
 
+		iis0_clk: clk@01c200b8 {
+			#clock-cells = <0>;
+			compatible = "allwinner,sun4i-a10-mod1-clk";
+			reg = <0x01c200b8 0x4>;
+			clocks = <&pll2 0>, <&pll2 1>, <&pll2 2>, <&pll2 3>;
+			clock-output-names = "iis0";
+		};
+
+		ac97_clk: clk@01c200bc {
+			#clock-cells = <0>;
+			compatible = "allwinner,sun4i-a10-mod1-clk";
+			reg = <0x01c200bc 0x4>;
+			clocks = <&pll2 3>, <&pll2 2>, <&pll2 1>, <&pll2 0>;
+			clock-output-names = "ac97";
+		};
+
+		spdif_clk: clk@01c200c0 {
+			#clock-cells = <0>;
+			compatible = "allwinner,sun4i-a10-mod1-clk";
+			reg = <0x01c200c0 0x4>;
+			clocks = <&pll2 0>, <&pll2 1>, <&pll2 2>, <&pll2 3>;
+			clock-output-names = "spdif";
+		};
 		usb_clk: clk@01c200cc {
 			#clock-cells = <1>;
 			#reset-cells = <1>;
@@ -466,6 +489,22 @@
 			reg = <0x01c200d4 0x4>;
 			clocks = <&osc24M>, <&pll6 1>, <&pll5 1>;
 			clock-output-names = "spi3";
+		};
+
+		iis1_clk: clk@01c200d8 {
+			#clock-cells = <0>;
+			compatible = "allwinner,sun4i-a10-mod1-clk";
+			reg = <0x01c200d8 0x4>;
+			clocks = <&pll2 0>, <&pll2 1>, <&pll2 2>, <&pll2 3>;
+			clock-output-names = "iis1";
+		};
+
+		iis2_clk: clk@01c200dc {
+			#clock-cells = <0>;
+			compatible = "allwinner,sun4i-a10-mod1-clk";
+			reg = <0x01c200dc 0x4>;
+			clocks = <&pll2 0>, <&pll2 1>, <&pll2 2>, <&pll2 3>;
+			clock-output-names = "iis2";
 		};
 
 		codec_clk: clk@01c20140 {
