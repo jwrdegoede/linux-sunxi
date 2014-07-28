@@ -22,6 +22,10 @@ menuconfig MTD_NAND
 
 if MTD_NAND
 
+config MTD_OF_NAND_PARTS
+	tristate
+	default n
+
 config MTD_NAND_BCH
 	tristate
 	select BCH

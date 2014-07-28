@@ -424,7 +424,7 @@ int nand_calculate_ecc(struct mtd_info *mtd, const unsigned char *buf,
 		       unsigned char *code)
 {
 	__nand_calculate_ecc(buf,
-			((struct nand_chip *)mtd->priv)->ecc.size, code);
+			((struct nand_chip *)mtd->priv)->cur_ecc->size, code);
 
 	return 0;
 }
@@ -524,7 +524,7 @@ int nand_correct_data(struct mtd_info *mtd, unsigned char *buf,
 		      unsigned char *read_ecc, unsigned char *calc_ecc)
 {
 	return __nand_correct_data(buf, read_ecc, calc_ecc,
-				   ((struct nand_chip *)mtd->priv)->ecc.size);
+			((struct nand_chip *)mtd->priv)->cur_ecc->size);
 }
 EXPORT_SYMBOL(nand_correct_data);
 

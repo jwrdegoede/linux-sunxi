@@ -53,14 +53,14 @@ int nand_bch_calculate_ecc(struct mtd_info *mtd, const unsigned char *buf,
 			   unsigned char *code)
 {
 	const struct nand_chip *chip = mtd->priv;
-	struct nand_bch_control *nbc = chip->ecc.priv;
+	struct nand_bch_control *nbc = chip->cur_ecc->priv;
 	unsigned int i;
 
-	memset(code, 0, chip->ecc.bytes);
-	encode_bch(nbc->bch, buf, chip->ecc.size, code);
+	memset(code, 0, chip->cur_ecc->bytes);
+	encode_bch(nbc->bch, buf, chip->cur_ecc->size, code);
 
 	/* apply mask so that an erased page is a valid codeword */
-	for (i = 0; i < chip->ecc.bytes; i++)
+	for (i = 0; i < chip->cur_ecc->bytes; i++)
 		code[i] ^= nbc->eccmask[i];
 
 	return 0;
@@ -80,15 +80,15 @@ int nand_bch_correct_data(struct mtd_info *mtd, unsigned char *buf,
 			  unsigned char *read_ecc, unsigned char *calc_ecc)
 {
 	const struct nand_chip *chip = mtd->priv;
-	struct nand_bch_control *nbc = chip->ecc.priv;
+	struct nand_bch_control *nbc = chip->cur_ecc->priv;
 	unsigned int *errloc = nbc->errloc;
 	int i, count;
 
-	count = decode_bch(nbc->bch, NULL, chip->ecc.size, read_ecc, calc_ecc,
-			   NULL, errloc);
+	count = decode_bch(nbc->bch, NULL, chip->cur_ecc->size, read_ecc,
+			   calc_ecc, NULL, errloc);
 	if (count > 0) {
 		for (i = 0; i < count; i++) {
-			if (errloc[i] < (chip->ecc.size*8))
+			if (errloc[i] < (chip->cur_ecc->size*8))
 				/* error is located in data, correct it */
 				buf[errloc[i] >> 3] ^= (1 << (errloc[i] & 7));
 			/* else error in ecc, no action needed */
