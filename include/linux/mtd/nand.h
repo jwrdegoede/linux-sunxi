@@ -539,6 +539,64 @@ void nand_page_set_status(struct mtd_info *mtd, int page,
 
 int nand_pst_create(struct mtd_info *mtd);
 
+/*
+ * Constants for randomizer modes
+ */
+typedef enum {
+	NAND_RND_NONE,
+	NAND_RND_SOFT,
+	NAND_RND_HW,
+} nand_rnd_modes_t;
+
+/*
+ * Constants for randomizer actions
+ */
+enum nand_rnd_action {
+	NAND_RND_NO_ACTION,
+	NAND_RND_READ,
+	NAND_RND_WRITE,
+};
+
+/**
+ * struct nand_rndfree - Structure defining a NAND page region where the
+ *			 randomizer should be disabled
+ * @offset:	range offset
+ * @length:	range length
+ */
+struct nand_rndfree {
+	u32 offset;
+	u32 length;
+};
+
+/**
+ * struct nand_rnd_layout - Structure defining rndfree regions
+ * @nranges:	number of ranges
+ * @ranges:	array defining the rndfree regions
+ */
+struct nand_rnd_layout {
+	int nranges;
+	struct nand_rndfree ranges[0];
+};
+
+/**
+ * struct nand_rnd_ctrl - Randomizer Control structure
+ * @mode:	Randomizer mode
+ * @config:	function to prepare the randomizer (i.e.: set the appropriate
+ *		seed/init value).
+ * @read_buf:	function that read from the NAND and descramble the retrieved
+ *		data.
+ * @write_buf:	function that scramble data before writing it to the NAND.
+ */
+struct nand_rnd_ctrl {
+	nand_rnd_modes_t mode;
+	struct nand_rnd_layout *layout;
+	void *priv;
+	int (*config)(struct mtd_info *mtd, int page, int column,
+		      enum nand_rnd_action action);
+	void (*write_buf)(struct mtd_info *mtd, const uint8_t *buf, int len);
+	void (*read_buf)(struct mtd_info *mtd, uint8_t *buf, int len);
+};
+
 /**
  * struct nand_buffers - buffer structure for read/write
  * @ecccalc:	buffer pointer for calculated ECC, size is oobsize.
@@ -731,6 +789,9 @@ struct nand_chip {
 	struct nand_buffers *buffers;
 	struct nand_hw_control hwcontrol;
 
+	struct nand_rnd_ctrl rnd;
+	struct nand_rnd_ctrl *cur_rnd;
+
 	uint8_t *bbt;
 	struct nand_bbt_descr *bbt_td;
 	struct nand_bbt_descr *bbt_md;
@@ -752,6 +813,7 @@ struct nand_chip {
  * @master:	MTD device representing the NAND chip
  * @offset:	partition offset
  * @ecc:	partition specific ECC struct
+ * @rnd:	partition specific randomizer struct
  * @release:	function used to release this nand_part struct
  *
  * NAND partitions work as standard MTD partitions except it can override
@@ -765,6 +827,7 @@ struct nand_part {
 	struct mtd_info *master;
 	uint64_t offset;
 	struct nand_ecc_ctrl *ecc;
+	struct nand_rnd_ctrl *rnd;
 	void (*release)(struct nand_part *part);
 };
 
@@ -901,6 +964,41 @@ extern int nand_erase_nand(struct mtd_info *mtd, struct erase_info *instr,
 			   int allowbbt);
 extern int nand_do_read(struct mtd_info *mtd, loff_t from, size_t len,
 			size_t *retlen, uint8_t *buf);
+
+static inline int nand_rnd_config(struct mtd_info *mtd, int page, int column,
+				  enum nand_rnd_action action)
+{
+	struct nand_chip *chip = mtd->priv;
+
+	if (chip->cur_rnd && chip->cur_rnd->config)
+		return chip->cur_rnd->config(mtd, page, column, action);
+
+	return 0;
+}
+
+static inline void nand_rnd_write_buf(struct mtd_info *mtd, const uint8_t *buf,
+				     int len)
+{
+	struct nand_chip *chip = mtd->priv;
+
+	if (chip->cur_rnd && chip->cur_rnd->read_buf)
+		chip->cur_rnd->write_buf(mtd, buf, len);
+	else
+		chip->write_buf(mtd, buf, len);
+}
+
+static inline void nand_rnd_read_buf(struct mtd_info *mtd, uint8_t *buf,
+				    int len)
+{
+	struct nand_chip *chip = mtd->priv;
+
+	if (chip->cur_rnd && chip->cur_rnd->read_buf)
+		chip->cur_rnd->read_buf(mtd, buf, len);
+	else
+		chip->read_buf(mtd, buf, len);
+}
+
+int nand_rnd_is_activ(struct mtd_info *mtd, int page, int column, int *len);
 
 /**
  * struct platform_nand_chip - chip level device structure
