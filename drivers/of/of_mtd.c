@@ -84,6 +84,41 @@ int of_get_nand_ecc_strength(struct device_node *np)
 EXPORT_SYMBOL_GPL(of_get_nand_ecc_strength);
 
 /**
+ * It maps 'enum nand_rnd_modes_t' found in include/linux/mtd/nand.h
+ * into the device tree binding of 'nand-rnd', so that MTD
+ * device driver can get nand rnd from device tree.
+ */
+static const char *nand_rnd_modes[] = {
+	[NAND_RND_NONE]		= "none",
+	[NAND_RND_SOFT]		= "soft",
+	[NAND_RND_HW]		= "hw",
+};
+
+/**
+ * of_get_nand_rnd_mode - Get nand randomizer mode for given device_node
+ * @np:	Pointer to the given device_node
+ *
+ * The function gets randomizer mode string from property 'nand-rnd-mode',
+ * and return its index in nand_rnd_modes table, or errno in error case.
+ */
+int of_get_nand_rnd_mode(struct device_node *np)
+{
+	const char *pm;
+	int err, i;
+
+	err = of_property_read_string(np, "nand-rnd-mode", &pm);
+	if (err < 0)
+		return err;
+
+	for (i = 0; i < ARRAY_SIZE(nand_rnd_modes); i++)
+		if (!strcasecmp(pm, nand_rnd_modes[i]))
+			return i;
+
+	return -ENODEV;
+}
+EXPORT_SYMBOL_GPL(of_get_nand_rnd_mode);
+
+/**
  * of_get_nand_bus_width - Get nand bus witdh for given device_node
  * @np:	Pointer to the given device_node
  *
