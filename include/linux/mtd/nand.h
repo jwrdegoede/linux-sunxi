@@ -521,6 +521,24 @@ struct nand_ecc_ctrl {
 			int page);
 };
 
+/*
+ * Constants for page status
+ */
+enum nand_page_status {
+	NAND_PAGE_STATUS_UNKNOWN,
+	NAND_PAGE_EMPTY,
+	NAND_PAGE_FILLED,
+};
+
+bool nand_page_is_empty(struct mtd_info *mtd, void *data, void *oob);
+
+int nand_page_get_status(struct mtd_info *mtd, int page);
+
+void nand_page_set_status(struct mtd_info *mtd, int page,
+			  enum nand_page_status status);
+
+int nand_pst_create(struct mtd_info *mtd);
+
 /**
  * struct nand_buffers - buffer structure for read/write
  * @ecccalc:	buffer pointer for calculated ECC, size is oobsize.
@@ -630,6 +648,7 @@ struct nand_buffers {
  * @bbt_md:		[REPLACEABLE] bad block table mirror descriptor
  * @badblock_pattern:	[REPLACEABLE] bad block scan pattern used for initial
  *			bad block scan.
+ * @pst:		[INTERN] page status table
  * @controller:		[REPLACEABLE] a pointer to a hardware controller
  *			structure which is shared among multiple independent
  *			devices.
@@ -717,6 +736,8 @@ struct nand_chip {
 	struct nand_bbt_descr *bbt_md;
 
 	struct nand_bbt_descr *badblock_pattern;
+
+	uint8_t *pst;
 
 	struct list_head partitions;
 	struct mutex part_lock;
