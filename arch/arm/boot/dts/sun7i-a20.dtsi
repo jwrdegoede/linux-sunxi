@@ -470,7 +470,7 @@
 			#clock-cells = <0>;
 			compatible = "allwinner,sun4i-a10-mod1-clk";
 			reg = <0x01c200c0 0x4>;
-			clocks = <&pll2 0>, <&pll2 1>, <&pll2 2>, <&pll2 3>;
+			clocks = <&pll2 3>, <&pll2 2>, <&pll2 1>, <&pll2 0>;
 			clock-output-names = "spdif";
 		};
 		usb_clk: clk@01c200cc {
