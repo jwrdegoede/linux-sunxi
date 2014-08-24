@@ -1711,28 +1711,37 @@ static void sunxi_nand_part_release(struct nand_part *part)
 struct nand_part *sunxi_ofnandpart_parse(void *priv, struct mtd_info *master,
 					 struct device_node *pp)
 {
+	struct nand_chip *chip = master->priv;
 	struct sunxi_nand_part *part;
 	int ret;
 
 	part = kzalloc(sizeof(*part), GFP_KERNEL);
 	part->part.release = sunxi_nand_part_release;
 
-	ret = sunxi_nand_ecc_init(master, &part->ecc, pp);
-	if (ret)
-		goto err;
+	if (of_find_property(pp, "nand-ecc-mode", NULL)) {
+		ret = sunxi_nand_ecc_init(master, &part->ecc, pp);
+		if (ret)
+			goto err;
 
-	ret = sunxi_nand_rnd_init(master, &part->rnd, &part->ecc, pp);
-	if (ret) {
-		sunxi_nand_ecc_cleanup(&part->ecc);
-		goto err;
+		part->part.ecc = &part->ecc;
 	}
 
-	part->part.ecc = &part->ecc;
-	part->part.rnd = &part->rnd;
+	if (of_find_property(pp, "nand-rnd-mode", NULL)) {
+		ret = sunxi_nand_rnd_init(master, &part->rnd,
+				part->part.ecc ? part->part.ecc : &chip->ecc,
+				pp);
+		if (ret)
+			goto err;
+
+		part->part.rnd = &part->rnd;
+	}
 
 	return &part->part;
 
 err:
+	if (part->part.ecc)
+		sunxi_nand_ecc_cleanup(part->part.ecc);
+
 	kfree(part);
 	return ERR_PTR(ret);
 }
