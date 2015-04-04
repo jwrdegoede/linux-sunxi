@@ -443,6 +443,17 @@ config XGENE_DMA
 	help
 	  Enable support for the APM X-Gene SoC DMA engine.
 
+config SUN4I_DMA
+	tristate "Allwinner A10 DMA support"
+	depends on (MACH_SUN4I || MACH_SUN5I || MACH_SUN7I || (COMPILE_TEST && OF && ARM))
+	default (MACH_SUN4I || MACH_SUN5I || MACH_SUN7I)
+	select DMA_ENGINE
+	select DMA_OF
+	select DMA_VIRTUAL_CHANNELS
+	help
+	  Enable support for the DMA controller present in the sun4i,
+	  sun5i and sun7i Allwinner ARM SoCs.
+
 config DMA_ENGINE
 	bool
 
