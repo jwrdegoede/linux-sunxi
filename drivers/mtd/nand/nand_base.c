@@ -4063,6 +4063,41 @@ static void nand_decode_ext_id(struct mtd_info *mtd, struct nand_chip *chip,
 		mtd->erasesize = (128 * 1024) <<
 			(((extid >> 1) & 0x04) | (extid & 0x03));
 		*busw = 0;
+		/* Calc ecc strength and size from 5th id byte*/
+		switch ((id_data[4] >> 4) & 0x07) {
+		case 0:
+			chip->ecc_strength_ds = 1;
+			chip->ecc_step_ds = 512;
+			break;
+		case 1:
+			chip->ecc_strength_ds = 2;
+			chip->ecc_step_ds = 512;
+			break;
+		case 2:
+			chip->ecc_strength_ds = 4;
+			chip->ecc_step_ds = 512;
+			break;
+		case 3:
+			chip->ecc_strength_ds = 8;
+			chip->ecc_step_ds = 512;
+			break;
+		case 4:
+			chip->ecc_strength_ds = 16;
+			chip->ecc_step_ds = 512;
+			break;
+		case 5:
+			chip->ecc_strength_ds = 24;
+			chip->ecc_step_ds = 1024;
+			break;
+		case 6:
+			chip->ecc_strength_ds = 40;
+			chip->ecc_step_ds = 1024;
+			break;
+		case 7:
+			chip->ecc_strength_ds = 60;
+			chip->ecc_step_ds = 1024;
+			break;
+		}
 	} else if (id_len == 6 && id_data[0] == NAND_MFR_HYNIX &&
 			!nand_is_slc(chip)) {
 		unsigned int tmp;
