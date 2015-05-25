@@ -1853,6 +1853,15 @@ static int sunxi_nand_chip_init(struct device *dev, struct sunxi_nfc *nfc,
 	if (of_get_nand_on_flash_bbt(np))
 		nand->bbt_options |= NAND_BBT_USE_FLASH | NAND_BBT_NO_OOB;
 
+	/*
+	 * The ftl format used by the Allwinner Android kernels overrides
+	 * the factory bad block markers, and fills the oob data with a
+	 * pattern which causes a lot of false bad block positives, so
+	 * when we first create a bbt table, start with an empty one
+	 * to avoid marking a ton of blocks as bad from the start.
+	 */
+	nand->bbt_options |= NAND_BBT_CREATE_EMPTY;
+
 	mtd = &chip->mtd;
 	mtd->dev.parent = dev;
 	mtd->priv = nand;
