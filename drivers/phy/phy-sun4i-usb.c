@@ -432,7 +432,8 @@ static int sun4i_usb_phy_probe(struct platform_device *pdev)
 	data->extcon.supported_cable = data->extcon_cable_names;
 	data->extcon.dev.parent = dev;
 
-	if (of_device_is_compatible(np, "allwinner,sun5i-a13-usb-phy"))
+	if (of_device_is_compatible(np, "allwinner,sun5i-a13-usb-phy") ||
+	    of_device_is_compatible(np, "allwinner,sun8i-a23-usb-phy"))
 		data->num_phys = 2;
 	else
 		data->num_phys = 3;
@@ -443,7 +444,8 @@ static int sun4i_usb_phy_probe(struct platform_device *pdev)
 	else
 		data->disc_thresh = 3;
 
-	if (of_device_is_compatible(np, "allwinner,sun6i-a31-usb-phy"))
+	if (of_device_is_compatible(np, "allwinner,sun6i-a31-usb-phy") ||
+	    of_device_is_compatible(np, "allwinner,sun8i-a23-usb-phy"))
 		dedicated_clocks = true;
 	else
 		dedicated_clocks = false;
@@ -583,6 +585,7 @@ static const struct of_device_id sun4i_usb_phy_of_match[] = {
 	{ .compatible = "allwinner,sun5i-a13-usb-phy" },
 	{ .compatible = "allwinner,sun6i-a31-usb-phy" },
 	{ .compatible = "allwinner,sun7i-a20-usb-phy" },
+	{ .compatible = "allwinner,sun8i-a23-usb-phy" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, sun4i_usb_phy_of_match);
