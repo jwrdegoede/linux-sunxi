@@ -301,7 +301,7 @@ static int sun4i_usb_phy_power_on(struct phy *_phy)
 	phy->regulator_on = true;
 
 	/* We must report Vbus high within OTG_TIME_A_WAIT_VRISE msec. */
-	if (phy->index == 0 && data->phy0_poll)
+	if (phy->index == 0 && data->vbus_det_gpio && data->phy0_poll)
 		mod_delayed_work(system_wq, &data->detect, DEBOUNCE_TIME);
 
 	return 0;
@@ -322,7 +322,7 @@ static int sun4i_usb_phy_power_off(struct phy *_phy)
 	 * phy0 vbus typically slowly discharges, sometimes this causes the
 	 * Vbus gpio to not trigger an edge irq on Vbus off, so force a rescan.
 	 */
-	if (phy->index == 0 && !data->phy0_poll)
+	if (phy->index == 0 && data->vbus_det_gpio && !data->phy0_poll)
 		mod_delayed_work(system_wq, &data->detect, POLL_TIME);
 
 	return 0;
