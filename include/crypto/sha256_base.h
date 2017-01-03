@@ -37,19 +37,6 @@ static inline int sha224_base_init(struct shash_desc *desc)
 	return 0;
 }
 
-static inline void sha256_init_direct(struct sha256_state *sctx)
-{
-	sctx->state[0] = SHA256_H0;
-	sctx->state[1] = SHA256_H1;
-	sctx->state[2] = SHA256_H2;
-	sctx->state[3] = SHA256_H3;
-	sctx->state[4] = SHA256_H4;
-	sctx->state[5] = SHA256_H5;
-	sctx->state[6] = SHA256_H6;
-	sctx->state[7] = SHA256_H7;
-	sctx->count = 0;
-}
-
 static inline int sha256_base_init(struct shash_desc *desc)
 {
 	sha256_init_direct(shash_desc_ctx(desc));

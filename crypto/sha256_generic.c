@@ -240,24 +240,45 @@ static void sha256_generic_block_fn(struct sha256_state *sst, u8 const *src,
 	}
 }
 
+void sha256_update_direct(struct sha256_state *sctx, const u8 *data,
+			  unsigned int len)
+{
+	__sha256_base_do_update(sctx, data, len, sha256_generic_block_fn);
+}
+EXPORT_SYMBOL(sha256_update_direct);
+
 int crypto_sha256_update(struct shash_desc *desc, const u8 *data,
 			  unsigned int len)
 {
-	return sha256_base_do_update(desc, data, len, sha256_generic_block_fn);
+	sha256_update_direct(shash_desc_ctx(desc), data, len);
+	return 0;
 }
 EXPORT_SYMBOL(crypto_sha256_update);
 
 static int sha256_final(struct shash_desc *desc, u8 *out)
 {
-	sha256_base_do_finalize(desc, sha256_generic_block_fn);
-	return sha256_base_finish(desc, out);
+	__sha256_final_direct(shash_desc_ctx(desc),
+			      crypto_shash_digestsize(desc->tfm), out);
+	return 0;
 }
+
+void __sha256_final_direct(struct sha256_state *sctx, unsigned int digest_size,
+			   u8 *out)
+{
+	sha256_do_finalize_direct(sctx, sha256_generic_block_fn);
+	__sha256_base_finish(sctx, digest_size, out);
+}
+EXPORT_SYMBOL(sha256_final_direct);
 
 int crypto_sha256_finup(struct shash_desc *desc, const u8 *data,
 			unsigned int len, u8 *hash)
 {
-	sha256_base_do_update(desc, data, len, sha256_generic_block_fn);
-	return sha256_final(desc, hash);
+	struct sha256_state *sctx = shash_desc_ctx(desc);
+	unsigned int digest_size = crypto_shash_digestsize(desc->tfm);
+
+	sha256_update_direct(sctx, data, len);
+	__sha256_final_direct(sctx, digest_size, hash);
+	return 0;
 }
 EXPORT_SYMBOL(crypto_sha256_finup);
 

@@ -93,6 +93,30 @@ struct sha512_state {
 	u8 buf[SHA512_BLOCK_SIZE];
 };
 
+static inline void sha256_init_direct(struct sha256_state *sctx)
+{
+	sctx->state[0] = SHA256_H0;
+	sctx->state[1] = SHA256_H1;
+	sctx->state[2] = SHA256_H2;
+	sctx->state[3] = SHA256_H3;
+	sctx->state[4] = SHA256_H4;
+	sctx->state[5] = SHA256_H5;
+	sctx->state[6] = SHA256_H6;
+	sctx->state[7] = SHA256_H7;
+	sctx->count = 0;
+}
+
+extern void sha256_update_direct(struct sha256_state *sctx, const u8 *data,
+				 unsigned int len);
+
+extern void __sha256_final_direct(struct sha256_state *sctx,
+				  unsigned int digest_size, u8 *out);
+
+static inline void sha256_final_direct(struct sha256_state *sctx, u8 *out)
+{
+	__sha256_final_direct(sctx, SHA256_DIGEST_SIZE, out);
+}
+
 struct shash_desc;
 
 extern int crypto_sha1_update(struct shash_desc *desc, const u8 *data,
