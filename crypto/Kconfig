@@ -11,6 +11,13 @@ config XOR_BLOCKS
 source "crypto/async_tx/Kconfig"
 
 #
+# Cryptographic algorithms that are usable without the Crypto API.
+# None of these should have visible config options.
+#
+config CRYPTO_SHA256_DIRECT
+	bool
+
+#
 # Cryptographic API Configuration
 #
 menuconfig CRYPTO
@@ -895,6 +902,7 @@ config CRYPTO_SHA1_PPC_SPE
 
 config CRYPTO_SHA256
 	tristate "SHA224 and SHA256 digest algorithm"
+	select CRYPTO_SHA256_DIRECT
 	select CRYPTO_HASH
 	help
 	  SHA256 secure hash standard (DFIPS 180-2).
