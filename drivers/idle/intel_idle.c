@@ -48,6 +48,7 @@
 #include <linux/moduleparam.h>
 #include <asm/cpu_device_id.h>
 #include <asm/intel-family.h>
+#include <asm/intel_idle.h>
 #include <asm/mwait.h>
 #include <asm/msr.h>
 
@@ -67,6 +68,22 @@ static unsigned long auto_demotion_disable_flags;
 static bool disable_promotion_to_c1e;
 
 static bool lapic_timer_always_reliable;
+
+#ifdef CONFIG_PM_DEBUG
+static RAW_NOTIFIER_HEAD(intel_idle_freeze_notifier);
+
+void intel_idle_freeze_notifier_register(struct notifier_block *nb)
+{
+	raw_notifier_chain_register(&intel_idle_freeze_notifier, nb);
+}
+EXPORT_SYMBOL(intel_idle_freeze_notifier_register);
+
+void intel_idle_freeze_notifier_unregister(struct notifier_block *nb)
+{
+	raw_notifier_chain_unregister(&intel_idle_freeze_notifier, nb);
+}
+EXPORT_SYMBOL(intel_idle_freeze_notifier_unregister);
+#endif
 
 struct idle_cpu {
 	struct cpuidle_state *state_table;
@@ -181,6 +198,9 @@ static __cpuidle void intel_idle_s2idle(struct cpuidle_device *dev,
 	unsigned long eax = flg2MWAIT(drv->states[index].flags);
 	unsigned long ecx = 1; /* break on interrupt flag */
 
+#ifdef CONFIG_PM_DEBUG
+	raw_notifier_call_chain(&intel_idle_freeze_notifier, dev->cpu, NULL);
+#endif
 	mwait_idle_with_hints(eax, ecx);
 }
 

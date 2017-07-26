@@ -970,6 +970,9 @@ static void lpss_iosf_enter_d3_state(void)
 	iosf_mbi_modify(LPSS_IOSF_UNIT_LPIOEP, MBI_CR_WRITE,
 			LPSS_IOSF_GPIODEF0, value1, mask1);
 
+	if (!lpss_iosf_d3_entered)
+		pr_err("Entered lpss_iosf_d3\n");
+
 	lpss_iosf_d3_entered = true;
 
 exit:
@@ -988,6 +991,8 @@ static void lpss_iosf_exit_d3_state(void)
 
 	if (!lpss_iosf_d3_entered)
 		goto exit;
+
+	pr_err("Leaving lpss_iosf_d3\n");
 
 	lpss_iosf_d3_entered = false;
 
