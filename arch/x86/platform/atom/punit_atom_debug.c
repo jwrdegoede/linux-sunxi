@@ -25,6 +25,7 @@
 #include <asm/cpu_device_id.h>
 #include <asm/intel-family.h>
 #include <asm/iosf_mbi.h>
+#include <asm/intel_idle.h>
 
 /* Subsystem config/status Video processor */
 #define VED_SS_PM0		0x32
@@ -138,6 +139,47 @@ static void punit_dbgfs_unregister(void)
 	debugfs_remove_recursive(punit_dbg_file);
 }
 
+#if defined(CONFIG_PM_DEBUG) && defined(CONFIG_INTEL_IDLE)
+struct punit_notifier_block {
+	struct notifier_block nb;
+	struct punit_device *punit_device;
+};
+
+static int punit_freeze_cb(struct notifier_block *nb,
+			   unsigned long action, void *data)
+{
+	struct punit_notifier_block *punit_nb =
+		container_of(nb, struct punit_notifier_block, nb);
+	struct punit_device *punit_devp = punit_nb->punit_device;
+	u32 punit_pwr_status;
+	int index;
+	int status;
+	int cpu = action;
+
+	while (punit_devp->name) {
+		status = iosf_mbi_read(BT_MBI_UNIT_PMC, MBI_REG_READ,
+				       punit_devp->reg, &punit_pwr_status);
+		if (status) {
+			pr_err("punit debug: %s: read failed\n",
+			       punit_devp->name);
+		} else  {
+			index = (punit_pwr_status >> punit_devp->sss_pos) & 3;
+			if (!index)
+				pr_err("punit debug: cpu %d: %s is in D0 prior to freeze\n",
+				       cpu, punit_devp->name);
+		}
+		punit_devp++;
+	}
+	return 0;
+}
+
+static struct punit_notifier_block punit_freeze_nb = {
+	.nb = {
+		.notifier_call = punit_freeze_cb,
+	},
+};
+#endif
+
 #define ICPU(model, drv_data) \
 	{ X86_VENDOR_INTEL, 6, model, X86_FEATURE_MWAIT,\
 	  (kernel_ulong_t)&drv_data }
@@ -164,11 +206,18 @@ static int __init punit_atom_debug_init(void)
 	if (ret < 0)
 		return ret;
 
+#if defined(CONFIG_PM_DEBUG) && defined(CONFIG_INTEL_IDLE)
+	punit_freeze_nb.punit_device = (struct punit_device *)id->driver_data;
+	intel_idle_freeze_notifier_register(&punit_freeze_nb.nb);
+#endif
 	return 0;
 }
 
 static void __exit punit_atom_debug_exit(void)
 {
+#if defined(CONFIG_PM_DEBUG) && defined(CONFIG_INTEL_IDLE)
+	intel_idle_freeze_notifier_unregister(&punit_freeze_nb.nb);
+#endif
 	punit_dbgfs_unregister();
 }
 
