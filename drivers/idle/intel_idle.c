@@ -54,6 +54,7 @@
 #include <asm/cpu_device_id.h>
 #include <asm/intel-family.h>
 #include <asm/nospec-branch.h>
+#include <asm/intel_idle.h>
 #include <asm/mwait.h>
 #include <asm/msr.h>
 
@@ -135,6 +136,22 @@ static __always_inline int __intel_idle(struct cpuidle_device *dev,
 	return index;
 }
 
+#ifdef CONFIG_PM_DEBUG
+static RAW_NOTIFIER_HEAD(intel_idle_freeze_notifier);
+
+void intel_idle_freeze_notifier_register(struct notifier_block *nb)
+{
+	raw_notifier_chain_register(&intel_idle_freeze_notifier, nb);
+}
+EXPORT_SYMBOL(intel_idle_freeze_notifier_register);
+
+void intel_idle_freeze_notifier_unregister(struct notifier_block *nb)
+{
+	raw_notifier_chain_unregister(&intel_idle_freeze_notifier, nb);
+}
+EXPORT_SYMBOL(intel_idle_freeze_notifier_unregister);
+#endif
+
 /**
  * intel_idle - Ask the processor to enter the given idle state.
  * @dev: cpuidle device of the target CPU.
@@ -209,6 +226,9 @@ static __cpuidle int intel_idle_s2idle(struct cpuidle_device *dev,
 	unsigned long eax = flg2MWAIT(drv->states[index].flags);
 	unsigned long ecx = 1; /* break on interrupt flag */
 
+#ifdef CONFIG_PM_DEBUG
+	raw_notifier_call_chain(&intel_idle_freeze_notifier, dev->cpu, NULL);
+#endif
 	mwait_idle_with_hints(eax, ecx);
 
 	return 0;
