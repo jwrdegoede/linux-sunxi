@@ -66,4 +66,6 @@ static inline void unregister_sysfs_loader(void)
 }
 #endif /* CONFIG_FW_LOADER_USER_HELPER */
 
+int firmware_fallback_platform(struct fw_priv *fw_priv, enum fw_opt opt_flags);
+
 #endif /* __FIRMWARE_FALLBACK_H */
