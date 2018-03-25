@@ -585,6 +585,8 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 		goto out;
 
 	ret = fw_get_filesystem_firmware(device, fw->priv);
+	if (ret)
+		ret = fw_get_efi_embedded_fw(device, fw->priv, &opt_flags, ret);
 	if (ret) {
 		if (!(opt_flags & FW_OPT_NO_WARN))
 			dev_warn(device,

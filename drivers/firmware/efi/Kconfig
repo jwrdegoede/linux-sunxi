@@ -179,6 +179,9 @@ config RESET_ATTACK_MITIGATION
 	  have been evicted, since otherwise it will trigger even on clean
 	  reboots.
 
+config EFI_EMBEDDED_FIRMWARE
+	bool
+
 endmenu
 
 config UEFI_CPER
