@@ -24,6 +24,9 @@ struct embedded_fw {
 static LIST_HEAD(found_fw_list);
 
 static const struct dmi_system_id * const embedded_fw_table[] = {
+#ifdef CONFIG_TOUCHSCREEN_DMI
+	touchscreen_dmi_table,
+#endif
 	NULL
 };
 
