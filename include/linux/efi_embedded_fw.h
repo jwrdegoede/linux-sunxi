@@ -20,6 +20,8 @@ struct efi_embedded_fw_desc {
 	u8 sha256[32];
 };
 
+extern const struct dmi_system_id touchscreen_dmi_table[];
+
 int efi_get_embedded_fw(const char *name, void **dat, size_t *sz, size_t msize);
 
 #endif
