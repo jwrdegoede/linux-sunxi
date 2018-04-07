@@ -17,6 +17,12 @@
 #include <linux/property.h>
 #include <linux/string.h>
 
+/* Generic props for boards with efi-embedded-fw and not needing other props */
+static const struct property_entry efi_embedded_fw_props[] = {
+	PROPERTY_ENTRY_BOOL("efi-embedded-firmware"),
+	{ }
+};
+
 struct ts_dmi_data {
 	/* The EFI embedded-fw code expects this to be the first member! */
 	struct efi_embedded_fw_desc embedded_fw;
@@ -115,6 +121,20 @@ static const struct property_entry chuwi_vi8_props[] = {
 static const struct ts_dmi_data chuwi_vi8_data = {
 	.acpi_name      = "MSSL1680:00",
 	.properties     = chuwi_vi8_props,
+};
+
+static const struct ts_dmi_data chuwi_vi8_plus_data = {
+	.embedded_fw = {
+		.name	= "chipone/icn8505-HAMP0002.fw",
+		.prefix = { 0xb0, 0x07, 0x00, 0x00, 0xe4, 0x07, 0x00, 0x00 },
+		.length	= 35012,
+		.sha256	= { 0x93, 0xe5, 0x49, 0xe0, 0xb6, 0xa2, 0xb4, 0xb3,
+			    0x88, 0x96, 0x34, 0x97, 0x5e, 0xa8, 0x13, 0x78,
+			    0x72, 0x98, 0xb8, 0x29, 0xeb, 0x5c, 0xa7, 0xf1,
+			    0x25, 0x13, 0x43, 0xf4, 0x30, 0x7c, 0xfc, 0x7c },
+	},
+	.acpi_name	= "CHPN0001:00",
+	.properties	= efi_embedded_fw_props,
 };
 
 static const struct property_entry chuwi_vi10_props[] = {
@@ -651,6 +671,15 @@ const struct dmi_system_id touchscreen_dmi_table[] = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Insyde"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "i86"),
 			DMI_MATCH(DMI_BIOS_VERSION, "CHUWI.D86JLBNR"),
+		},
+	},
+	{
+		/* Chuwi Vi8 Plus (CWI519) */
+		.driver_data = (void *)&chuwi_vi8_plus_data,
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Hampoo"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "D2D3_Vi8A1"),
+			DMI_MATCH(DMI_BOARD_NAME, "Cherry Trail CR"),
 		},
 	},
 	{
