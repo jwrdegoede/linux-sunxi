@@ -160,9 +160,19 @@
 	brcmf: wifi@1 {
 		reg = <1>;
 		compatible = "brcm,bcm4329-fmac";
-		interrupt-parent = <&pio>;
-		interrupts = <7 15 IRQ_TYPE_LEVEL_LOW>;
-		interrupt-names = "host-wake";
+		/*
+		 * OOB interrupt support is broken ATM, often the first irq
+		 * does not get seen resulting in the drv probe failing with:
+		 *
+		 * brcmfmac: brcmf_sdio_bus_rxctl: resumed on timeout
+		 * brcmfmac: brcmf_bus_started: failed: -110
+		 * brcmfmac: brcmf_attach: dongle is not responding: err=-110
+		 * brcmfmac: brcmf_sdio_firmware_callback: brcmf_attach failed
+		 *
+		 * interrupt-parent = <&pio>;
+		 * interrupts = <7 15 IRQ_TYPE_LEVEL_LOW>;
+		 * interrupt-names = "host-wake";
+		 */
 	};
 };
 
