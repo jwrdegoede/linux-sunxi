@@ -193,5 +193,7 @@ int intel_dsi_vbt_get_modes(struct intel_dsi *intel_dsi);
 void intel_dsi_vbt_exec_sequence(struct intel_dsi *intel_dsi,
 				 enum mipi_seq seq_id);
 void intel_dsi_msleep(struct intel_dsi *intel_dsi, int msec);
+void icl_dphy_param_init(struct intel_dsi *intel_dsi);
+void vlv_dphy_param_init(struct intel_dsi *intel_dsi);
 
 #endif /* _INTEL_DSI_H */
