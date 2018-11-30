@@ -315,6 +315,10 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 			return false;
 	}
 
+	adjusted_mode->crtc_clock =
+		DIV_ROUND_UP(adjusted_mode->crtc_clock *
+					 intel_dsi->burst_mode_ratio, 100);
+
 	pipe_config->clock_set = true;
 
 	return true;
