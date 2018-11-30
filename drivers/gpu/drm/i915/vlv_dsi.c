@@ -1781,7 +1781,7 @@ void vlv_dsi_init(struct drm_i915_private *dev_priv)
 
 	if (!fixed_mode) {
 		DRM_DEBUG_KMS("no fixed mode\n");
-		goto err;
+		goto err_cleanup_connector;
 	}
 
 	connector->display_info.width_mm = fixed_mode->width_mm;
@@ -1794,6 +1794,8 @@ void vlv_dsi_init(struct drm_i915_private *dev_priv)
 
 	return;
 
+err_cleanup_connector:
+	drm_connector_cleanup(&intel_connector->base);
 err:
 	drm_encoder_cleanup(&intel_encoder->base);
 	kfree(intel_dsi);
