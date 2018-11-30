@@ -597,7 +597,7 @@ static void intel_dsi_log_params(struct intel_dsi *intel_dsi)
 #define ICL_HS_ZERO_CNT_MAX	0xf
 #define ICL_EXIT_ZERO_CNT_MAX	0x7
 
-static void icl_dphy_param_init(struct intel_dsi *intel_dsi)
+void icl_dphy_param_init(struct intel_dsi *intel_dsi)
 {
 	struct drm_device *dev = intel_dsi->base.base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
@@ -696,7 +696,7 @@ static void icl_dphy_param_init(struct intel_dsi *intel_dsi)
 	intel_dsi_log_params(intel_dsi);
 }
 
-static void vlv_dphy_param_init(struct intel_dsi *intel_dsi)
+void vlv_dphy_param_init(struct intel_dsi *intel_dsi)
 {
 	struct drm_device *dev = intel_dsi->base.base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
@@ -932,11 +932,6 @@ bool intel_dsi_vbt_init(struct intel_dsi *intel_dsi, u16 panel_id)
 		burst_mode_ratio = 100;
 
 	intel_dsi->burst_mode_ratio = burst_mode_ratio;
-
-	if (IS_ICELAKE(dev_priv))
-		icl_dphy_param_init(intel_dsi);
-	else
-		vlv_dphy_param_init(intel_dsi);
 
 	/* delays in VBT are in unit of 100us, so need to convert
 	 * here in ms

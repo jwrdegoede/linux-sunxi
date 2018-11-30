@@ -1740,6 +1740,8 @@ void vlv_dsi_init(struct drm_i915_private *dev_priv)
 		goto err;
 	}
 
+	vlv_dphy_param_init(intel_dsi);
+
 	/*
 	 * In case of BYT with CRC PMIC, we need to use GPIO for
 	 * Panel control.
