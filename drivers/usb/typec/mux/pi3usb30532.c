@@ -79,6 +79,8 @@ static int pi3usb30532_mux_set(struct typec_mux *mux, int state)
 	u8 new_conf;
 	int ret;
 
+	pr_err("pi3usb30532_mux_set state %d\n", state);
+
 	mutex_lock(&pi->lock);
 	new_conf = pi->conf;
 
@@ -96,6 +98,7 @@ static int pi3usb30532_mux_set(struct typec_mux *mux, int state)
 			   PI3USB30532_CONF_4LANE_DP;
 		break;
 	case TYPEC_DP_STATE_D:
+		pr_err("pi3usb30532_mux_set TYPEC_DP_STATE_D\n");
 		new_conf = (new_conf & PI3USB30532_CONF_SWAP) |
 			   PI3USB30532_CONF_USB3_AND_2LANE_DP;
 		break;

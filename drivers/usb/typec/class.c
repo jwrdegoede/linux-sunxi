@@ -1504,6 +1504,8 @@ typec_port_register_altmode(struct typec_port *port,
 	if (IS_ERR(mux))
 		return ERR_CAST(mux);
 
+	pr_err("typec_port_register_altmode id '%s' mux %p\n", id, mux);
+
 	adev = typec_register_altmode(&port->dev, desc);
 	if (IS_ERR(adev))
 		typec_mux_put(mux);
