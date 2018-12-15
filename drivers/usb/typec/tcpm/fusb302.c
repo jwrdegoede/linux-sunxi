@@ -1114,7 +1114,13 @@ done:
 	(PDO_FIXED_DUAL_ROLE | PDO_FIXED_DATA_SWAP | PDO_FIXED_USB_COMM)
 
 static const u32 src_pdo[] = {
-	PDO_FIXED(5000, 400, PDO_FIXED_FLAGS),
+	PDO_FIXED(5000, 1500, PDO_FIXED_FLAGS),
+};
+
+static const struct typec_altmode_desc alt_modes[] = {
+	/* pin assign C + D */
+	{ .svid = 0xff01, .mode = 1,  .vdo = 0x0c0086 },
+	{}
 };
 
 static const struct tcpc_config fusb302_tcpc_config = {
@@ -1124,7 +1130,7 @@ static const struct tcpc_config fusb302_tcpc_config = {
 	.type = TYPEC_PORT_DRP,
 	.data = TYPEC_PORT_DRD,
 	.default_role = TYPEC_SINK,
-	.alt_modes = NULL,
+	.alt_modes = alt_modes,
 };
 
 static void init_tcpc_dev(struct tcpc_dev *fusb302_tcpc_dev)
