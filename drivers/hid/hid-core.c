@@ -2203,6 +2203,7 @@ static int hid_device_probe(struct device *dev)
 		if (ret) {
 			hid_close_report(hdev);
 			hdev->driver = NULL;
+			hid_set_drvdata(hdev, NULL);
 		}
 	}
 unlock:
@@ -2231,6 +2232,7 @@ static int hid_device_remove(struct device *dev)
 		else /* default remove */
 			hid_hw_stop(hdev);
 		hid_close_report(hdev);
+		hid_set_drvdata(hdev, NULL);
 		hdev->driver = NULL;
 	}
 
