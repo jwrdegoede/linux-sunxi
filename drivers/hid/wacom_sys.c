@@ -2716,14 +2716,12 @@ static int wacom_probe(struct hid_device *hdev,
 	wacom_wac->features = *((struct wacom_features *)id->driver_data);
 	features = &wacom_wac->features;
 
-	if (features->check_for_hid_type && features->hid_type != hdev->type) {
-		error = -ENODEV;
-		goto fail;
-	}
+	if (features->check_for_hid_type && features->hid_type != hdev->type)
+		return -ENODEV;
 
 	error = kfifo_alloc(&wacom_wac->pen_fifo, WACOM_PKGLEN_MAX, GFP_KERNEL);
 	if (error)
-		goto fail;
+		return error;
 
 	wacom_wac->hid_data.inputmode = -1;
 	wacom_wac->mode_report = -1;
@@ -2741,12 +2739,12 @@ static int wacom_probe(struct hid_device *hdev,
 	error = hid_parse(hdev);
 	if (error) {
 		hid_err(hdev, "parse failed\n");
-		goto fail;
+		return error;
 	}
 
 	error = wacom_parse_and_register(wacom, false);
 	if (error)
-		goto fail;
+		return error;
 
 	if (hdev->bus == BUS_BLUETOOTH) {
 		error = device_create_file(&hdev->dev, &dev_attr_speed);
@@ -2757,10 +2755,6 @@ static int wacom_probe(struct hid_device *hdev,
 	}
 
 	return 0;
-
-fail:
-	hid_set_drvdata(hdev, NULL);
-	return error;
 }
 
 static void wacom_remove(struct hid_device *hdev)
@@ -2789,8 +2783,6 @@ static void wacom_remove(struct hid_device *hdev)
 		wacom_release_resources(wacom);
 
 	kfifo_free(&wacom_wac->pen_fifo);
-
-	hid_set_drvdata(hdev, NULL);
 }
 
 #ifdef CONFIG_PM
