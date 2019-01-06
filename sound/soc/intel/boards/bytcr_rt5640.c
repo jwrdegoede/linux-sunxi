@@ -278,10 +278,24 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int headset_mic_event(struct snd_soc_dapm_widget *widget,
+			     struct snd_kcontrol *kctl, int event)
+{
+	pr_err("rt5640 headset mic %d\n", SND_SOC_DAPM_EVENT_ON(event));
+	return 0;
+}
+
+static int internal_mic_event(struct snd_soc_dapm_widget *widget,
+			     struct snd_kcontrol *kctl, int event)
+{
+	pr_err("rt5640 internal mic %d\n", SND_SOC_DAPM_EVENT_ON(event));
+	return 0;
+}
+
 static const struct snd_soc_dapm_widget byt_rt5640_widgets[] = {
 	SND_SOC_DAPM_HP("Headphone", NULL),
-	SND_SOC_DAPM_MIC("Headset Mic", NULL),
-	SND_SOC_DAPM_MIC("Internal Mic", NULL),
+	SND_SOC_DAPM_MIC("Headset Mic", headset_mic_event),
+	SND_SOC_DAPM_MIC("Internal Mic", internal_mic_event),
 	SND_SOC_DAPM_SPK("Speaker", NULL),
 	SND_SOC_DAPM_SUPPLY("Platform Clock", SND_SOC_NOPM, 0, 0,
 			    platform_clock_control, SND_SOC_DAPM_PRE_PMU |
