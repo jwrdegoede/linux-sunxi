@@ -2143,6 +2143,7 @@ static bool dmi_is_desktop(void)
 	case 0x05: return true; /* Pizza Box */
 	case 0x06: return true; /* Mini Tower */
 	case 0x07: return true; /* Tower */
+	case 0x10: return true; /* Lunch Box */
 	case 0x11: return true; /* Main Server Chassis */
 	}
 
