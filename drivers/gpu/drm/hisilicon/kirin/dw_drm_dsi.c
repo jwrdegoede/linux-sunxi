@@ -19,10 +19,10 @@
 #include <linux/component.h>
 
 #include <drm/drm_of.h>
-#include <drm/drm_crtc_helper.h>
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_encoder_slave.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_probe_helper.h>
 
 #include "dw_dsi_reg.h"
 

@@ -7,6 +7,7 @@
 
 #include "bochs.h"
 #include <drm/drm_plane_helper.h>
+#include <drm/drm_probe_helper.h>
 
 static int defx = 1024;
 static int defy = 768;
