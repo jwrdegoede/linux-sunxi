@@ -20,6 +20,7 @@
  *	Jesse Barnes <jesse.barnes@intel.com>
  */
 
+#include <linux/dmi.h>
 #include <linux/i2c.h>
 #include <drm/drmP.h>
 
@@ -645,6 +646,18 @@ const struct drm_encoder_funcs psb_intel_lvds_enc_funcs = {
 };
 
 
+static const struct dmi_system_id psb_intel_lvds_blacklist[] = {
+	{
+		/* Thecus N2800 and N5550 family NAS-es */
+		.matches = {
+			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Intel Corporation"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Milstead Platform"),
+			/* BIOS version is CDV_T<version> X64 */
+			DMI_MATCH(DMI_BIOS_VERSION, "CDV_T"),
+		},
+	},
+	{}
+};
 
 /**
  * psb_intel_lvds_init - setup LVDS connectors on this device
@@ -666,6 +679,13 @@ void psb_intel_lvds_init(struct drm_device *dev,
 	struct drm_psb_private *dev_priv = dev->dev_private;
 	u32 lvds;
 	int pipe;
+
+	/*
+	 * Check blacklist of machines with BIOSes that list an LVDS panel
+	 * without actually having one.
+	 */
+	if (dmi_check_system(psb_intel_lvds_blacklist))
+		return;
 
 	gma_encoder = kzalloc(sizeof(struct gma_encoder), GFP_KERNEL);
 	if (!gma_encoder) {
@@ -803,10 +823,6 @@ void psb_intel_lvds_init(struct drm_device *dev,
 		goto failed_find;
 	}
 
-	/*
-	 * Blacklist machines with BIOSes that list an LVDS panel without
-	 * actually having one.
-	 */
 out:
 	mutex_unlock(&dev->mode_config.mutex);
 	drm_connector_register(connector);
