@@ -48,7 +48,6 @@ struct drm_printer;
 #define DRIVER_SG			0x10
 #define DRIVER_HAVE_DMA			0x20
 #define DRIVER_HAVE_IRQ			0x40
-#define DRIVER_IRQ_SHARED		0x80
 #define DRIVER_GEM			0x1000
 #define DRIVER_MODESET			0x2000
 #define DRIVER_PRIME			0x4000
