@@ -24,4 +24,16 @@ void drm_kms_helper_poll_disable(struct drm_device *dev);
 void drm_kms_helper_poll_enable(struct drm_device *dev);
 bool drm_kms_helper_is_poll_worker(void);
 
+/**
+ * enum drm_kms_oob_hotplug_event - out-of-band hotplug events
+ * @DRM_OOB_HOTPLUG_TYPE_C_DP: DisplayPort over Type-C hotplug event
+ */
+enum drm_kms_oob_hotplug_event {
+	DRM_OOB_HOTPLUG_TYPE_C_DP = 0,
+};
+
+int drm_kms_register_oob_hotplug_notifier(struct notifier_block *nb);
+int drm_kms_unregister_oob_hotplug_notifier(struct notifier_block *nb);
+int drm_kms_call_oob_hotplug_notifier_chain(unsigned long event);
+
 #endif
