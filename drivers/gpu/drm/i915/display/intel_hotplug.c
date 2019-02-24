@@ -557,6 +557,39 @@ void intel_hpd_irq_handler(struct drm_i915_private *dev_priv,
 		queue_delayed_work(system_wq, &dev_priv->hotplug.hotplug_work, 0);
 }
 
+static int intel_hpd_oob_notifier(struct notifier_block *nb,
+				  unsigned long event, void *data)
+{
+	struct drm_i915_private *dev_priv =
+		container_of(nb, struct drm_i915_private, hotplug.oob_notifier);
+	struct intel_encoder *encoder;
+	u32 bits = 0;
+
+	/* We only support DP over Type-C notifications */
+	if (event != DRM_OOB_HOTPLUG_TYPE_C_DP)
+		return NOTIFY_DONE;
+
+	/* Schedule a hotplug check for each DP encoder, except for EDP ones */
+	for_each_intel_dp(&dev_priv->drm, encoder) {
+		struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
+
+		if (encoder->type == INTEL_OUTPUT_EDP)
+			continue;
+
+		intel_dp->reset_link_params = true;
+		bits |= BIT(encoder->hpd_pin);
+	}
+
+	if (bits) {
+		spin_lock_irq(&dev_priv->irq_lock);
+		dev_priv->hotplug.event_bits |= bits;
+		spin_unlock_irq(&dev_priv->irq_lock);
+		queue_delayed_work(system_wq, &dev_priv->hotplug.hotplug_work, 0);
+	}
+
+	return NOTIFY_DONE;
+}
+
 /**
  * intel_hpd_init - initializes and enables hpd support
  * @dev_priv: i915 device instance
@@ -675,6 +708,14 @@ void intel_hpd_init_work(struct drm_i915_private *dev_priv)
 	INIT_WORK(&dev_priv->hotplug.poll_init_work, i915_hpd_poll_init_work);
 	INIT_DELAYED_WORK(&dev_priv->hotplug.reenable_work,
 			  intel_hpd_irq_storm_reenable_work);
+	dev_priv->hotplug.oob_notifier.notifier_call = intel_hpd_oob_notifier;
+	drm_kms_register_oob_hotplug_notifier(&dev_priv->hotplug.oob_notifier);
+}
+
+void intel_hpd_fini_work(struct drm_i915_private *dev_priv)
+{
+	drm_kms_unregister_oob_hotplug_notifier(
+					&dev_priv->hotplug.oob_notifier);
 }
 
 void intel_hpd_cancel_work(struct drm_i915_private *dev_priv)
