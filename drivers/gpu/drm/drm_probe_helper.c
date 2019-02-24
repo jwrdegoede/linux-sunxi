@@ -31,6 +31,7 @@
 
 #include <linux/export.h>
 #include <linux/moduleparam.h>
+#include <linux/notifier.h>
 
 #include <drm/drm_bridge.h>
 #include <drm/drm_client.h>
@@ -811,3 +812,69 @@ bool drm_helper_hpd_irq_event(struct drm_device *dev)
 	return changed;
 }
 EXPORT_SYMBOL(drm_helper_hpd_irq_event);
+
+/**
+ * DOC: out-of-band hotplug event helper overview
+ *
+ * On some hardware a hotplug event notification may come from outside
+ * the display driver / device.
+ *
+ * One example of this is laptops with hybrid graphics where one or more
+ * outputs are connected to the discrete GPU only. In this case if the discrete
+ * GPU is fully powered down to save power, a hotplug to one of these outputs
+ * will not be noticed through normal means. These laptops have another
+ * mechanism to detect the hotplug which will typically raise an event on the
+ * ACPI video bus.
+ *
+ * Another example of this is some USB Type-C setups where the hardware
+ * muxes the DisplayPort data and aux-lines but does not pass the altmode
+ * HPD status bit to the GPUs DP HPD pin.
+ *
+ * The oob hotplug helper functions allow a drm display driver to listen
+ * for such oob events and allow other subsystems to notify listeners of
+ * these events.
+ */
+
+static BLOCKING_NOTIFIER_HEAD(drm_kms_oob_hotplug_notifier_head);
+
+/**
+ * drm_kms_register_oob_hotplug_notifier - register an oob hotplug notifier
+ * @nb: notifier_block to register
+ *
+ * Drivers can use this helper function to register a notifier for
+ * out-of-band hotplug events.
+ */
+int drm_kms_register_oob_hotplug_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(
+				&drm_kms_oob_hotplug_notifier_head, nb);
+}
+EXPORT_SYMBOL(drm_kms_register_oob_hotplug_notifier);
+
+/**
+ * drm_kms_unregister_oob_hotplug_notifier - unregister an oob hotplug notifier
+ * @nb: notifier_block to register
+ *
+ * Drivers can use this helper function to unregister a notifier for
+ * out-of-band hotplug events.
+ */
+int drm_kms_unregister_oob_hotplug_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(
+				&drm_kms_oob_hotplug_notifier_head, nb);
+}
+EXPORT_SYMBOL(drm_kms_unregister_oob_hotplug_notifier);
+
+/**
+ * drm_kms_call_oob_hotplug_notifier_chain - notify about an oob hotplug event
+ * @event: enum drm_kms_oob_hotplug_event value describing the event
+ *
+ * Out-of-band hotplug event sources can call this helper function to notify
+ * kms-drivers about an oob hotplug event.
+ */
+int drm_kms_call_oob_hotplug_notifier_chain(unsigned long event)
+{
+	return blocking_notifier_call_chain(
+			&drm_kms_oob_hotplug_notifier_head, event, NULL);
+}
+EXPORT_SYMBOL(drm_kms_call_oob_hotplug_notifier_chain);
