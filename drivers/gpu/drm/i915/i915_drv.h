@@ -144,6 +144,7 @@ enum hpd_pin {
 
 struct i915_hotplug {
 	struct delayed_work hotplug_work;
+	struct notifier_block oob_notifier;
 
 	const u32 *hpd, *pch_hpd;
 
