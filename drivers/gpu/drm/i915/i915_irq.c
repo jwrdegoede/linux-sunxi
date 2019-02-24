@@ -4857,6 +4857,8 @@ void intel_irq_fini(struct drm_i915_private *i915)
 
 	for (i = 0; i < MAX_L3_SLICES; ++i)
 		kfree(i915->l3_parity.remap_info[i]);
+
+	intel_hpd_fini_work(i915);
 }
 
 /**
