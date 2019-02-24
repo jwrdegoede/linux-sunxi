@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/usb/pd_vdo.h>
 #include <linux/usb/typec_dp.h>
+#include <drm/drm_probe_helper.h>
 
 #define DP_HEADER(_dp, cmd)		(VDO((_dp)->alt->svid, 1, cmd) | \
 					 VDO_OPOS(USB_TYPEC_DP_MODE))
@@ -63,12 +64,23 @@ struct dp_altmode {
 	const struct typec_altmode *port;
 };
 
-static int dp_altmode_notify(struct dp_altmode *dp)
+static int dp_altmode_notify(struct dp_altmode *dp, unsigned long conf)
+{
+	int ret;
+
+	ret = typec_altmode_notify(dp->alt, conf, &dp->data);
+	if (ret)
+		return ret;
+
+	drm_kms_call_oob_hotplug_notifier_chain(DRM_OOB_HOTPLUG_TYPE_C_DP);
+	return 0;
+}
+
+static int dp_altmode_notify_dp(struct dp_altmode *dp)
 {
 	u8 state = get_count_order(DP_CONF_GET_PIN_ASSIGN(dp->data.conf));
 
-	return typec_altmode_notify(dp->alt, TYPEC_MODAL_STATE(state),
-				   &dp->data);
+	return dp_altmode_notify(dp, TYPEC_MODAL_STATE(state));
 }
 
 static int dp_altmode_configure(struct dp_altmode *dp, u8 con)
@@ -141,10 +153,9 @@ static int dp_altmode_configured(struct dp_altmode *dp)
 	sysfs_notify(&dp->alt->dev.kobj, "displayport", "configuration");
 
 	if (!dp->data.conf)
-		return typec_altmode_notify(dp->alt, TYPEC_STATE_USB,
-					    &dp->data);
+		return dp_altmode_notify(dp, TYPEC_STATE_USB);
 
-	ret = dp_altmode_notify(dp);
+	ret = dp_altmode_notify_dp(dp);
 	if (ret)
 		return ret;
 
@@ -158,7 +169,7 @@ static int dp_altmode_configure_vdm(struct dp_altmode *dp, u32 conf)
 	u32 header = DP_HEADER(dp, DP_CMD_CONFIGURE);
 	int ret;
 
-	ret = typec_altmode_notify(dp->alt, TYPEC_STATE_SAFE, &dp->data);
+	ret = dp_altmode_notify(dp, TYPEC_STATE_SAFE);
 	if (ret) {
 		dev_err(&dp->alt->dev,
 			"unable to put to connector to safe mode\n");
@@ -168,10 +179,9 @@ static int dp_altmode_configure_vdm(struct dp_altmode *dp, u32 conf)
 	ret = typec_altmode_vdm(dp->alt, header, &conf, 2);
 	if (ret) {
 		if (DP_CONF_GET_PIN_ASSIGN(dp->data.conf))
-			dp_altmode_notify(dp);
+			dp_altmode_notify_dp(dp);
 		else
-			typec_altmode_notify(dp->alt, TYPEC_STATE_USB,
-					     &dp->data);
+			dp_altmode_notify(dp, TYPEC_STATE_USB);
 	}
 
 	return ret;
@@ -237,7 +247,7 @@ static void dp_altmode_attention(struct typec_altmode *alt, const u32 vdo)
 	if (dp_altmode_status_update(dp))
 		dev_warn(&alt->dev, "%s: status update failed\n", __func__);
 
-	if (dp_altmode_notify(dp))
+	if (dp_altmode_notify_dp(dp))
 		dev_err(&alt->dev, "%s: notification failed\n", __func__);
 
 	if (old_state == DP_STATE_IDLE && dp->state != DP_STATE_IDLE)
@@ -554,6 +564,8 @@ void dp_altmode_remove(struct typec_altmode *alt)
 
 	sysfs_remove_group(&alt->dev.kobj, &dp_altmode_group);
 	cancel_work_sync(&dp->work);
+
+	drm_kms_call_oob_hotplug_notifier_chain(DRM_OOB_HOTPLUG_TYPE_C_DP);
 }
 EXPORT_SYMBOL_GPL(dp_altmode_remove);
 
