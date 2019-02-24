@@ -313,6 +313,7 @@ Output Probing Helper Functions Reference
 
 .. kernel-doc:: drivers/gpu/drm/drm_probe_helper.c
    :doc: output probing helper overview
+   :doc: out-of-band hotplug event helper overview
 
 .. kernel-doc:: drivers/gpu/drm/drm_probe_helper.c
    :export:
