@@ -163,6 +163,7 @@ enum hpd_pin {
 
 struct i915_hotplug {
 	struct work_struct hotplug_work;
+	struct notifier_block oob_notifier;
 
 	struct {
 		unsigned long last_jiffies;
