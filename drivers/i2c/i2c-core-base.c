@@ -430,7 +430,8 @@ static int i2c_device_remove(struct device *dev)
 	dev_pm_clear_wake_irq(&client->dev);
 	device_init_wakeup(&client->dev, false);
 
-	client->irq = 0;
+	if (!(client->flags & I2C_CLIENT_BINFO_IRQ))
+		client->irq = 0;
 
 	return status;
 }
@@ -745,6 +746,8 @@ i2c_new_device(struct i2c_adapter *adap, struct i2c_board_info const *info)
 	if (!client->irq)
 		client->irq = i2c_dev_irq_from_resources(info->resources,
 							 info->num_resources);
+	if (client->irq)
+		client->flags |= I2C_CLIENT_BINFO_IRQ;
 
 	strlcpy(client->name, info->type, sizeof(client->name));
 
