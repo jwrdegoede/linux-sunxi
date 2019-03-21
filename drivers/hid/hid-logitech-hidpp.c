@@ -850,7 +850,7 @@ static int hidpp_root_get_protocol_version(struct hidpp_device *hidpp)
 	if (ret == HIDPP_ERROR_INVALID_SUBID) {
 		hidpp->protocol_major = 1;
 		hidpp->protocol_minor = 0;
-		return 0;
+		goto print_version;
 	}
 
 	/* the device might not be connected */
@@ -868,18 +868,15 @@ static int hidpp_root_get_protocol_version(struct hidpp_device *hidpp)
 	hidpp->protocol_major = response.fap.params[0];
 	hidpp->protocol_minor = response.fap.params[1];
 
-	return ret;
+print_version:
+	hid_info(hidpp->hid_dev, "HID++ %u.%u device connected.\n",
+		 hidpp->protocol_major, hidpp->protocol_minor);
+	return 0;
 }
 
 static bool hidpp_is_connected(struct hidpp_device *hidpp)
 {
-	int ret;
-
-	ret = hidpp_root_get_protocol_version(hidpp);
-	if (!ret)
-		hid_dbg(hidpp->hid_dev, "HID++ %u.%u device connected.\n",
-			hidpp->protocol_major, hidpp->protocol_minor);
-	return ret == 0;
+	return hidpp_root_get_protocol_version(hidpp) == 0;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -3160,8 +3157,6 @@ static void hidpp_connect_event(struct hidpp_device *hidpp)
 			hid_err(hdev, "Can not get the protocol version.\n");
 			return;
 		}
-		hid_info(hdev, "HID++ %u.%u device connected.\n",
-			 hidpp->protocol_major, hidpp->protocol_minor);
 	}
 
 	if (hidpp->name == hdev->name && hidpp->protocol_major >= 2) {
@@ -3357,9 +3352,6 @@ static int hidpp_probe(struct hid_device *hdev, const struct hid_device_id *id)
 			hid_err(hdev, "Device not connected");
 			goto hid_hw_init_fail;
 		}
-
-		hid_info(hdev, "HID++ %u.%u device connected.\n",
-			 hidpp->protocol_major, hidpp->protocol_minor);
 
 		hidpp_overwrite_name(hdev);
 	}
