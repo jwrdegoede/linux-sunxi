@@ -3349,7 +3349,9 @@ static int hidpp_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	/* Allow incoming packets */
 	hid_device_io_start(hdev);
 
-	if (hidpp->quirks & HIDPP_QUIRK_UNIFYING)
+	if ((hidpp->quirks & HIDPP_QUIRK_UNIFYING) &&
+	    hidpp_validate_report(hdev, REPORT_ID_HIDPP_LONG,
+				  HIDPP_REPORT_LONG_LENGTH - 1, false))
 		hidpp_unifying_init(hidpp);
 
 	connected = hidpp_root_get_protocol_version(hidpp) == 0;
