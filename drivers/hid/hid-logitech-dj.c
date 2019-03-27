@@ -106,6 +106,7 @@
 #define HIDPP_PARAM_DEVICE_INFO			0x01
 #define HIDPP_PARAM_EQUAD_LSB			0x02
 #define HIDPP_PARAM_EQUAD_MSB			0x03
+#define HIDPP_PARAM_27MHZ_DEVID			0x03
 #define HIDPP_DEVICE_TYPE_MASK			GENMASK(3, 0)
 #define HIDPP_LINK_STATUS_MASK			BIT(6)
 
@@ -120,6 +121,7 @@ enum recvr_type {
 	recvr_type_dj,
 	recvr_type_hidpp,
 	recvr_type_gaming_hidpp,
+	recvr_type_27mhz,
 };
 
 struct dj_report {
@@ -248,6 +250,44 @@ static const char mse_descriptor[] = {
 	0xC0,			/*  END_COLLECTION                      */
 };
 
+/* Mouse descriptor (2) for 27 MHz receiver, only 8 buttons */
+static const char mse_27mhz_descriptor[] = {
+	0x05, 0x01,		/*  USAGE_PAGE (Generic Desktop)        */
+	0x09, 0x02,		/*  USAGE (Mouse)                       */
+	0xA1, 0x01,		/*  COLLECTION (Application)            */
+	0x85, 0x02,		/*    REPORT_ID = 2                     */
+	0x09, 0x01,		/*    USAGE (pointer)                   */
+	0xA1, 0x00,		/*    COLLECTION (physical)             */
+	0x05, 0x09,		/*      USAGE_PAGE (buttons)            */
+	0x19, 0x01,		/*      USAGE_MIN (1)                   */
+	0x29, 0x08,		/*      USAGE_MAX (8)                   */
+	0x15, 0x00,		/*      LOGICAL_MIN (0)                 */
+	0x25, 0x01,		/*      LOGICAL_MAX (1)                 */
+	0x95, 0x08,		/*      REPORT_COUNT (8)                */
+	0x75, 0x01,		/*      REPORT_SIZE (1)                 */
+	0x81, 0x02,		/*      INPUT (data var abs)            */
+	0x05, 0x01,		/*      USAGE_PAGE (generic desktop)    */
+	0x16, 0x01, 0xF8,	/*      LOGICAL_MIN (-2047)             */
+	0x26, 0xFF, 0x07,	/*      LOGICAL_MAX (2047)              */
+	0x75, 0x0C,		/*      REPORT_SIZE (12)                */
+	0x95, 0x02,		/*      REPORT_COUNT (2)                */
+	0x09, 0x30,		/*      USAGE (X)                       */
+	0x09, 0x31,		/*      USAGE (Y)                       */
+	0x81, 0x06,		/*      INPUT                           */
+	0x15, 0x81,		/*      LOGICAL_MIN (-127)              */
+	0x25, 0x7F,		/*      LOGICAL_MAX (127)               */
+	0x75, 0x08,		/*      REPORT_SIZE (8)                 */
+	0x95, 0x01,		/*      REPORT_COUNT (1)                */
+	0x09, 0x38,		/*      USAGE (wheel)                   */
+	0x81, 0x06,		/*      INPUT                           */
+	0x05, 0x0C,		/*      USAGE_PAGE(consumer)            */
+	0x0A, 0x38, 0x02,	/*      USAGE(AC Pan)                   */
+	0x95, 0x01,		/*      REPORT_COUNT (1)                */
+	0x81, 0x06,		/*      INPUT                           */
+	0xC0,			/*    END_COLLECTION                    */
+	0xC0,			/*  END_COLLECTION                      */
+};
+
 /* Gaming Mouse descriptor (2) */
 static const char mse_high_res_descriptor[] = {
 	0x05, 0x01,		/*  USAGE_PAGE (Generic Desktop)        */
@@ -286,7 +326,7 @@ static const char mse_high_res_descriptor[] = {
 	0xC0,			/*  END_COLLECTION                      */
 };
 
-/* Consumer Control descriptor (3) */
+/* Consumer Control descriptor (3) normal, usages 1 - 652 */
 static const char consumer_descriptor[] = {
 	0x05, 0x0C,		/* USAGE_PAGE (Consumer Devices)       */
 	0x09, 0x01,		/* USAGE (Consumer Control)            */
@@ -298,6 +338,25 @@ static const char consumer_descriptor[] = {
 	0x26, 0x8C, 0x02,	/* LOGICAL_MAX (652)                   */
 	0x19, 0x01,		/* USAGE_MIN (1)                       */
 	0x2A, 0x8C, 0x02,	/* USAGE_MAX (652)                     */
+	0x81, 0x00,		/* INPUT (Data Ary Abs)                */
+	0xC0,			/* END_COLLECTION                      */
+};				/*                                     */
+
+/*
+ * Consumer Control descriptor (3) 27 MHz devices, usages 1 - 4173 (0x104d)
+ * Usages > 0x1000 are used for Logitech custom keys
+ */
+static const char consumer_27mhz_descriptor[] = {
+	0x05, 0x0C,		/* USAGE_PAGE (Consumer Devices)       */
+	0x09, 0x01,		/* USAGE (Consumer Control)            */
+	0xA1, 0x01,		/* COLLECTION (Application)            */
+	0x85, 0x03,		/* REPORT_ID = 3                       */
+	0x75, 0x10,		/* REPORT_SIZE (16)                    */
+	0x95, 0x02,		/* REPORT_COUNT (2)                    */
+	0x15, 0x01,		/* LOGICAL_MIN (1)                     */
+	0x26, 0x4D, 0x10,	/* LOGICAL_MAX (4173)                  */
+	0x19, 0x01,		/* USAGE_MIN (1)                       */
+	0x2A, 0x4D, 0x10,	/* USAGE_MAX (4173)                    */
 	0x81, 0x00,		/* INPUT (Data Ary Abs)                */
 	0xC0,			/* END_COLLECTION                      */
 };				/*                                     */
@@ -387,6 +446,8 @@ static const char hidpp_descriptor[] = {
 	0x91, 0x00,		/*   Output (Data,Arr,Abs)             */
 	0xc0,			/* End Collection                      */
 };
+/* Some receivers only support short reports (only support report id 16) */
+#define HIDPP_DESC_SHORT_REPORT_SIZE 27
 
 /* Maximum size of all defined hid reports in bytes (including report id) */
 #define MAX_REPORT_SIZE 8
@@ -782,6 +843,26 @@ static void logi_hidpp_dev_conn_notif_equad(struct hidpp_event *hidpp_report,
 	}
 }
 
+static void logi_hidpp_dev_conn_notif_27mhz(struct hid_device *hdev,
+					    struct hidpp_event *hidpp_report,
+					    struct dj_workitem *workitem)
+{
+	workitem->type = WORKITEM_TYPE_PAIRED;
+	workitem->quad_id_lsb = hidpp_report->params[HIDPP_PARAM_27MHZ_DEVID];
+	switch (hidpp_report->device_index) {
+	case 1: /* Device 1 is always the mouse */
+		workitem->reports_supported |= STD_MOUSE;
+		break;
+	case 3: /* Device 3 is always the keyboard */
+		workitem->reports_supported |= STD_KEYBOARD | MULTIMEDIA |
+					       POWER_KEYS;
+		break;
+	default:
+		hid_warn(hdev, "%s: unexpected device-index %d", __func__,
+			 hidpp_report->device_index);
+	}
+}
+
 static void logi_hidpp_recv_queue_notif(struct hid_device *hdev,
 					struct hidpp_event *hidpp_report)
 {
@@ -799,6 +880,7 @@ static void logi_hidpp_recv_queue_notif(struct hid_device *hdev,
 		break;
 	case 0x02:
 		device_type = "27 Mhz";
+		logi_hidpp_dev_conn_notif_27mhz(hdev, hidpp_report, &workitem);
 		break;
 	case 0x03:
 		device_type = "QUAD or eQUAD";
@@ -1186,6 +1268,9 @@ static int logi_dj_ll_parse(struct hid_device *hid)
 		if (djdev->dj_receiver_dev->type == recvr_type_gaming_hidpp)
 			rdcat(rdesc, &rsize, mse_high_res_descriptor,
 			      sizeof(mse_high_res_descriptor));
+		else if (djdev->dj_receiver_dev->type == recvr_type_27mhz)
+			rdcat(rdesc, &rsize, mse_27mhz_descriptor,
+			      sizeof(mse_27mhz_descriptor));
 		else
 			rdcat(rdesc, &rsize, mse_descriptor,
 			      sizeof(mse_descriptor));
@@ -1194,7 +1279,12 @@ static int logi_dj_ll_parse(struct hid_device *hid)
 	if (djdev->reports_supported & MULTIMEDIA) {
 		dbg_hid("%s: sending a multimedia report descriptor: %x\n",
 			__func__, djdev->reports_supported);
-		rdcat(rdesc, &rsize, consumer_descriptor, sizeof(consumer_descriptor));
+		if (djdev->dj_receiver_dev->type == recvr_type_27mhz)
+			rdcat(rdesc, &rsize, consumer_27mhz_descriptor,
+			      sizeof(consumer_27mhz_descriptor));
+		else
+			rdcat(rdesc, &rsize, consumer_descriptor,
+			      sizeof(consumer_descriptor));
 	}
 
 	if (djdev->reports_supported & POWER_KEYS) {
@@ -1214,7 +1304,11 @@ static int logi_dj_ll_parse(struct hid_device *hid)
 			__func__, djdev->reports_supported);
 	}
 
-	rdcat(rdesc, &rsize, hidpp_descriptor, sizeof(hidpp_descriptor));
+	/* 27 MHz receivers only support short reports */
+	if (djdev->dj_receiver_dev->type == recvr_type_27mhz)
+		rdcat(rdesc, &rsize, hidpp_descriptor, HIDPP_DESC_SHORT_REPORT_SIZE);
+	else
+		rdcat(rdesc, &rsize, hidpp_descriptor, sizeof(hidpp_descriptor));
 
 	retval = hid_parse_report(hid, rdesc, rsize);
 	kfree(rdesc);
@@ -1357,6 +1451,25 @@ static int logi_dj_hidpp_event(struct hid_device *hdev,
 	spin_lock_irqsave(&djrcv_dev->lock, flags);
 
 	dj_dev = djrcv_dev->paired_dj_devices[device_index];
+
+	/*
+	 * With 27 MHz receivers, we do not get an explicit unpair event,
+	 * remove the old device if the user has paired a *different* device.
+	 */
+	if (djrcv_dev->type == recvr_type_27mhz && dj_dev &&
+	    hidpp_report->sub_id == REPORT_TYPE_NOTIF_DEVICE_CONNECTED &&
+	    hidpp_report->params[HIDPP_PARAM_PROTO_TYPE] == 0x02 &&
+	    hidpp_report->params[HIDPP_PARAM_27MHZ_DEVID] !=
+						dj_dev->hdev->product) {
+		struct dj_workitem workitem = {
+			.device_index = hidpp_report->device_index,
+			.type = WORKITEM_TYPE_UNPAIRED,
+		};
+		kfifo_in(&djrcv_dev->notif_fifo, &workitem, sizeof(workitem));
+		/* logi_hidpp_recv_queue_notif will queue the work */
+		dj_dev = NULL;
+	}
+
 	if (dj_dev) {
 		logi_dj_recv_forward_report(dj_dev, data, size);
 	} else {
@@ -1624,6 +1737,10 @@ static const struct hid_device_id logi_dj_receivers[] = {
 	  HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH,
 		USB_DEVICE_ID_LOGITECH_NANO_RECEIVER_GAMING),
 	 .driver_data = recvr_type_gaming_hidpp},
+	{ /* Logitech 27 MHz HID++ 1.0 receiver (0xc517) */
+	  HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH,
+		USB_DEVICE_ID_S510_RECEIVER_2),
+	 .driver_data = recvr_type_27mhz},
 	{}
 };
 
