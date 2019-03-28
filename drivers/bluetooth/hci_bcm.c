@@ -1006,13 +1006,17 @@ static int bcm_get_resources(struct bcm_device *dev)
 
 	dev->device_wakeup = devm_gpiod_get_optional(dev->dev, "device-wakeup",
 						     GPIOD_OUT_LOW);
-	if (IS_ERR(dev->device_wakeup))
+	if (IS_ERR(dev->device_wakeup)) {
+		pr_err("hci_uart_bcm get device-wake gpio error %ld\n", PTR_ERR(dev->device_wakeup));
 		return PTR_ERR(dev->device_wakeup);
+	}
 
 	dev->shutdown = devm_gpiod_get_optional(dev->dev, "shutdown",
 						GPIOD_OUT_LOW);
-	if (IS_ERR(dev->shutdown))
+	if (IS_ERR(dev->shutdown)) {
+		pr_err("hci_uart_bcm get shutdown gpio error %ld\n", PTR_ERR(dev->shutdown));
 		return PTR_ERR(dev->shutdown);
+	}
 
 	dev->set_device_wakeup = bcm_gpio_set_device_wakeup;
 	dev->set_shutdown = bcm_gpio_set_shutdown;
@@ -1021,8 +1025,10 @@ static int bcm_get_resources(struct bcm_device *dev)
 	dev->supplies[1].supply = "vddio";
 	err = devm_regulator_bulk_get(dev->dev, BCM_NUM_SUPPLIES,
 				      dev->supplies);
-	if (err)
+	if (err) {
+		pr_err("hci_uart_bcm regulator_bulk_get error %d\n", err);
 		return err;
+	}
 
 	/* IRQ can be declared in ACPI table as Interrupt or GpioInt */
 	if (dev->irq <= 0) {
@@ -1030,8 +1036,10 @@ static int bcm_get_resources(struct bcm_device *dev)
 
 		gpio = devm_gpiod_get_optional(dev->dev, "host-wakeup",
 					       GPIOD_IN);
-		if (IS_ERR(gpio))
+		if (IS_ERR(gpio)) {
+			pr_err("hci_uart_bcm get host-wakeup gpio error %ld\n", PTR_ERR(gpio));
 			return PTR_ERR(gpio);
+		}
 
 		dev->irq = gpiod_to_irq(gpio);
 	}
@@ -1059,8 +1067,10 @@ static int bcm_acpi_probe(struct bcm_device *dev)
 	dev->gpio_int_idx = -1;
 	ret = acpi_dev_get_resources(ACPI_COMPANION(dev->dev),
 				     &resources, bcm_resource, dev);
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("hci_uart_bcm acpi_dev_get_resources error %d\n", ret);
 		return ret;
+	}
 
 	resource_list_for_each_entry(entry, &resources) {
 		if (resource_type(entry->res) == IORESOURCE_IRQ) {
@@ -1090,8 +1100,10 @@ static int bcm_acpi_probe(struct bcm_device *dev)
 			 dev->gpio_count);
 
 	ret = devm_acpi_dev_add_driver_gpios(dev->dev, gpio_mapping);
-	if (ret)
+	if (ret) {
+		pr_err("hci_uart_bcm devm_acpi_dev_add_driver_gpios error %d\n", ret);
 		return ret;
+	}
 
 	if (irq_polarity != -1) {
 		dev->irq_active_low = irq_polarity;
@@ -1393,8 +1405,10 @@ static int bcm_serdev_probe(struct serdev_device *serdev)
 		return err;
 
 	err = bcm_get_resources(bcmdev);
-	if (err)
+	if (err) {
+		pr_err("hci_uart_bcm bcm_get_resources error %d\n", err);
 		return err;
+	}
 
 	if (!bcmdev->shutdown) {
 		dev_warn(&serdev->dev,
@@ -1406,7 +1420,11 @@ static int bcm_serdev_probe(struct serdev_device *serdev)
 	if (err)
 		dev_err(&serdev->dev, "Failed to power down\n");
 
-	return hci_uart_register_device(&bcmdev->serdev_hu, &bcm_proto);
+	err = hci_uart_register_device(&bcmdev->serdev_hu, &bcm_proto);
+	if (err)
+		pr_err("hci_uart_bcm uart_register error %d\n", err);
+		
+	return err;
 }
 
 static void bcm_serdev_remove(struct serdev_device *serdev)
