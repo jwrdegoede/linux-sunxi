@@ -53,6 +53,9 @@ MODULE_PARM_DESC(disable_tap_to_click,
 #define HIDPP_REPORT_LONG_LENGTH		20
 #define HIDPP_REPORT_VERY_LONG_LENGTH		64
 
+#define HIDPP_SUB_ID_ROLLER			0x05
+#define HIDPP_SUB_ID_MOUSE_EXTRA_BTNS		0x06
+
 #define HIDPP_QUIRK_CLASS_WTP			BIT(0)
 #define HIDPP_QUIRK_CLASS_M560			BIT(1)
 #define HIDPP_QUIRK_CLASS_K400			BIT(2)
@@ -68,6 +71,7 @@ MODULE_PARM_DESC(disable_tap_to_click,
 #define HIDPP_QUIRK_HI_RES_SCROLL_1P0		BIT(26)
 #define HIDPP_QUIRK_HI_RES_SCROLL_X2120		BIT(27)
 #define HIDPP_QUIRK_HI_RES_SCROLL_X2121		BIT(28)
+#define HIDPP_QUIRK_HIDPP_HWHEEL_AND_EXTRA_BTNS	BIT(29)
 
 /* Convenience constant to check for any high-res support. */
 #define HIDPP_QUIRK_HI_RES_SCROLL	(HIDPP_QUIRK_HI_RES_SCROLL_1P0 | \
@@ -2729,6 +2733,75 @@ static int g920_get_config(struct hidpp_device *hidpp)
 }
 
 /* -------------------------------------------------------------------------- */
+/* HID++1.0 mice which use HID++ report for hwheel and extra buttons          */
+/* -------------------------------------------------------------------------- */
+
+static int hidpp10_hwheel_connect(struct hid_device *hdev, bool connected)
+{
+	struct hidpp_device *hidpp = hid_get_drvdata(hdev);
+	int ret;
+
+	/* Bit 5 enables HID++ 1.0 hwheel reporting */
+	ret = hidpp10_set_register_bit(hidpp, HIDPP_REG_GENERAL, 0, 5);
+	if (ret)
+		return ret;
+
+	/* Bit 3 enables HID++ 1.0 extra buttons reporting */
+	return hidpp10_set_register_bit(hidpp, HIDPP_REG_GENERAL, 0, 3);
+}
+
+static int hidpp10_hwheel_raw_event(struct hidpp_device *hidpp,
+				    u8 *data, int size)
+{
+	if (!hidpp->input)
+		return -EINVAL;
+
+	if (size < 7)
+		return 0;
+
+	if (data[0] == REPORT_ID_HIDPP_SHORT &&
+	    data[2] == HIDPP_SUB_ID_ROLLER) {
+		s8 value = data[4];
+
+		input_report_rel(hidpp->input, REL_HWHEEL, value);
+		input_report_rel(hidpp->input, REL_HWHEEL_HI_RES, value * 120);
+		input_sync(hidpp->input);
+		return 1;
+	}
+
+	if (data[0] == REPORT_ID_HIDPP_SHORT &&
+	    data[2] == HIDPP_SUB_ID_MOUSE_EXTRA_BTNS) {
+		int i;
+
+		for (i = 0; i < 8; i++)
+			input_report_key(hidpp->input, BTN_0 + i,
+					 (data[4] & (1 << i)));
+		input_sync(hidpp->input);
+		return 1;
+	}
+
+	return 0;
+}
+
+static void hidpp10_hwheel_populate_input(struct hidpp_device *hidpp,
+		struct input_dev *input_dev, bool origin_is_hid_core)
+{
+	__set_bit(EV_REL, input_dev->evbit);
+	__set_bit(REL_HWHEEL, input_dev->relbit);
+	__set_bit(REL_HWHEEL_HI_RES, input_dev->relbit);
+
+	__set_bit(EV_KEY, input_dev->evbit);
+	__set_bit(BTN_0, input_dev->keybit);
+	__set_bit(BTN_1, input_dev->keybit);
+	__set_bit(BTN_2, input_dev->keybit);
+	__set_bit(BTN_3, input_dev->keybit);
+	__set_bit(BTN_4, input_dev->keybit);
+	__set_bit(BTN_5, input_dev->keybit);
+	__set_bit(BTN_6, input_dev->keybit);
+	__set_bit(BTN_7, input_dev->keybit);
+}
+
+/* -------------------------------------------------------------------------- */
 /* High-resolution scroll wheels                                              */
 /* -------------------------------------------------------------------------- */
 
@@ -2812,6 +2885,9 @@ static void hidpp_populate_input(struct hidpp_device *hidpp,
 		wtp_populate_input(hidpp, input, origin_is_hid_core);
 	else if (hidpp->quirks & HIDPP_QUIRK_CLASS_M560)
 		m560_populate_input(hidpp, input, origin_is_hid_core);
+
+	if (hidpp->quirks & HIDPP_QUIRK_HIDPP_HWHEEL_AND_EXTRA_BTNS)
+		hidpp10_hwheel_populate_input(hidpp, input, origin_is_hid_core);
 }
 
 static int hidpp_input_configured(struct hid_device *hdev,
@@ -2879,6 +2955,12 @@ static int hidpp_raw_hidpp_event(struct hidpp_device *hidpp, u8 *data,
 
 	if (hidpp->capabilities & HIDPP_CAPABILITY_HIDPP10_BATTERY) {
 		ret = hidpp10_battery_event(hidpp, data, size);
+		if (ret != 0)
+			return ret;
+	}
+
+	if (hidpp->quirks & HIDPP_QUIRK_HIDPP_HWHEEL_AND_EXTRA_BTNS) {
+		ret = hidpp10_hwheel_raw_event(hidpp, data, size);
 		if (ret != 0)
 			return ret;
 	}
@@ -3126,6 +3208,12 @@ static void hidpp_connect_event(struct hidpp_device *hidpp)
 			return;
 	} else if (hidpp->quirks & HIDPP_QUIRK_CLASS_K400) {
 		ret = k400_connect(hdev, connected);
+		if (ret)
+			return;
+	}
+
+	if (hidpp->quirks & HIDPP_QUIRK_HIDPP_HWHEEL_AND_EXTRA_BTNS) {
+		ret = hidpp10_hwheel_connect(hdev, connected);
 		if (ret)
 			return;
 	}
@@ -3447,6 +3535,12 @@ static const struct hid_device_id hidpp_devices[] = {
 	{ /* Solar Keyboard Logitech K750 */
 	  LDJ_DEVICE(0x4002),
 	  .driver_data = HIDPP_QUIRK_CLASS_K750 },
+	{ /* Mouse from Logitech "Cordless Rechargeable Desktop" (M-RAK89D) */
+	  LDJ_DEVICE(0x0029),
+	  .driver_data = HIDPP_QUIRK_HIDPP_HWHEEL_AND_EXTRA_BTNS },
+	{ /* Mouse Logitech MX3200 (M-RAZ105) */
+	  LDJ_DEVICE(0x003a),
+	  .driver_data = HIDPP_QUIRK_HIDPP_HWHEEL_AND_EXTRA_BTNS },
 
 	{ LDJ_DEVICE(HID_ANY_ID) },
 
