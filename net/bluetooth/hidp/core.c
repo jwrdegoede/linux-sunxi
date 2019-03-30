@@ -211,8 +211,8 @@ static void hidp_input_report(struct hidp_session *session, struct sk_buff *skb)
 		input_report_key(dev, BTN_LEFT,   sdata[0] & 0x01);
 		input_report_key(dev, BTN_RIGHT,  sdata[0] & 0x02);
 		input_report_key(dev, BTN_MIDDLE, sdata[0] & 0x04);
-		input_report_key(dev, BTN_SIDE,   sdata[0] & 0x08);
-		input_report_key(dev, BTN_EXTRA,  sdata[0] & 0x10);
+		input_report_key(dev, BTN_BACKWRD,   sdata[0] & 0x08);
+		input_report_key(dev, BTN_FORWRD,  sdata[0] & 0x10);
 
 		input_report_rel(dev, REL_X, sdata[1]);
 		input_report_rel(dev, REL_Y, sdata[2]);
@@ -690,8 +690,8 @@ static int hidp_setup_input(struct hidp_session *session,
 		input->keybit[BIT_WORD(BTN_MOUSE)] = BIT_MASK(BTN_LEFT) |
 			BIT_MASK(BTN_RIGHT) | BIT_MASK(BTN_MIDDLE);
 		input->relbit[0] = BIT_MASK(REL_X) | BIT_MASK(REL_Y);
-		input->keybit[BIT_WORD(BTN_MOUSE)] |= BIT_MASK(BTN_SIDE) |
-			BIT_MASK(BTN_EXTRA);
+		input->keybit[BIT_WORD(BTN_MOUSE)] |= BIT_MASK(BTN_BACKWRD) |
+			BIT_MASK(BTN_FORWRD);
 		input->relbit[0] |= BIT_MASK(REL_WHEEL);
 	}
 
