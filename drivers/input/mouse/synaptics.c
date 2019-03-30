@@ -966,8 +966,8 @@ static void synaptics_report_buttons(struct psmouse *psmouse,
 		input_report_key(dev, BTN_MIDDLE, hw->middle);
 
 	if (SYN_CAP_FOUR_BUTTON(priv->info.capabilities)) {
-		input_report_key(dev, BTN_FORWARD, hw->up);
-		input_report_key(dev, BTN_BACK, hw->down);
+		input_report_key(dev, BTN_EXTRA1, hw->up);
+		input_report_key(dev, BTN_EXTRA2, hw->down);
 	}
 
 	synaptics_report_ext_buttons(psmouse, hw);
@@ -1070,16 +1070,16 @@ static void synaptics_process_packet(struct psmouse *psmouse)
 		priv->scroll += hw.scroll;
 
 		while (priv->scroll >= 4) {
-			input_report_key(dev, BTN_BACK, !hw.down);
+			input_report_key(dev, BTN_EXTRA2, !hw.down);
 			input_sync(dev);
-			input_report_key(dev, BTN_BACK, hw.down);
+			input_report_key(dev, BTN_EXTRA2, hw.down);
 			input_sync(dev);
 			priv->scroll -= 4;
 		}
 		while (priv->scroll <= -4) {
-			input_report_key(dev, BTN_FORWARD, !hw.up);
+			input_report_key(dev, BTN_EXTRA1, !hw.up);
 			input_sync(dev);
-			input_report_key(dev, BTN_FORWARD, hw.up);
+			input_report_key(dev, BTN_EXTRA1, hw.up);
 			input_sync(dev);
 			priv->scroll += 4;
 		}
@@ -1327,8 +1327,8 @@ static int set_input_params(struct psmouse *psmouse,
 
 	if (SYN_CAP_FOUR_BUTTON(info->capabilities) ||
 	    SYN_CAP_MIDDLE_BUTTON(info->capabilities)) {
-		input_set_capability(dev, EV_KEY, BTN_FORWARD);
-		input_set_capability(dev, EV_KEY, BTN_BACK);
+		input_set_capability(dev, EV_KEY, BTN_EXTRA1);
+		input_set_capability(dev, EV_KEY, BTN_EXTRA2);
 	}
 
 	if (!SYN_CAP_EXT_BUTTONS_STICK(info->ext_cap_10))

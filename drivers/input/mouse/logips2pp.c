@@ -63,18 +63,18 @@ static psmouse_ret_t ps2pp_process_byte(struct psmouse *psmouse)
 			input_report_rel(dev,
 				packet[2] & 0x80 ? REL_HWHEEL : REL_WHEEL,
 				-sign_extend32(packet[2], 3));
-			input_report_key(dev, BTN_SIDE,  packet[2] & BIT(4));
-			input_report_key(dev, BTN_EXTRA, packet[2] & BIT(5));
+			input_report_key(dev, BTN_BACKWRD,  packet[2] & BIT(4));
+			input_report_key(dev, BTN_FORWRD, packet[2] & BIT(5));
 
 			break;
 
 		case 0x0e: /* buttons 4, 5, 6, 7, 8, 9, 10 info */
 
-			input_report_key(dev, BTN_SIDE,    packet[2] & BIT(0));
-			input_report_key(dev, BTN_EXTRA,   packet[2] & BIT(1));
+			input_report_key(dev, BTN_BACKWRD,    packet[2] & BIT(0));
+			input_report_key(dev, BTN_FORWRD,   packet[2] & BIT(1));
 			input_report_key(dev, BTN_TASK,    packet[2] & BIT(2));
-			input_report_key(dev, BTN_BACK,    packet[2] & BIT(3));
-			input_report_key(dev, BTN_FORWARD, packet[2] & BIT(4));
+			input_report_key(dev, BTN_EXTRA2,    packet[2] & BIT(3));
+			input_report_key(dev, BTN_EXTRA1, packet[2] & BIT(4));
 
 			break;
 
@@ -277,17 +277,17 @@ static void ps2pp_set_model_properties(struct psmouse *psmouse,
 	struct input_dev *input_dev = psmouse->dev;
 
 	if (model_info->features & PS2PP_SIDE_BTN)
-		input_set_capability(input_dev, EV_KEY, BTN_SIDE);
+		input_set_capability(input_dev, EV_KEY, BTN_BACKWRD);
 
 	if (model_info->features & PS2PP_EXTRA_BTN)
-		input_set_capability(input_dev, EV_KEY, BTN_EXTRA);
+		input_set_capability(input_dev, EV_KEY, BTN_FORWRD);
 
 	if (model_info->features & PS2PP_TASK_BTN)
 		input_set_capability(input_dev, EV_KEY, BTN_TASK);
 
 	if (model_info->features & PS2PP_NAV_BTN) {
-		input_set_capability(input_dev, EV_KEY, BTN_FORWARD);
-		input_set_capability(input_dev, EV_KEY, BTN_BACK);
+		input_set_capability(input_dev, EV_KEY, BTN_EXTRA1);
+		input_set_capability(input_dev, EV_KEY, BTN_EXTRA2);
 	}
 
 	if (model_info->features & PS2PP_WHEEL)

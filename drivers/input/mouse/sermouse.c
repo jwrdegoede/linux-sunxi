@@ -145,12 +145,12 @@ static void sermouse_process_ms(struct sermouse *sermouse, signed char data)
 				case SERIO_MP:
 					if ((data >> 2) & 3) break;	/* M++ Wireless Extension packet. */
 					input_report_key(dev, BTN_MIDDLE, (data >> 5) & 1);
-					input_report_key(dev, BTN_SIDE,   (data >> 4) & 1);
+					input_report_key(dev, BTN_BACKWRD,   (data >> 4) & 1);
 					break;
 
 				case SERIO_MZP:
 				case SERIO_MZPP:
-					input_report_key(dev, BTN_SIDE,   (data >> 5) & 1);
+					input_report_key(dev, BTN_BACKWRD,   (data >> 5) & 1);
 					/* fall through */
 
 				case SERIO_MZ:
@@ -175,8 +175,8 @@ static void sermouse_process_ms(struct sermouse *sermouse, signed char data)
 
 				case 1: /* Extra mouse info */
 
-					input_report_key(dev, BTN_SIDE, (data >> 4) & 1);
-					input_report_key(dev, BTN_EXTRA, (data >> 5) & 1);
+					input_report_key(dev, BTN_BACKWRD, (data >> 4) & 1);
+					input_report_key(dev, BTN_FORWRD, (data >> 5) & 1);
 					input_report_rel(dev, data & 0x80 ? REL_HWHEEL : REL_WHEEL, (data & 7) - (data & 8));
 
 					break;
@@ -269,8 +269,8 @@ static int sermouse_connect(struct serio *serio, struct serio_driver *drv)
 	input_dev->relbit[0] = BIT_MASK(REL_X) | BIT_MASK(REL_Y);
 
 	if (c & 0x01) set_bit(BTN_MIDDLE, input_dev->keybit);
-	if (c & 0x02) set_bit(BTN_SIDE, input_dev->keybit);
-	if (c & 0x04) set_bit(BTN_EXTRA, input_dev->keybit);
+	if (c & 0x02) set_bit(BTN_BACKWRD, input_dev->keybit);
+	if (c & 0x04) set_bit(BTN_FORWRD, input_dev->keybit);
 	if (c & 0x10) set_bit(REL_WHEEL, input_dev->relbit);
 	if (c & 0x20) set_bit(REL_HWHEEL, input_dev->relbit);
 

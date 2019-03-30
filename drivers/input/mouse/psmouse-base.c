@@ -192,8 +192,8 @@ psmouse_ret_t psmouse_process_byte(struct psmouse *psmouse)
 			else
 				input_report_rel(dev, REL_WHEEL, -wheel);
 
-			input_report_key(dev, BTN_SIDE,  packet[3] & BIT(4));
-			input_report_key(dev, BTN_EXTRA, packet[3] & BIT(5));
+			input_report_key(dev, BTN_BACKWRD,  packet[3] & BIT(4));
+			input_report_key(dev, BTN_FORWRD, packet[3] & BIT(5));
 			break;
 		}
 		break;
@@ -203,13 +203,13 @@ psmouse_ret_t psmouse_process_byte(struct psmouse *psmouse)
 		input_report_rel(dev, REL_WHEEL, -(s8) packet[3]);
 
 		/* Extra buttons on Genius NewNet 3D */
-		input_report_key(dev, BTN_SIDE,  packet[0] & BIT(6));
-		input_report_key(dev, BTN_EXTRA, packet[0] & BIT(7));
+		input_report_key(dev, BTN_BACKWRD,  packet[0] & BIT(6));
+		input_report_key(dev, BTN_FORWRD, packet[0] & BIT(7));
 		break;
 
 	case PSMOUSE_THINKPS:
 		/* Extra button on ThinkingMouse */
-		input_report_key(dev, BTN_EXTRA, packet[0] & BIT(3));
+		input_report_key(dev, BTN_FORWRD, packet[0] & BIT(3));
 
 		/*
 		 * Without this bit of weirdness moving up gives wildly
@@ -223,7 +223,7 @@ psmouse_ret_t psmouse_process_byte(struct psmouse *psmouse)
 		 * Cortron PS2 Trackball reports SIDE button in the
 		 * 4th bit of the first byte.
 		 */
-		input_report_key(dev, BTN_SIDE, packet[0] & BIT(3));
+		input_report_key(dev, BTN_BACKWRD, packet[0] & BIT(3));
 		packet[0] |= BIT(3);
 		break;
 
@@ -561,8 +561,8 @@ static int genius_detect(struct psmouse *psmouse, bool set_properties)
 
 	if (set_properties) {
 		__set_bit(BTN_MIDDLE, psmouse->dev->keybit);
-		__set_bit(BTN_EXTRA, psmouse->dev->keybit);
-		__set_bit(BTN_SIDE, psmouse->dev->keybit);
+		__set_bit(BTN_FORWRD, psmouse->dev->keybit);
+		__set_bit(BTN_BACKWRD, psmouse->dev->keybit);
 		__set_bit(REL_WHEEL, psmouse->dev->relbit);
 
 		psmouse->vendor = "Genius";
@@ -639,8 +639,8 @@ static int im_explorer_detect(struct psmouse *psmouse, bool set_properties)
 		__set_bit(BTN_MIDDLE, psmouse->dev->keybit);
 		__set_bit(REL_WHEEL, psmouse->dev->relbit);
 		__set_bit(REL_HWHEEL, psmouse->dev->relbit);
-		__set_bit(BTN_SIDE, psmouse->dev->keybit);
-		__set_bit(BTN_EXTRA, psmouse->dev->keybit);
+		__set_bit(BTN_BACKWRD, psmouse->dev->keybit);
+		__set_bit(BTN_FORWRD, psmouse->dev->keybit);
 
 		if (!psmouse->vendor)
 			psmouse->vendor = "Generic";
@@ -677,7 +677,7 @@ static int thinking_detect(struct psmouse *psmouse, bool set_properties)
 
 	if (set_properties) {
 		__set_bit(BTN_MIDDLE, psmouse->dev->keybit);
-		__set_bit(BTN_EXTRA, psmouse->dev->keybit);
+		__set_bit(BTN_FORWRD, psmouse->dev->keybit);
 
 		psmouse->vendor = "Kensington";
 		psmouse->name = "ThinkingMouse";
@@ -718,7 +718,7 @@ static int cortron_detect(struct psmouse *psmouse, bool set_properties)
 		psmouse->name = "PS/2 Trackball";
 
 		__set_bit(BTN_MIDDLE, psmouse->dev->keybit);
-		__set_bit(BTN_SIDE, psmouse->dev->keybit);
+		__set_bit(BTN_BACKWRD, psmouse->dev->keybit);
 	}
 
 	return 0;

@@ -142,8 +142,8 @@ static void a3d_read(struct a3d *a3d, unsigned char *data)
 			input_report_key(dev, BTN_RIGHT,  data[2] & 1);
 			input_report_key(dev, BTN_LEFT,   data[3] & 2);
 			input_report_key(dev, BTN_MIDDLE, data[3] & 4);
-			input_report_key(dev, BTN_SIDE,   data[7] & 2);
-			input_report_key(dev, BTN_EXTRA,  data[7] & 4);
+			input_report_key(dev, BTN_BACKWRD,   data[7] & 2);
+			input_report_key(dev, BTN_FORWRD,  data[7] & 4);
 
 			input_report_abs(dev, ABS_X,        ((signed char)((data[15] << 6) | (data[16] << 3) | (data[17]))) + 128);
 			input_report_abs(dev, ABS_Y,        ((signed char)((data[18] << 6) | (data[19] << 3) | (data[20]))) + 128);
@@ -328,7 +328,7 @@ static int a3d_connect(struct gameport *gameport, struct gameport_driver *drv)
 			BIT_MASK(ABS_HAT1X) | BIT_MASK(ABS_HAT1Y);
 		input_dev->keybit[BIT_WORD(BTN_MOUSE)] |= BIT_MASK(BTN_RIGHT) |
 			BIT_MASK(BTN_LEFT) | BIT_MASK(BTN_MIDDLE) |
-			BIT_MASK(BTN_SIDE) | BIT_MASK(BTN_EXTRA);
+			BIT_MASK(BTN_BACKWRD) | BIT_MASK(BTN_FORWRD);
 		input_dev->keybit[BIT_WORD(BTN_JOYSTICK)] |=
 			BIT_MASK(BTN_TRIGGER) | BIT_MASK(BTN_THUMB) |
 			BIT_MASK(BTN_TOP) | BIT_MASK(BTN_PINKIE);
