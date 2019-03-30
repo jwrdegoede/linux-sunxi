@@ -406,8 +406,8 @@ static int wacom_graphire_irq(struct wacom_wac *wacom)
 		prox = data[7] & 0xf8;
 		if (prox || wacom->id[1]) {
 			wacom->id[1] = PAD_DEVICE_ID;
-			input_report_key(pad_input, BTN_BACK, (data[7] & 0x40));
-			input_report_key(pad_input, BTN_FORWARD, (data[7] & 0x80));
+			input_report_key(pad_input, BTN_EXTRA2, (data[7] & 0x40));
+			input_report_key(pad_input, BTN_EXTRA1, (data[7] & 0x80));
 			rw = ((data[7] & 0x18) >> 3) - ((data[7] & 0x20) >> 3);
 			input_report_rel(pad_input, REL_WHEEL, rw);
 			if (!prox)
@@ -421,9 +421,9 @@ static int wacom_graphire_irq(struct wacom_wac *wacom)
 		prox = (data[7] & 0xf8) || data[8];
 		if (prox || wacom->id[1]) {
 			wacom->id[1] = PAD_DEVICE_ID;
-			input_report_key(pad_input, BTN_BACK, (data[7] & 0x08));
+			input_report_key(pad_input, BTN_EXTRA2, (data[7] & 0x08));
 			input_report_key(pad_input, BTN_LEFT, (data[7] & 0x20));
-			input_report_key(pad_input, BTN_FORWARD, (data[7] & 0x10));
+			input_report_key(pad_input, BTN_EXTRA1, (data[7] & 0x10));
 			input_report_key(pad_input, BTN_RIGHT, (data[7] & 0x40));
 			input_report_abs(pad_input, ABS_WHEEL, (data[8] & 0x7f));
 			if (!prox)
@@ -709,8 +709,8 @@ static void wacom_exit_report(struct wacom_wac *wacom)
 		input_report_key(input, BTN_LEFT, 0);
 		input_report_key(input, BTN_MIDDLE, 0);
 		input_report_key(input, BTN_RIGHT, 0);
-		input_report_key(input, BTN_SIDE, 0);
-		input_report_key(input, BTN_EXTRA, 0);
+		input_report_key(input, BTN_BACKWRD, 0);
+		input_report_key(input, BTN_FORWRD, 0);
 		input_report_abs(input, ABS_THROTTLE, 0);
 		input_report_abs(input, ABS_RZ, 0);
 	} else {
@@ -903,8 +903,8 @@ static int wacom_intuos_general(struct wacom_wac *wacom)
 		input_report_key(input, BTN_MIDDLE, data[8] & 0x02);
 		input_report_key(input, BTN_RIGHT,  data[8] & 0x04);
 
-		input_report_key(input, BTN_SIDE,   data[8] & 0x20);
-		input_report_key(input, BTN_EXTRA,  data[8] & 0x10);
+		input_report_key(input, BTN_BACKWRD,   data[8] & 0x20);
+		input_report_key(input, BTN_FORWRD,  data[8] & 0x10);
 		t = (data[6] << 2) | ((data[7] >> 6) & 3);
 		input_report_abs(input, ABS_THROTTLE, (data[8] & 0x08) ? -t : t);
 		break;
@@ -916,8 +916,8 @@ static int wacom_intuos_general(struct wacom_wac *wacom)
 		input_report_key(input, BTN_RIGHT,  data[6] & 0x04);
 		input_report_rel(input, REL_WHEEL, ((data[7] & 0x80) >> 7)
 				 - ((data[7] & 0x40) >> 6));
-		input_report_key(input, BTN_SIDE,   data[6] & 0x08);
-		input_report_key(input, BTN_EXTRA,  data[6] & 0x10);
+		input_report_key(input, BTN_BACKWRD,   data[6] & 0x08);
+		input_report_key(input, BTN_FORWRD,  data[6] & 0x10);
 
 		input_report_abs(input, ABS_TILT_X,
 			(((data[7] << 1) & 0x7e) | (data[8] >> 7)) - 64);
@@ -935,8 +935,8 @@ static int wacom_intuos_general(struct wacom_wac *wacom)
 
 			/* I3 2D mouse side buttons */
 			if (features->type >= INTUOS3S && features->type <= INTUOS3L) {
-				input_report_key(input, BTN_SIDE,   data[8] & 0x40);
-				input_report_key(input, BTN_EXTRA,  data[8] & 0x20);
+				input_report_key(input, BTN_BACKWRD,   data[8] & 0x40);
+				input_report_key(input, BTN_FORWRD,  data[8] & 0x20);
 			}
 		}
 		else if (wacom->tool[idx] == BTN_TOOL_LENS) {
@@ -944,8 +944,8 @@ static int wacom_intuos_general(struct wacom_wac *wacom)
 			input_report_key(input, BTN_LEFT,   data[8] & 0x01);
 			input_report_key(input, BTN_MIDDLE, data[8] & 0x02);
 			input_report_key(input, BTN_RIGHT,  data[8] & 0x04);
-			input_report_key(input, BTN_SIDE,   data[8] & 0x10);
-			input_report_key(input, BTN_EXTRA,  data[8] & 0x08);
+			input_report_key(input, BTN_BACKWRD,   data[8] & 0x10);
+			input_report_key(input, BTN_FORWRD,  data[8] & 0x08);
 		}
 		break;
 
@@ -2791,8 +2791,8 @@ static int wacom_bpt_touch(struct wacom_wac *wacom)
 	input_mt_sync_frame(input);
 
 	input_report_key(pad_input, BTN_LEFT, (data[1] & 0x08) != 0);
-	input_report_key(pad_input, BTN_FORWARD, (data[1] & 0x04) != 0);
-	input_report_key(pad_input, BTN_BACK, (data[1] & 0x02) != 0);
+	input_report_key(pad_input, BTN_EXTRA1, (data[1] & 0x04) != 0);
+	input_report_key(pad_input, BTN_EXTRA2, (data[1] & 0x02) != 0);
 	input_report_key(pad_input, BTN_RIGHT, (data[1] & 0x01) != 0);
 	wacom->shared->touch_down = wacom_wac_finger_count_touches(wacom);
 
@@ -2849,12 +2849,12 @@ static void wacom_bpt3_button_msg(struct wacom_wac *wacom, unsigned char *data)
 
 	if (features->type == INTUOSHT || features->type == INTUOSHT2) {
 		input_report_key(input, BTN_LEFT, (data[1] & 0x02) != 0);
-		input_report_key(input, BTN_BACK, (data[1] & 0x08) != 0);
+		input_report_key(input, BTN_EXTRA2, (data[1] & 0x08) != 0);
 	} else {
-		input_report_key(input, BTN_BACK, (data[1] & 0x02) != 0);
+		input_report_key(input, BTN_EXTRA2, (data[1] & 0x02) != 0);
 		input_report_key(input, BTN_LEFT, (data[1] & 0x08) != 0);
 	}
-	input_report_key(input, BTN_FORWARD, (data[1] & 0x04) != 0);
+	input_report_key(input, BTN_EXTRA1, (data[1] & 0x04) != 0);
 	input_report_key(input, BTN_RIGHT, (data[1] & 0x01) != 0);
 }
 
@@ -3323,8 +3323,8 @@ static void wacom_setup_intuos(struct wacom_wac *wacom_wac)
 	__set_bit(BTN_LEFT, input_dev->keybit);
 	__set_bit(BTN_RIGHT, input_dev->keybit);
 	__set_bit(BTN_MIDDLE, input_dev->keybit);
-	__set_bit(BTN_SIDE, input_dev->keybit);
-	__set_bit(BTN_EXTRA, input_dev->keybit);
+	__set_bit(BTN_BACKWRD, input_dev->keybit);
+	__set_bit(BTN_FORWRD, input_dev->keybit);
 	__set_bit(BTN_TOOL_MOUSE, input_dev->keybit);
 	__set_bit(BTN_TOOL_LENS, input_dev->keybit);
 
@@ -3948,16 +3948,16 @@ int wacom_setup_pad_input_capabilities(struct input_dev *input_dev,
 		break;
 
 	case WACOM_MO:
-		__set_bit(BTN_BACK, input_dev->keybit);
+		__set_bit(BTN_EXTRA2, input_dev->keybit);
 		__set_bit(BTN_LEFT, input_dev->keybit);
-		__set_bit(BTN_FORWARD, input_dev->keybit);
+		__set_bit(BTN_EXTRA1, input_dev->keybit);
 		__set_bit(BTN_RIGHT, input_dev->keybit);
 		input_set_abs_params(input_dev, ABS_WHEEL, 0, 71, 0, 0);
 		break;
 
 	case WACOM_G4:
-		__set_bit(BTN_BACK, input_dev->keybit);
-		__set_bit(BTN_FORWARD, input_dev->keybit);
+		__set_bit(BTN_EXTRA2, input_dev->keybit);
+		__set_bit(BTN_EXTRA1, input_dev->keybit);
 		input_set_capability(input_dev, EV_REL, REL_WHEEL);
 		break;
 
@@ -4041,8 +4041,8 @@ int wacom_setup_pad_input_capabilities(struct input_dev *input_dev,
 		__clear_bit(ABS_MISC, input_dev->absbit);
 
 		__set_bit(BTN_LEFT, input_dev->keybit);
-		__set_bit(BTN_FORWARD, input_dev->keybit);
-		__set_bit(BTN_BACK, input_dev->keybit);
+		__set_bit(BTN_EXTRA1, input_dev->keybit);
+		__set_bit(BTN_EXTRA2, input_dev->keybit);
 		__set_bit(BTN_RIGHT, input_dev->keybit);
 
 		break;
