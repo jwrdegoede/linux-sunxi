@@ -63,7 +63,7 @@
 		user {
 			label = "user";
 			gpios = <&gpio1 26 GPIO_ACTIVE_HIGH>;
-			linux,code = <BTN_EXTRA>;
+			linux,code = <BTN_FORWRD>;
 			wakeup-source;
 		};
 	};

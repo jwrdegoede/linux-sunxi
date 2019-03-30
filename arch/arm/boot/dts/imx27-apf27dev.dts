@@ -44,7 +44,7 @@
 		user-key {
 			label = "user";
 			gpios = <&gpio6 13 GPIO_ACTIVE_HIGH>;
-			linux,code = <276>; /* BTN_EXTRA */
+			linux,code = <276>; /* BTN_FORWRD */
 		};
 	};
 

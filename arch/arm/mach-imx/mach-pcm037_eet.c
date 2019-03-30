@@ -124,13 +124,13 @@ static struct gpio_keys_button pcm037_gpio_keys[] = {
 		.wakeup	= 0,
 	}, {
 		.type	= EV_KEY,
-		.code	= BTN_FORWARD,
+		.code	= BTN_EXTRA1,
 		.gpio	= 50,
 		.desc	= "Focus Forward",
 		.wakeup	= 0,
 	}, {
 		.type	= EV_KEY,
-		.code	= BTN_BACK,
+		.code	= BTN_EXTRA2,
 		.gpio	= 51,
 		.desc	= "Focus Backward",
 		.wakeup	= 0,
@@ -142,7 +142,7 @@ static struct gpio_keys_button pcm037_gpio_keys[] = {
 		.wakeup	= 0,
 	}, {
 		.type	= EV_KEY,
-		.code	= BTN_EXTRA,
+		.code	= BTN_FORWRD,
 		.gpio	= 53,
 		.desc	= "Release Full",
 		.wakeup	= 0,
