@@ -2557,14 +2557,14 @@ static int m560_raw_event(struct hid_device *hdev, u8 *data, int size)
 			input_report_key(hidpp->input, BTN_MIDDLE, 1);
 			break;
 		case 0xb0:
-			input_report_key(hidpp->input, BTN_FORWARD, 1);
+			input_report_key(hidpp->input, BTN_EXTRA1, 1);
 			break;
 		case 0xae:
-			input_report_key(hidpp->input, BTN_BACK, 1);
+			input_report_key(hidpp->input, BTN_EXTRA2, 1);
 			break;
 		case 0x00:
-			input_report_key(hidpp->input, BTN_BACK, 0);
-			input_report_key(hidpp->input, BTN_FORWARD, 0);
+			input_report_key(hidpp->input, BTN_EXTRA2, 0);
+			input_report_key(hidpp->input, BTN_EXTRA1, 0);
 			input_report_key(hidpp->input, BTN_MIDDLE, 0);
 			break;
 		default:
@@ -2624,8 +2624,8 @@ static void m560_populate_input(struct hidpp_device *hidpp,
 	__set_bit(BTN_MIDDLE, input_dev->keybit);
 	__set_bit(BTN_RIGHT, input_dev->keybit);
 	__set_bit(BTN_LEFT, input_dev->keybit);
-	__set_bit(BTN_BACK, input_dev->keybit);
-	__set_bit(BTN_FORWARD, input_dev->keybit);
+	__set_bit(BTN_EXTRA2, input_dev->keybit);
+	__set_bit(BTN_EXTRA1, input_dev->keybit);
 
 	__set_bit(EV_REL, input_dev->evbit);
 	__set_bit(REL_X, input_dev->relbit);
