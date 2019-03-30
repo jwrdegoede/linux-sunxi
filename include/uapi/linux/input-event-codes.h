@@ -355,11 +355,22 @@
 #define BTN_LEFT		0x110
 #define BTN_RIGHT		0x111
 #define BTN_MIDDLE		0x112
+#define BTN_BACKWRD		0x113
+#define BTN_FORWRD		0x114
+#define BTN_EXTRA1		0x115
+#define BTN_EXTRA2		0x116
+#define BTN_TASK		0x117
+
+/*
+ * DEPRECATED: Do not use!
+ * These old defines are to not break the compilation of user code ONLY.
+ * Over time they have grown to be incorrect. Almost all modern mice with
+ * back / forward buttons generate 0x113 for back and 0x114 for forward.
+ */
 #define BTN_SIDE		0x113
 #define BTN_EXTRA		0x114
 #define BTN_FORWARD		0x115
 #define BTN_BACK		0x116
-#define BTN_TASK		0x117
 
 #define BTN_JOYSTICK		0x120
 #define BTN_TRIGGER		0x120

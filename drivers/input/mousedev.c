@@ -238,16 +238,16 @@ static void mousedev_key_event(struct mousedev *mousedev,
 	case BTN_RIGHT:		index = 1; break;
 
 	case BTN_2:
-	case BTN_FORWARD:
+	case BTN_EXTRA1:
 	case BTN_STYLUS2:
 	case BTN_MIDDLE:	index = 2; break;
 
 	case BTN_3:
-	case BTN_BACK:
-	case BTN_SIDE:		index = 3; break;
+	case BTN_EXTRA2:
+	case BTN_BACKWRD:	index = 3; break;
 
 	case BTN_4:
-	case BTN_EXTRA:		index = 4; break;
+	case BTN_FORWRD:	index = 4; break;
 
 	default:		return;
 	}
