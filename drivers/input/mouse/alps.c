@@ -341,8 +341,8 @@ static void alps_process_packet_v1_v2(struct psmouse *psmouse)
 		input_report_rel(dev, REL_WHEEL, ((packet[2] << 1) & 0x08) - ((packet[0] >> 4) & 0x07));
 
 	if (priv->flags & (ALPS_FW_BK_1 | ALPS_FW_BK_2)) {
-		input_report_key(dev, BTN_FORWARD, forward);
-		input_report_key(dev, BTN_BACK, back);
+		input_report_key(dev, BTN_EXTRA1, forward);
+		input_report_key(dev, BTN_EXTRA2, back);
 	}
 
 	if (priv->flags & ALPS_FOUR_BUTTONS) {
@@ -3057,8 +3057,8 @@ int alps_init(struct psmouse *psmouse)
 	}
 
 	if (priv->flags & (ALPS_FW_BK_1 | ALPS_FW_BK_2)) {
-		dev1->keybit[BIT_WORD(BTN_FORWARD)] |= BIT_MASK(BTN_FORWARD);
-		dev1->keybit[BIT_WORD(BTN_BACK)] |= BIT_MASK(BTN_BACK);
+		dev1->keybit[BIT_WORD(BTN_EXTRA1)] |= BIT_MASK(BTN_EXTRA1);
+		dev1->keybit[BIT_WORD(BTN_EXTRA2)] |= BIT_MASK(BTN_EXTRA2);
 	}
 
 	if (priv->flags & ALPS_FOUR_BUTTONS) {

@@ -288,9 +288,9 @@ static void elantech_report_absolute_v1(struct psmouse *psmouse)
 	if (etd->info.fw_version < 0x020000 &&
 	    (etd->info.capabilities[0] & ETP_CAP_HAS_ROCKER)) {
 		/* rocker up */
-		input_report_key(dev, BTN_FORWARD, packet[0] & 0x40);
+		input_report_key(dev, BTN_EXTRA1, packet[0] & 0x40);
 		/* rocker down */
-		input_report_key(dev, BTN_BACK, packet[0] & 0x80);
+		input_report_key(dev, BTN_EXTRA2, packet[0] & 0x80);
 	}
 
 	input_sync(dev);
@@ -1226,8 +1226,8 @@ static int elantech_set_input_params(struct psmouse *psmouse)
 		/* Rocker button */
 		if (info->fw_version < 0x020000 &&
 		    (info->capabilities[0] & ETP_CAP_HAS_ROCKER)) {
-			__set_bit(BTN_FORWARD, dev->keybit);
-			__set_bit(BTN_BACK, dev->keybit);
+			__set_bit(BTN_EXTRA1, dev->keybit);
+			__set_bit(BTN_EXTRA2, dev->keybit);
 		}
 		input_set_abs_params(dev, ABS_X, x_min, x_max, 0, 0);
 		input_set_abs_params(dev, ABS_Y, y_min, y_max, 0, 0);

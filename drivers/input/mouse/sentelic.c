@@ -833,8 +833,8 @@ static psmouse_ret_t fsp_process_byte(struct psmouse *psmouse)
 		input_report_rel(dev, REL_WHEEL,
 				 (int)(packet[3] & 8) - (int)(packet[3] & 7));
 		input_report_rel(dev, REL_HWHEEL, lscroll - rscroll);
-		input_report_key(dev, BTN_BACK, lscroll);
-		input_report_key(dev, BTN_FORWARD, rscroll);
+		input_report_key(dev, BTN_EXTRA2, lscroll);
+		input_report_key(dev, BTN_EXTRA1, rscroll);
 
 		/*
 		 * Standard PS/2 Mouse
@@ -937,8 +937,8 @@ static int fsp_set_input_params(struct psmouse *psmouse)
 
 	if (pad->ver < FSP_VER_STL3888_C0) {
 		__set_bit(BTN_MIDDLE, dev->keybit);
-		__set_bit(BTN_BACK, dev->keybit);
-		__set_bit(BTN_FORWARD, dev->keybit);
+		__set_bit(BTN_EXTRA2, dev->keybit);
+		__set_bit(BTN_EXTRA1, dev->keybit);
 		__set_bit(REL_WHEEL, dev->relbit);
 		__set_bit(REL_HWHEEL, dev->relbit);
 	} else {
