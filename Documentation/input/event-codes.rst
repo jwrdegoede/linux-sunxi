@@ -422,7 +422,7 @@ should be used to report when the tool is in contact with the tablet.
 BTN_{STYLUS,STYLUS2} should be used to report buttons on the tool itself. Any
 button may be used for buttons on the tablet except BTN_{MOUSE,LEFT}.
 BTN_{0,1,2,etc} are good generic codes for unlabeled buttons. Do not use
-meaningful buttons, like BTN_FORWARD, unless the button is labeled for that
+meaningful buttons, like BTN_FORWRD, unless the button is labeled for that
 purpose on the device.
 
 For new hardware, both INPUT_PROP_DIRECT and INPUT_PROP_POINTER should be set.
