@@ -126,6 +126,7 @@ enum recvr_type {
 	recvr_type_hidpp,
 	recvr_type_gaming_hidpp,
 	recvr_type_27mhz,
+	recvr_type_bluetooth,
 };
 
 struct dj_report {
@@ -505,24 +506,32 @@ static DEFINE_MUTEX(dj_hdev_list_lock);
  * to create a single struct dj_receiver_dev for all interfaces belonging to
  * a single USB-device / receiver.
  */
-static struct dj_receiver_dev *dj_find_receiver_dev(struct hid_device *hdev)
+static struct dj_receiver_dev *dj_find_receiver_dev(struct hid_device *hdev,
+						    enum recvr_type type)
 {
 	struct dj_receiver_dev *djrcv_dev;
+	char sep;
+
+	/*
+	 * The bluetooth receiver contains a built-in hub and has separate
+	 * USB-devices for the keyboard and mouse interfaces.
+	 */
+	sep = (type == recvr_type_bluetooth) ? '.' : '/';
 
 	/* Try to find an already-probed interface from the same device */
 	list_for_each_entry(djrcv_dev, &dj_hdev_list, list) {
 		if (djrcv_dev->mouse &&
-		    hid_compare_device_paths(hdev, djrcv_dev->mouse, '/')) {
+		    hid_compare_device_paths(hdev, djrcv_dev->mouse, sep)) {
 			kref_get(&djrcv_dev->kref);
 			return djrcv_dev;
 		}
 		if (djrcv_dev->keyboard &&
-		    hid_compare_device_paths(hdev, djrcv_dev->keyboard, '/')) {
+		    hid_compare_device_paths(hdev, djrcv_dev->keyboard, sep)) {
 			kref_get(&djrcv_dev->kref);
 			return djrcv_dev;
 		}
 		if (djrcv_dev->hidpp &&
-		    hid_compare_device_paths(hdev, djrcv_dev->hidpp, '/')) {
+		    hid_compare_device_paths(hdev, djrcv_dev->hidpp, sep)) {
 			kref_get(&djrcv_dev->kref);
 			return djrcv_dev;
 		}
@@ -567,7 +576,7 @@ static struct dj_receiver_dev *dj_get_receiver_dev(struct hid_device *hdev,
 
 	mutex_lock(&dj_hdev_list_lock);
 
-	djrcv_dev = dj_find_receiver_dev(hdev);
+	djrcv_dev = dj_find_receiver_dev(hdev, type);
 	if (!djrcv_dev) {
 		djrcv_dev = kzalloc(sizeof(*djrcv_dev), GFP_KERNEL);
 		if (!djrcv_dev)
@@ -890,6 +899,8 @@ static void logi_hidpp_recv_queue_notif(struct hid_device *hdev,
 	switch (hidpp_report->params[HIDPP_PARAM_PROTO_TYPE]) {
 	case 0x01:
 		device_type = "Bluetooth";
+		/* Bluetooth connect packet contents is the same as (e)QUAD */
+		logi_hidpp_dev_conn_notif_equad(hidpp_report, &workitem);
 		break;
 	case 0x02:
 		device_type = "27 Mhz";
@@ -1597,6 +1608,7 @@ static int logi_dj_probe(struct hid_device *hdev,
 	case recvr_type_hidpp:		no_dj_interfaces = 2; break;
 	case recvr_type_gaming_hidpp:	no_dj_interfaces = 3; break;
 	case recvr_type_27mhz:		no_dj_interfaces = 2; break;
+	case recvr_type_bluetooth:	no_dj_interfaces = 2; break;
 	}
 	if (hid_is_using_ll_driver(hdev, &usb_hid_driver) &&
 	    (intf = to_usb_interface(hdev->dev.parent)) &&
@@ -1784,6 +1796,14 @@ static const struct hid_device_id logi_dj_receivers[] = {
 	  HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH,
 		USB_DEVICE_ID_LOGITECH_27MHZ_MOUSE_RECEIVER),
 	 .driver_data = recvr_type_27mhz},
+	{ /* Logitech MX5000 HID++ / bluetooth receiver keyboard intf. */
+	  HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH,
+		0xc70e),
+	 .driver_data = recvr_type_bluetooth},
+	{ /* Logitech MX5000 HID++ / bluetooth receiver mouse intf. */
+	  HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH,
+		0xc70a),
+	 .driver_data = recvr_type_bluetooth},
 	{}
 };
 
