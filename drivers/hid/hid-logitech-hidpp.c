@@ -53,6 +53,7 @@ MODULE_PARM_DESC(disable_tap_to_click,
 #define HIDPP_REPORT_LONG_LENGTH		20
 #define HIDPP_REPORT_VERY_LONG_LENGTH		64
 
+#define HIDPP_SUB_ID_CONSUMER_VENDOR_KEYS	0x03
 #define HIDPP_SUB_ID_ROLLER			0x05
 #define HIDPP_SUB_ID_MOUSE_EXTRA_BTNS		0x06
 
@@ -72,6 +73,7 @@ MODULE_PARM_DESC(disable_tap_to_click,
 #define HIDPP_QUIRK_HI_RES_SCROLL_X2120		BIT(27)
 #define HIDPP_QUIRK_HI_RES_SCROLL_X2121		BIT(28)
 #define HIDPP_QUIRK_HIDPP_HWHEEL_AND_EXTRA_BTNS	BIT(29)
+#define HIDPP_QUIRK_HIDPP_CONSUMER_VENDOR_KEYS	BIT(30)
 
 /* Convenience constant to check for any high-res support. */
 #define HIDPP_QUIRK_HI_RES_SCROLL	(HIDPP_QUIRK_HI_RES_SCROLL_1P0 | \
@@ -2802,6 +2804,43 @@ static void hidpp10_hwheel_populate_input(struct hidpp_device *hidpp,
 }
 
 /* -------------------------------------------------------------------------- */
+/* HID++1.0 kbds which only report 0x10xx consumer usages through sub-id 0x03 */
+/* -------------------------------------------------------------------------- */
+
+static int hidpp10_consumer_keys_connect(struct hid_device *hdev, bool connected)
+{
+	struct hidpp_device *hidpp = hid_get_drvdata(hdev);
+
+	/* Bit 0 enables HID++ 1.0 consumer keys reporting */
+	return hidpp10_set_register_bit(hidpp, HIDPP_REG_GENERAL, 0, 0);
+}
+
+static int hidpp10_consumer_keys_raw_event(struct hidpp_device *hidpp,
+					   u8 *data, int size)
+{
+	u8 consumer_report[5];
+
+	if (size < 7)
+		return 0;
+
+	if (data[0] != REPORT_ID_HIDPP_SHORT ||
+	    data[2] != HIDPP_SUB_ID_CONSUMER_VENDOR_KEYS)
+		return 0;
+
+	/*
+	 * Build a normal consumer report (3) out of the data, this detour
+	 * is necessary to get some keyboards to report their 0x10xx usages.
+	 */
+	consumer_report[0] = 0x03;
+	memcpy(&consumer_report[1], &data[3], 4);
+	/* We are called from atomic context */
+	hid_report_raw_event(hidpp->hid_dev, HID_INPUT_REPORT,
+			     consumer_report, 5, 1);
+
+	return 1;
+}
+
+/* -------------------------------------------------------------------------- */
 /* High-resolution scroll wheels                                              */
 /* -------------------------------------------------------------------------- */
 
@@ -2961,6 +3000,12 @@ static int hidpp_raw_hidpp_event(struct hidpp_device *hidpp, u8 *data,
 
 	if (hidpp->quirks & HIDPP_QUIRK_HIDPP_HWHEEL_AND_EXTRA_BTNS) {
 		ret = hidpp10_hwheel_raw_event(hidpp, data, size);
+		if (ret != 0)
+			return ret;
+	}
+
+	if (hidpp->quirks & HIDPP_QUIRK_HIDPP_CONSUMER_VENDOR_KEYS) {
+		ret = hidpp10_consumer_keys_raw_event(hidpp, data, size);
 		if (ret != 0)
 			return ret;
 	}
@@ -3214,6 +3259,12 @@ static void hidpp_connect_event(struct hidpp_device *hidpp)
 
 	if (hidpp->quirks & HIDPP_QUIRK_HIDPP_HWHEEL_AND_EXTRA_BTNS) {
 		ret = hidpp10_hwheel_connect(hdev, connected);
+		if (ret)
+			return;
+	}
+
+	if (hidpp->quirks & HIDPP_QUIRK_HIDPP_CONSUMER_VENDOR_KEYS) {
+		ret = hidpp10_consumer_keys_connect(hdev, connected);
 		if (ret)
 			return;
 	}
@@ -3541,6 +3592,9 @@ static const struct hid_device_id hidpp_devices[] = {
 	{ /* Mouse Logitech MX3200 (M-RAZ105) */
 	  LDJ_DEVICE(0x003a),
 	  .driver_data = HIDPP_QUIRK_HIDPP_HWHEEL_AND_EXTRA_BTNS },
+	{ /* MX5000 keyboard (Bluetooth-receiver in HID proxy mode) */
+	  LDJ_DEVICE(0xb305),
+	  .driver_data = HIDPP_QUIRK_HIDPP_CONSUMER_VENDOR_KEYS },
 
 	{ LDJ_DEVICE(HID_ANY_ID) },
 
