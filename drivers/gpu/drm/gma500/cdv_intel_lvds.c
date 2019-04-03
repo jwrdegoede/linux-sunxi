@@ -572,6 +572,20 @@ static bool lvds_is_present_in_vbt(struct drm_device *dev,
 	return false;
 }
 
+static const struct dmi_system_id cdv_intel_lvds_blacklist[] = {
+	{
+		/* Thecus N2800 and N5550 family NAS-es */
+		.matches = {
+			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Intel Corporation"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Milstead Platform"),
+			DMI_EXACT_MATCH(DMI_BOARD_NAME, "Granite Well"),
+			/* BIOS version is CDV_T<version> X64 */
+			DMI_MATCH(DMI_BIOS_VERSION, "CDV_T"),
+		},
+	},
+	{}
+};
+
 /**
  * cdv_intel_lvds_init - setup LVDS connectors on this device
  * @dev: drm device
@@ -593,6 +607,15 @@ void cdv_intel_lvds_init(struct drm_device *dev,
 	u32 lvds;
 	int pipe;
 	u8 pin;
+
+	/*
+	 * Check blacklist for machines with BIOSes that list an LVDS panel
+	 * without actually having one.
+	 */
+	if (dmi_check_system(cdv_intel_lvds_blacklist)) {
+		dev_info(&dev->pdev->dev, "System is on LVDS blacklist, skipping LVDS panel detection\n");
+		return;
+	}
 
 	pin = GMBUS_PORT_PANEL;
 	if (!lvds_is_present_in_vbt(dev, &pin)) {
