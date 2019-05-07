@@ -650,6 +650,60 @@
 #define KEY_DATA			0x277
 #define KEY_ONSCREEN_KEYBOARD		0x278
 
+/*
+ * Some keyboards have a buildin LCD panel where the contents are controlled
+ * by the host. Often these have a number of keys directly below the LCD
+ * intended for controlling a menu shown on the LCD. These keys often don't
+ * have any labelling so we just name them KEY_LCD_MENU#
+ */
+#define KEY_LCD_MENU1			0x280
+#define KEY_LCD_MENU2			0x281
+#define KEY_LCD_MENU3			0x282
+#define KEY_LCD_MENU4			0x283
+#define KEY_LCD_MENU5			0x284
+
+/* Macro preset selection and recording keys, typically found on gaming kbds */
+#define KEY_MACRO_RECORD_START		0x288
+#define KEY_MACRO_RECORD_STOP		0x289
+#define KEY_MACRO_PRESET_CYCLE		0x28a
+#define KEY_MACRO_PRESET1		0x28b
+#define KEY_MACRO_PRESET2		0x28c
+#define KEY_MACRO_PRESET3		0x28d
+
+/* Gaming "macro" (macros handled in software/userspace) keys on gaming kbds */
+#define KEY_MACRO1			0x290
+#define KEY_MACRO2			0x291
+#define KEY_MACRO3			0x292
+#define KEY_MACRO4			0x293
+#define KEY_MACRO5			0x294
+#define KEY_MACRO6			0x295
+#define KEY_MACRO7			0x296
+#define KEY_MACRO8			0x297
+#define KEY_MACRO9			0x298
+#define KEY_MACRO10			0x299
+#define KEY_MACRO11			0x29a
+#define KEY_MACRO12			0x29b
+#define KEY_MACRO13			0x29c
+#define KEY_MACRO14			0x29d
+#define KEY_MACRO15			0x29e
+#define KEY_MACRO16			0x29f
+#define KEY_MACRO17			0x2a0
+#define KEY_MACRO18			0x2a1
+#define KEY_MACRO19			0x2a2
+#define KEY_MACRO20			0x2a3
+#define KEY_MACRO21			0x2a4
+#define KEY_MACRO22			0x2a5
+#define KEY_MACRO23			0x2a6
+#define KEY_MACRO24			0x2a7
+#define KEY_MACRO25			0x2a8
+#define KEY_MACRO26			0x2a9
+#define KEY_MACRO27			0x2aa
+#define KEY_MACRO28			0x2ab
+#define KEY_MACRO29			0x2ac
+#define KEY_MACRO30			0x2ad
+
+/* Note: 0x2ae - 0x2bf are served to extend the MACRO keys if necessary */
+
 #define BTN_TRIGGER_HAPPY		0x2c0
 #define BTN_TRIGGER_HAPPY1		0x2c0
 #define BTN_TRIGGER_HAPPY2		0x2c1
