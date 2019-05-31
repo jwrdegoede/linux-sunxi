@@ -82,9 +82,11 @@
 #define CHT_WC_PWRSRC_RID_FLOAT		2
 
 #define CHT_WC_VBUS_GPIO_CTLO		0x6e2d
-#define CHT_WC_VBUS_GPIO_CTLO_OUTPUT	BIT(0)
-#define CHT_WC_VBUS_GPIO_CTLO_DRV_OD	BIT(4)
-#define CHT_WC_VBUS_GPIO_CTLO_DIR_OUT	BIT(5)
+#define CHT_WC_VCONN_GPIO_CTLO		0x6e2e
+
+#define CHT_WC_GPIO_CTLO_OUTPUT		BIT(0)
+#define CHT_WC_GPIO_CTLO_DRV_OD		BIT(4)
+#define CHT_WC_GPIO_CTLO_DIR_OUT	BIT(5)
 
 enum cht_wc_mux_select {
 	MUX_SEL_PMIC = 0,
@@ -211,8 +213,8 @@ static void cht_wc_extcon_set_phymux(struct cht_wc_extcon_data *ext, u8 state)
 		dev_err(ext->dev, "Error writing phyctrl: %d\n", ret);
 }
 
-static void cht_wc_extcon_set_5v_boost(struct cht_wc_extcon_data *ext,
-				       bool enable)
+static void cht_wc_extcon_set_gpio(struct cht_wc_extcon_data *ext,
+				   int gpio_ctlo_reg, bool enable)
 {
 	int ret, val;
 
@@ -220,13 +222,13 @@ static void cht_wc_extcon_set_5v_boost(struct cht_wc_extcon_data *ext,
 	 * The 5V boost converter is enabled through a gpio on the PMIC, since
 	 * there currently is no gpio driver we access the gpio reg directly.
 	 */
-	val = CHT_WC_VBUS_GPIO_CTLO_DRV_OD | CHT_WC_VBUS_GPIO_CTLO_DIR_OUT;
+	val = CHT_WC_GPIO_CTLO_DRV_OD | CHT_WC_GPIO_CTLO_DIR_OUT;
 	if (enable)
-		val |= CHT_WC_VBUS_GPIO_CTLO_OUTPUT;
+		val |= CHT_WC_GPIO_CTLO_OUTPUT;
 
-	ret = regmap_write(ext->regmap, CHT_WC_VBUS_GPIO_CTLO, val);
+	ret = regmap_write(ext->regmap, gpio_ctlo_reg, val);
 	if (ret)
-		dev_err(ext->dev, "Error writing Vbus GPIO CTLO: %d\n", ret);
+		dev_err(ext->dev, "Error writing GPIO CTLO: %d\n", ret);
 }
 
 static void cht_wc_extcon_set_otgmode(struct cht_wc_extcon_data *ext,
@@ -534,7 +536,7 @@ static int cht_wc_extcon_probe(struct platform_device *pdev)
 		 * which does not have these issues, we simply turn the separate
 		 * external 5v boost converter off and leave it off entirely.
 		 */
-		cht_wc_extcon_set_5v_boost(ext, false);
+		cht_wc_extcon_set_gpio(ext, CHT_WC_VBUS_GPIO_CTLO, false);
 		break;
 	case INTEL_CHT_WC_LENOVO_YOGABOOK1:
 	case INTEL_CHT_WC_LENOVO_YT3_X90:
