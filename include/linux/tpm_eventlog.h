@@ -165,6 +165,7 @@ static inline int __calc_tpm2_event_size(struct tcg_pcr_event2_head *event,
 	int mapping_size;
 	void *marker;
 	void *marker_start;
+	u32 count;
 	u32 halg_size;
 	size_t size;
 	u16 halg;
@@ -190,16 +191,17 @@ static inline int __calc_tpm2_event_size(struct tcg_pcr_event2_head *event,
 	}
 
 	event = (struct tcg_pcr_event2_head *)mapping;
+	count = event->count;
 
 	efispecid = (struct tcg_efi_specid_event_head *)event_header->event;
 
 	/* Check if event is malformed. */
-	if (event->count > efispecid->num_algs) {
+	if (count > efispecid->num_algs) {
 		size = 0;
 		goto out;
 	}
 
-	for (i = 0; i < event->count; i++) {
+	for (i = 0; i < count; i++) {
 		halg_size = sizeof(event->digests[i].alg_id);
 
 		/* Map the digest's algorithm identifier */
