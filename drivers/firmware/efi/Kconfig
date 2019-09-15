@@ -194,6 +194,10 @@ config EFI_RCI2_TABLE
 
 	  Say Y here for Dell EMC PowerEdge systems.
 
+config EFI_EMBEDDED_FIRMWARE
+	bool
+	select CRYPTO_LIB_SHA256
+
 endmenu
 
 config UEFI_CPER
