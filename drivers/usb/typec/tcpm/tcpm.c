@@ -28,6 +28,7 @@
 #include <linux/usb/role.h>
 #include <linux/usb/tcpm.h>
 #include <linux/usb/typec_altmode.h>
+#include <linux/usb/typec_dp.h>
 #include <linux/workqueue.h>
 
 #define FOREACH_STATE(S)			\
@@ -281,6 +282,7 @@ struct tcpm_port {
 	unsigned int nr_snk_pdo;
 	u32 snk_vdo[VDO_MAX_OBJECTS];
 	unsigned int nr_snk_vdo;
+	u32 displayport_vdo;
 
 	unsigned int operating_snk_mw;
 	bool update_sink_caps;
@@ -4492,6 +4494,9 @@ sink:
 					    port->nr_snk_pdo))
 		return -EINVAL;
 
+	fwnode_property_read_u32(fwnode, "displayport-vdo",
+				 &port->displayport_vdo);
+
 	if (fwnode_property_read_u32(fwnode, "op-sink-microwatt", &mw) < 0)
 		return -EINVAL;
 	port->operating_snk_mw = mw / 1000;
@@ -4726,6 +4731,28 @@ static int devm_tcpm_psy_register(struct tcpm_port *port)
 	return PTR_ERR_OR_ZERO(port->psy);
 }
 
+static int tcpm_register_port_altmodes(struct tcpm_port *port)
+{
+	struct typec_altmode_desc desc;
+	struct typec_altmode *alt;
+	int index = 0;
+
+	if (port->displayport_vdo) {
+		desc.svid = USB_TYPEC_DP_SID;
+		desc.mode = USB_TYPEC_DP_MODE;
+		desc.vdo  = port->displayport_vdo;
+		alt = typec_port_register_altmode(port->typec_port, &desc);
+		if (IS_ERR(alt))
+			return PTR_ERR(alt);
+		typec_altmode_set_drvdata(alt, port);
+		alt->ops = &tcpm_altmode_ops;
+		port->port_altmode[index] = alt;
+		index++;
+	}
+	/* Future support for further altmodes goes here */
+	return 0;
+}
+
 struct tcpm_port *tcpm_register_port(struct device *dev, struct tcpc_dev *tcpc)
 {
 	struct tcpm_port *port;
@@ -4793,6 +4820,10 @@ struct tcpm_port *tcpm_register_port(struct device *dev, struct tcpc_dev *tcpc)
 		goto out_role_sw_put;
 	}
 
+	err = tcpm_register_port_altmodes(port);
+	if (err)
+		goto out_unregister_port;
+
 	mutex_lock(&port->lock);
 	tcpm_init(port);
 	mutex_unlock(&port->lock);
@@ -4800,6 +4831,8 @@ struct tcpm_port *tcpm_register_port(struct device *dev, struct tcpc_dev *tcpc)
 	tcpm_log(port, "%s: registered", dev_name(dev));
 	return port;
 
+out_unregister_port:
+	typec_unregister_port(port->typec_port);
 out_role_sw_put:
 	usb_role_switch_put(port->role_sw);
 out_destroy_wq:
