@@ -38,6 +38,9 @@ Optional properties for usb-c-connector:
   or Try.SRC, should be "sink" for Try.SNK or "source" for Try.SRC.
 - data-role: should be one of "host", "device", "dual"(DRD) if typec
   connector supports USB data.
+- displayport-vdo: The presenence of this property indicates that the
+  usb-connector supports displayport-altmode (svid 0xff01), the value of
+  this property is an u32 with the vdo value for the displayport-altmode,
 
 Required properties for usb-c-connector with power delivery support:
 - source-pdos: An array of u32 with each entry providing supported power
