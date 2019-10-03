@@ -115,6 +115,7 @@ static const struct property_entry usb_connector_properties[] = {
 	PROPERTY_ENTRY_REF("orientation-switch", &pi3usb30532_node),
 	PROPERTY_ENTRY_REF("mode-switch", &pi3usb30532_node),
 	PROPERTY_ENTRY_REF("displayport", &displayport_node),
+	PROPERTY_ENTRY_U32("displayport-vdo", 0x0c0086),
 	{ }
 };
 
