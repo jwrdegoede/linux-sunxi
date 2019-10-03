@@ -113,6 +113,7 @@ static const struct property_entry usb_connector_props[] = {
 			   &nodes[INT33FE_NODE_PI3USB30532]),
 	PROPERTY_ENTRY_REF("displayport",
 			   &nodes[INT33FE_NODE_DISPLAYPORT]),
+	PROPERTY_ENTRY_U32("displayport-vdo", 0x0c0086),
 	{ }
 };
 
