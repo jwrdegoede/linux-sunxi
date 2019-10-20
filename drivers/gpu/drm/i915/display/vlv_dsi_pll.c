@@ -119,15 +119,25 @@ int vlv_dsi_pll_compute(struct intel_encoder *encoder,
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(encoder);
 	int ret;
-	u32 dsi_clk;
+	u32 dsi_clk, current_pclk;
 
-	dsi_clk = dsi_clk_from_pclk(intel_dsi->pclk, intel_dsi->pixel_format,
-				    intel_dsi->lane_count);
+	/*
+	 * For exact matches, the GOP may pick another set of divisors
+	 * then we do, if the GOP settings are an exact match keep them.
+	 */
+	current_pclk = vlv_dsi_get_pclk(encoder, config);
+	if (current_pclk == intel_dsi->pclk) {
+		config->dsi_pll.ctrl &= DSI_PLL_P1_POST_DIV_MASK;
+	} else {
+		dsi_clk = dsi_clk_from_pclk(intel_dsi->pclk,
+					    intel_dsi->pixel_format,
+					    intel_dsi->lane_count);
 
-	ret = dsi_calc_mnp(dev_priv, config, dsi_clk);
-	if (ret) {
-		drm_dbg_kms(&dev_priv->drm, "dsi_calc_mnp failed\n");
-		return ret;
+		ret = dsi_calc_mnp(dev_priv, config, dsi_clk);
+		if (ret) {
+			drm_dbg_kms(&dev_priv->drm, "dsi_calc_mnp failed\n");
+			return ret;
+		}
 	}
 
 	if (intel_dsi->ports & (1 << PORT_A))
