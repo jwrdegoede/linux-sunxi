@@ -2971,6 +2971,7 @@ static int sof_link_load(struct snd_soc_component *scomp, int index,
 	struct snd_soc_tplg_private *private = &cfg->priv;
 	struct sof_ipc_dai_config config;
 	struct snd_soc_tplg_hw_config *hw_config;
+	struct sof_ipc_fw_version *v = &sdev->fw_ready.version;
 	int num_hw_configs;
 	int ret;
 	int i = 0;
@@ -2988,9 +2989,12 @@ static int sof_link_load(struct snd_soc_component *scomp, int index,
 	if (!link->no_pcm) {
 		link->nonatomic = true;
 
-		/* set trigger order */
-		link->trigger[0] = SND_SOC_DPCM_TRIGGER_POST;
-		link->trigger[1] = SND_SOC_DPCM_TRIGGER_POST;
+		/* this causes DSP panic on firmware v1.3 */
+		if (SOF_ABI_VER(v->major, v->minor, v->micro) > SOF_ABI_VER(3, 7, 0)) {
+			/* set trigger order */
+			link->trigger[0] = SND_SOC_DPCM_TRIGGER_POST;
+			link->trigger[1] = SND_SOC_DPCM_TRIGGER_POST;
+		}
 
 		/* nothing more to do for FE dai links */
 		return 0;
