@@ -108,6 +108,13 @@ static const struct drm_dmi_panel_orientation_data lcd1200x1920_rightside_up = {
 	.orientation = DRM_MODE_PANEL_ORIENTATION_RIGHT_UP,
 };
 
+static const struct drm_dmi_panel_orientation_data teclast_x89 = {
+	.width = 1536,
+	.height = 2048,
+	.bios_dates = (const char * const []){ "12/19/2014", NULL },
+	.orientation = DRM_MODE_PANEL_ORIENTATION_BOTTOM_UP,
+};
+
 static const struct dmi_system_id orientation_data[] = {
 	{	/* Acer One 10 (S1003) */
 		.matches = {
@@ -205,6 +212,12 @@ static const struct dmi_system_id orientation_data[] = {
 		  DMI_EXACT_MATCH(DMI_PRODUCT_VERSION, "Lenovo ideapad D330-10IGM"),
 		},
 		.driver_data = (void *)&lcd1200x1920_rightside_up,
+	}, {	/* Teclast X89 (tPAD is too generic, also match on bios date) */
+		.matches = {
+		  DMI_EXACT_MATCH(DMI_BOARD_VENDOR, "TECLAST"),
+		  DMI_EXACT_MATCH(DMI_BOARD_NAME, "tPAD"),
+		},
+		.driver_data = (void *)&teclast_x89,
 	}, {	/* VIOS LTH17 */
 		.matches = {
 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "VIOS"),
