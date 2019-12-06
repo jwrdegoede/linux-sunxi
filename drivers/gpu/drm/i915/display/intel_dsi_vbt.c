@@ -25,7 +25,10 @@
  */
 
 #include <linux/gpio/consumer.h>
+#include <linux/gpio/machine.h>
 #include <linux/mfd/intel_soc_pmic.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/pinctrl/machine.h>
 #include <linux/slab.h>
 
 #include <asm/intel-mid.h>
@@ -524,11 +527,15 @@ void intel_dsi_vbt_exec_sequence(struct intel_dsi *intel_dsi,
 {
 	if (seq_id == MIPI_SEQ_POWER_ON && intel_dsi->gpio_panel)
 		gpiod_set_value_cansleep(intel_dsi->gpio_panel, 1);
+	if (seq_id == MIPI_SEQ_BACKLIGHT_ON && intel_dsi->gpio_backlight)
+		gpiod_set_value_cansleep(intel_dsi->gpio_backlight, 1);
 
 	intel_dsi_vbt_exec(intel_dsi, seq_id);
 
 	if (seq_id == MIPI_SEQ_POWER_OFF && intel_dsi->gpio_panel)
 		gpiod_set_value_cansleep(intel_dsi->gpio_panel, 0);
+	if (seq_id == MIPI_SEQ_BACKLIGHT_OFF && intel_dsi->gpio_backlight)
+		gpiod_set_value_cansleep(intel_dsi->gpio_backlight, 0);
 }
 
 void intel_dsi_msleep(struct intel_dsi *intel_dsi, int msec)
@@ -580,6 +587,26 @@ void intel_dsi_log_params(struct intel_dsi *intel_dsi)
 			enableddisabled(!(intel_dsi->video_frmt_cfg_bits & DISABLE_VIDEO_BTA)));
 }
 
+/*
+ * On BYT, when the SoC is used for backlight control, we need to add the right
+ * GPIO maps before we can get the GPIOs.
+ * If the GOP did not initialize the panel (HDMI inserted) we may need to also
+ * change the pinmux for the SoC's PWM0 pin from GPIO to PWM.
+ */
+static struct gpiod_lookup_table byt_soc_panel_gpio_table = {
+	.dev_id = "0000:00:02.0",
+	.table = {
+	  GPIO_LOOKUP("INT33FC:01", 10, "backlight_enable", GPIO_ACTIVE_HIGH),
+	  GPIO_LOOKUP("INT33FC:01", 11, "panel_enable", GPIO_ACTIVE_HIGH),
+	  { },
+	},
+};
+
+static const struct pinctrl_map byt_soc_pwm_pinctrl_map[] = {
+	PIN_MAP_MUX_GROUP("0000:00:02.0", "soc_pwm0", "INT33FC:00",
+			  "pwm0_grp", "pwm"),
+};
+
 bool intel_dsi_vbt_init(struct intel_dsi *intel_dsi, u16 panel_id)
 {
 	struct drm_device *dev = intel_dsi->base.base.dev;
@@ -587,8 +614,10 @@ bool intel_dsi_vbt_init(struct intel_dsi *intel_dsi, u16 panel_id)
 	struct mipi_config *mipi_config = dev_priv->vbt.dsi.config;
 	struct mipi_pps_data *pps = dev_priv->vbt.dsi.pps;
 	struct drm_display_mode *mode = dev_priv->vbt.lfp_lvds_vbt_mode;
+	struct pinctrl *pinctrl;
 	u16 burst_mode_ratio;
 	enum port port;
+	int ret;
 
 	DRM_DEBUG_KMS("\n");
 
@@ -695,14 +724,54 @@ bool intel_dsi_vbt_init(struct intel_dsi *intel_dsi, u16 panel_id)
 			intel_dsi->gpio_panel = NULL;
 		}
 	}
+	if (IS_VALLEYVIEW(dev_priv) && mipi_config->pwm_blc == PPS_BLC_SOC) {
+		gpiod_add_lookup_table(&byt_soc_panel_gpio_table);
+
+		intel_dsi->gpio_panel =
+			gpiod_get(dev->dev, "panel_enable", GPIOD_OUT_HIGH);
+		if (IS_ERR(intel_dsi->gpio_panel)) {
+			DRM_ERROR("Failed to own gpio for panel control\n");
+			intel_dsi->gpio_panel = NULL;
+		}
+
+		intel_dsi->gpio_backlight =
+			gpiod_get(dev->dev, "backlight_enable", GPIOD_OUT_HIGH);
+		if (IS_ERR(intel_dsi->gpio_backlight)) {
+			DRM_ERROR("Failed to own gpio for backlight control\n");
+			intel_dsi->gpio_backlight = NULL;
+		}
+
+		/* Ensure PWM0 pin is muxed as PWM instead of GPIO */
+		ret = pinctrl_register_mappings(byt_soc_pwm_pinctrl_map, 1);
+		if (ret)
+			DRM_ERROR("Failed to register pwm0 pinmux mapping\n");
+
+		pinctrl = devm_pinctrl_get_select(dev->dev, "soc_pwm0");
+		if (IS_ERR(pinctrl))
+			DRM_ERROR("Failed to set pinmux to PWM\n");
+	}
 
 	return true;
 }
 
 void intel_dsi_vbt_cleanup(struct intel_dsi *intel_dsi)
 {
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = to_i915(dev);
+
 	if (intel_dsi->gpio_panel) {
 		gpiod_put(intel_dsi->gpio_panel);
-		intel_dsi->gpio_panel = NULL);
+		intel_dsi->gpio_panel = NULL;
+	}
+
+	if (intel_dsi->gpio_backlight) {
+		gpiod_put(intel_dsi->gpio_backlight);
+		intel_dsi->gpio_backlight = NULL;
+	}
+
+	if (IS_VALLEYVIEW(dev_priv) &&
+	    dev_priv->vbt.dsi.config->pwm_blc == PPS_BLC_SOC) {
+		pinctrl_unregister_mappings(byt_soc_pwm_pinctrl_map);
+		gpiod_remove_lookup_table(&byt_soc_panel_gpio_table);
 	}
 }
