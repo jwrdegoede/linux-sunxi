@@ -1431,6 +1431,7 @@ int pinctrl_register_map(const struct pinctrl_map *maps, unsigned num_maps,
 		return -ENOMEM;
 
 	maps_node->num_maps = num_maps;
+	maps_node->dup = dup;
 	if (dup) {
 		maps_node->maps = kmemdup(maps, sizeof(*maps) * num_maps,
 					  GFP_KERNEL);
@@ -1463,7 +1464,12 @@ int pinctrl_register_mappings(const struct pinctrl_map *maps,
 }
 EXPORT_SYMBOL_GPL(pinctrl_register_mappings);
 
-void pinctrl_unregister_map(const struct pinctrl_map *map)
+/**
+ * pinctrl_unregister_mappings() - unregister a set of pin controller mappings
+ * @maps: the pincontrol mappings table passed to pinctrl_register_mappings()
+ *	when registering the mappings.
+ */
+void pinctrl_unregister_mappings(const struct pinctrl_map *map)
 {
 	struct pinctrl_maps *maps_node;
 
@@ -1471,6 +1477,8 @@ void pinctrl_unregister_map(const struct pinctrl_map *map)
 	list_for_each_entry(maps_node, &pinctrl_maps, node) {
 		if (maps_node->maps == map) {
 			list_del(&maps_node->node);
+			if (maps_node->dup)
+				kfree(maps_node->maps);
 			kfree(maps_node);
 			mutex_unlock(&pinctrl_maps_mutex);
 			return;
@@ -1478,6 +1486,7 @@ void pinctrl_unregister_map(const struct pinctrl_map *map)
 	}
 	mutex_unlock(&pinctrl_maps_mutex);
 }
+EXPORT_SYMBOL_GPL(pinctrl_unregister_mappings);
 
 /**
  * pinctrl_force_sleep() - turn a given controller device into sleep state

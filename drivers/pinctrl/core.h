@@ -175,11 +175,13 @@ struct pin_desc {
  * @node: mapping table list node
  * @maps: array of mapping table entries
  * @num_maps: the number of entries in @maps
+ * @dup: has the mapping table been memdup-ed by us?
  */
 struct pinctrl_maps {
 	struct list_head node;
 	const struct pinctrl_map *maps;
 	unsigned num_maps;
+	bool dup;
 };
 
 #ifdef CONFIG_GENERIC_PINCTRL_GROUPS
@@ -238,7 +240,6 @@ pinctrl_find_gpio_range_from_pin_nolock(struct pinctrl_dev *pctldev,
 
 int pinctrl_register_map(const struct pinctrl_map *maps, unsigned num_maps,
 			 bool dup);
-void pinctrl_unregister_map(const struct pinctrl_map *map);
 
 extern int pinctrl_force_sleep(struct pinctrl_dev *pctldev);
 extern int pinctrl_force_default(struct pinctrl_dev *pctldev);
