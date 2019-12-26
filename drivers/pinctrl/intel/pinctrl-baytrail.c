@@ -742,8 +742,13 @@ static void byt_gpio_clear_triggering(struct intel_pinctrl *vg, unsigned int off
 
 	raw_spin_lock_irqsave(&byt_lock, flags);
 	value = readl(reg);
+	/* Do not clear direct-irq enabled irqs (from gpio_disable_free) */
+	if (value & BYT_DIRECT_IRQ_EN)
+		goto out;
+
 	value &= ~(BYT_TRIG_POS | BYT_TRIG_NEG | BYT_TRIG_LVL);
 	writel(value, reg);
+out:
 	raw_spin_unlock_irqrestore(&byt_lock, flags);
 }
 
