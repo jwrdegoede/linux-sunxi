@@ -35,6 +35,7 @@ enum goodix_irq_pin_access_method {
 	irq_pin_access_none,
 	irq_pin_access_gpio,
 	irq_pin_access_acpi_gpio,
+	irq_pin_access_acpi_method,
 };
 
 struct goodix_chip_data {
@@ -516,6 +517,9 @@ static int goodix_send_cfg(struct goodix_ts_data *ts,
 static int goodix_irq_direction_output(struct goodix_ts_data *ts,
 				       int value)
 {
+	struct device *dev = &ts->client->dev;
+	acpi_status status;
+
 	switch (ts->irq_pin_access_method) {
 	case irq_pin_access_none:
 		dev_err(&ts->client->dev,
@@ -530,6 +534,10 @@ static int goodix_irq_direction_output(struct goodix_ts_data *ts,
 		 * as active-low, use output_raw to avoid the value inversion.
 		 */
 		return gpiod_direction_output_raw(ts->gpiod_int, value);
+	case irq_pin_access_acpi_method:
+		status = acpi_execute_simple_method(ACPI_HANDLE(dev),
+						    "INTO", value);
+		return ACPI_SUCCESS(status) ? 0 : -EIO;
 	}
 
 	return -EINVAL; /* Never reached */
@@ -537,6 +545,9 @@ static int goodix_irq_direction_output(struct goodix_ts_data *ts,
 
 static int goodix_irq_direction_input(struct goodix_ts_data *ts)
 {
+	struct device *dev = &ts->client->dev;
+	acpi_status status;
+
 	switch (ts->irq_pin_access_method) {
 	case irq_pin_access_none:
 		dev_err(&ts->client->dev,
@@ -546,6 +557,10 @@ static int goodix_irq_direction_input(struct goodix_ts_data *ts)
 	case irq_pin_access_gpio:
 	case irq_pin_access_acpi_gpio:
 		return gpiod_direction_input(ts->gpiod_int);
+	case irq_pin_access_acpi_method:
+		status = acpi_evaluate_object(ACPI_HANDLE(dev), "INTI",
+					      NULL, NULL);
+		return ACPI_SUCCESS(status) ? 0 : -EIO;
 	}
 
 	return -EINVAL; /* Never reached */
@@ -640,6 +655,11 @@ static const struct acpi_gpio_mapping acpi_goodix_int_last_gpios[] = {
 	{ },
 };
 
+static const struct acpi_gpio_mapping acpi_goodix_reset_only_gpios[] = {
+	{ GOODIX_GPIO_RST_NAME "-gpios", &first_gpio, 1 },
+	{ },
+};
+
 static int goodix_resource(struct acpi_resource *ares, void *data)
 {
 	struct goodix_ts_data *ts = data;
@@ -690,6 +710,12 @@ static int goodix_add_acpi_gpio_mappings(struct goodix_ts_data *ts)
 	} else if (ts->gpio_count == 2 && ts->gpio_int_idx == 1) {
 		ts->irq_pin_access_method = irq_pin_access_acpi_gpio;
 		gpio_mapping = acpi_goodix_int_last_gpios;
+	} else if (ts->gpio_count == 1 && ts->gpio_int_idx == -1 &&
+		   acpi_has_method(ACPI_HANDLE(dev), "INTI") &&
+		   acpi_has_method(ACPI_HANDLE(dev), "INTO")) {
+		dev_info(dev, "Using ACPI INTI and INTO methods for IRQ pin access\n");
+		ts->irq_pin_access_method = irq_pin_access_acpi_method;
+		gpio_mapping = acpi_goodix_reset_only_gpios;
 	} else if (is_byt() && ts->gpio_count == 2 && ts->gpio_int_idx == -1) {
 		dev_info(dev, "No ACPI GpioInt resource, assuming that the GPIO order is reset, int\n");
 		ts->irq_pin_access_method = irq_pin_access_acpi_gpio;
@@ -776,6 +802,10 @@ retry_get_irq_gpio:
 	switch (ts->irq_pin_access_method) {
 	case irq_pin_access_acpi_gpio:
 		if (!ts->gpiod_int || !ts->gpiod_rst)
+			ts->irq_pin_access_method = irq_pin_access_none;
+		break;
+	case irq_pin_access_acpi_method:
+		if (!ts->gpiod_rst)
 			ts->irq_pin_access_method = irq_pin_access_none;
 		break;
 	default:
