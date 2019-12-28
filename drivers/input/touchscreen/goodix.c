@@ -72,6 +72,7 @@ struct goodix_chip_data {
 	u16 config_addr;
 	int config_len;
 	int (*check_config)(struct goodix_ts_data *, const struct firmware *);
+	void (*fix_config)(struct goodix_ts_data *ts);
 };
 
 struct goodix_ts_data {
@@ -96,35 +97,42 @@ struct goodix_ts_data {
 	unsigned long irq_flags;
 	enum goodix_irq_pin_access_method irq_pin_access_method;
 	unsigned int contact_size;
+	u8 config[GOODIX_CONFIG_MAX_LENGTH];
 };
 
 static int goodix_check_cfg_8(struct goodix_ts_data *ts,
 			const struct firmware *cfg);
 static int goodix_check_cfg_16(struct goodix_ts_data *ts,
 			const struct firmware *cfg);
+static void goodix_fix_cfg_8(struct goodix_ts_data *ts);
+static void goodix_fix_cfg_16(struct goodix_ts_data *ts);
 
 static const struct goodix_chip_data gt1x_chip_data = {
 	.config_addr		= GOODIX_GT1X_REG_CONFIG_DATA,
 	.config_len		= GOODIX_CONFIG_MAX_LENGTH,
 	.check_config		= goodix_check_cfg_16,
+	.fix_config		= goodix_fix_cfg_16,
 };
 
 static const struct goodix_chip_data gt911_chip_data = {
 	.config_addr		= GOODIX_GT9X_REG_CONFIG_DATA,
 	.config_len		= GOODIX_CONFIG_911_LENGTH,
 	.check_config		= goodix_check_cfg_8,
+	.fix_config		= goodix_fix_cfg_8,
 };
 
 static const struct goodix_chip_data gt967_chip_data = {
 	.config_addr		= GOODIX_GT9X_REG_CONFIG_DATA,
 	.config_len		= GOODIX_CONFIG_967_LENGTH,
 	.check_config		= goodix_check_cfg_8,
+	.fix_config		= goodix_fix_cfg_8,
 };
 
 static const struct goodix_chip_data gt9x_chip_data = {
 	.config_addr		= GOODIX_GT9X_REG_CONFIG_DATA,
 	.config_len		= GOODIX_CONFIG_MAX_LENGTH,
 	.check_config		= goodix_check_cfg_8,
+	.fix_config		= goodix_fix_cfg_8,
 };
 
 static const unsigned long goodix_irq_flags[] = {
@@ -442,6 +450,19 @@ static int goodix_check_cfg_8(struct goodix_ts_data *ts,
 	return 0;
 }
 
+static void goodix_fix_cfg_8(struct goodix_ts_data *ts)
+{
+	int i, raw_cfg_len = ts->chip->config_len - 2;
+	u8 check_sum = 0;
+
+	for (i = 0; i < raw_cfg_len; i++)
+		check_sum += ts->config[i];
+	check_sum = (~check_sum) + 1;
+
+	ts->config[raw_cfg_len] = check_sum;
+	ts->config[raw_cfg_len + 1] = 1;
+}
+
 static int goodix_check_cfg_16(struct goodix_ts_data *ts,
 			const struct firmware *cfg)
 {
@@ -464,6 +485,19 @@ static int goodix_check_cfg_16(struct goodix_ts_data *ts,
 	}
 
 	return 0;
+}
+
+static void goodix_fix_cfg_16(struct goodix_ts_data *ts)
+{
+	int i, raw_cfg_len = ts->chip->config_len - 3;
+	u16 check_sum = 0;
+
+	for (i = 0; i < raw_cfg_len; i += 2)
+		check_sum += get_unaligned_be16(&ts->config[i]);
+	check_sum = (~check_sum) + 1;
+
+	put_unaligned_be16(check_sum, &ts->config[raw_cfg_len]);
+	ts->config[raw_cfg_len + 2] = 1;
 }
 
 /**
@@ -828,12 +862,11 @@ retry_get_irq_gpio:
  */
 static void goodix_read_config(struct goodix_ts_data *ts)
 {
-	u8 config[GOODIX_CONFIG_MAX_LENGTH];
 	int x_max, y_max;
 	int error;
 
 	error = goodix_i2c_read(ts->client, ts->chip->config_addr,
-				config, ts->chip->config_len);
+				ts->config, ts->chip->config_len);
 	if (error) {
 		dev_warn(&ts->client->dev, "Error reading config: %d\n",
 			 error);
@@ -842,15 +875,21 @@ static void goodix_read_config(struct goodix_ts_data *ts)
 		return;
 	}
 
-	ts->int_trigger_type = config[TRIGGER_LOC] & 0x03;
-	ts->max_touch_num = config[MAX_CONTACTS_LOC] & 0x0f;
+	ts->int_trigger_type = ts->config[TRIGGER_LOC] & 0x03;
+	ts->max_touch_num = ts->config[MAX_CONTACTS_LOC] & 0x0f;
 
-	x_max = get_unaligned_le16(&config[RESOLUTION_LOC]);
-	y_max = get_unaligned_le16(&config[RESOLUTION_LOC + 2]);
+	x_max = get_unaligned_le16(&ts->config[RESOLUTION_LOC]);
+	y_max = get_unaligned_le16(&ts->config[RESOLUTION_LOC + 2]);
 	if (x_max && y_max) {
 		input_abs_set_max(ts->input_dev, ABS_MT_POSITION_X, x_max - 1);
 		input_abs_set_max(ts->input_dev, ABS_MT_POSITION_Y, y_max - 1);
 	}
+
+	/*
+	 * Ensure valid checksum and config_fresh bit being set for possible
+	 * re-upload of config after suspend/resume.
+	 */
+	ts->chip->fix_config(ts);
 }
 
 /**
