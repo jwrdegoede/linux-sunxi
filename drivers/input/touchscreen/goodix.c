@@ -71,7 +71,7 @@ enum goodix_irq_pin_access_method {
 struct goodix_chip_data {
 	u16 config_addr;
 	int config_len;
-	int (*check_config)(struct goodix_ts_data *, const struct firmware *);
+	int (*check_config)(struct goodix_ts_data *ts, const u8 *cfg, int len);
 	void (*fix_config)(struct goodix_ts_data *ts);
 };
 
@@ -101,9 +101,9 @@ struct goodix_ts_data {
 };
 
 static int goodix_check_cfg_8(struct goodix_ts_data *ts,
-			const struct firmware *cfg);
+			      const u8 *cfg, int len);
 static int goodix_check_cfg_16(struct goodix_ts_data *ts,
-			const struct firmware *cfg);
+			       const u8 *cfg, int len);
 static void goodix_fix_cfg_8(struct goodix_ts_data *ts);
 static void goodix_fix_cfg_16(struct goodix_ts_data *ts);
 
@@ -426,22 +426,21 @@ static int goodix_request_irq(struct goodix_ts_data *ts)
 					 ts->irq_flags, ts->client->name, ts);
 }
 
-static int goodix_check_cfg_8(struct goodix_ts_data *ts,
-			const struct firmware *cfg)
+static int goodix_check_cfg_8(struct goodix_ts_data *ts, const u8 *cfg, int len)
 {
-	int i, raw_cfg_len = cfg->size - 2;
+	int i, raw_cfg_len = len - 2;
 	u8 check_sum = 0;
 
 	for (i = 0; i < raw_cfg_len; i++)
-		check_sum += cfg->data[i];
+		check_sum += cfg[i];
 	check_sum = (~check_sum) + 1;
-	if (check_sum != cfg->data[raw_cfg_len]) {
+	if (check_sum != cfg[raw_cfg_len]) {
 		dev_err(&ts->client->dev,
 			"The checksum of the config fw is not correct");
 		return -EINVAL;
 	}
 
-	if (cfg->data[raw_cfg_len + 1] != 1) {
+	if (cfg[raw_cfg_len + 1] != 1) {
 		dev_err(&ts->client->dev,
 			"Config fw must have Config_Fresh register set");
 		return -EINVAL;
@@ -463,22 +462,22 @@ static void goodix_fix_cfg_8(struct goodix_ts_data *ts)
 	ts->config[raw_cfg_len + 1] = 1;
 }
 
-static int goodix_check_cfg_16(struct goodix_ts_data *ts,
-			const struct firmware *cfg)
+static int goodix_check_cfg_16(struct goodix_ts_data *ts, const u8 *cfg,
+			       int len)
 {
-	int i, raw_cfg_len = cfg->size - 3;
+	int i, raw_cfg_len = len - 3;
 	u16 check_sum = 0;
 
 	for (i = 0; i < raw_cfg_len; i += 2)
-		check_sum += get_unaligned_be16(&cfg->data[i]);
+		check_sum += get_unaligned_be16(&cfg[i]);
 	check_sum = (~check_sum) + 1;
-	if (check_sum != get_unaligned_be16(&cfg->data[raw_cfg_len])) {
+	if (check_sum != get_unaligned_be16(&cfg[raw_cfg_len])) {
 		dev_err(&ts->client->dev,
 			"The checksum of the config fw is not correct");
 		return -EINVAL;
 	}
 
-	if (cfg->data[raw_cfg_len + 2] != 1) {
+	if (cfg[raw_cfg_len + 2] != 1) {
 		dev_err(&ts->client->dev,
 			"Config fw must have Config_Fresh register set");
 		return -EINVAL;
@@ -506,16 +505,15 @@ static void goodix_fix_cfg_16(struct goodix_ts_data *ts)
  * @ts: goodix_ts_data pointer
  * @cfg: firmware config data
  */
-static int goodix_check_cfg(struct goodix_ts_data *ts,
-			    const struct firmware *cfg)
+static int goodix_check_cfg(struct goodix_ts_data *ts, const u8 *cfg, int len)
 {
-	if (cfg->size > GOODIX_CONFIG_MAX_LENGTH) {
+	if (len > GOODIX_CONFIG_MAX_LENGTH) {
 		dev_err(&ts->client->dev,
 			"The length of the config fw is not correct");
 		return -EINVAL;
 	}
 
-	return ts->chip->check_config(ts, cfg);
+	return ts->chip->check_config(ts, cfg, len);
 }
 
 /**
@@ -524,17 +522,15 @@ static int goodix_check_cfg(struct goodix_ts_data *ts,
  * @ts: goodix_ts_data pointer
  * @cfg: config firmware to write to device
  */
-static int goodix_send_cfg(struct goodix_ts_data *ts,
-			   const struct firmware *cfg)
+static int goodix_send_cfg(struct goodix_ts_data *ts, const u8 *cfg, int len)
 {
 	int error;
 
-	error = goodix_check_cfg(ts, cfg);
+	error = goodix_check_cfg(ts, cfg, len);
 	if (error)
 		return error;
 
-	error = goodix_i2c_write(ts->client, ts->chip->config_addr, cfg->data,
-				 cfg->size);
+	error = goodix_i2c_write(ts->client, ts->chip->config_addr, cfg, len);
 	if (error) {
 		dev_err(&ts->client->dev, "Failed to write config data: %d",
 			error);
@@ -1058,7 +1054,7 @@ static void goodix_config_cb(const struct firmware *cfg, void *ctx)
 
 	if (cfg) {
 		/* send device configuration to the firmware */
-		error = goodix_send_cfg(ts, cfg);
+		error = goodix_send_cfg(ts, cfg->data, cfg->size);
 		if (error)
 			goto err_release_cfg;
 	}
