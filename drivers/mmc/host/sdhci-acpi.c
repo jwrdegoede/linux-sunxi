@@ -23,6 +23,7 @@
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/delay.h>
+#include <linux/dmi.h>
 
 #include <linux/mmc/host.h>
 #include <linux/mmc/pm.h>
@@ -74,6 +75,14 @@ struct sdhci_acpi_host {
 	bool				use_runtime_pm;
 	unsigned long			private[0] ____cacheline_aligned;
 };
+
+enum {
+	SDHCI_ACPI_QUIRK_SD_NO_1_8V			= BIT(0),
+};
+
+static int quirks = -1;
+module_param(quirks, int, 0444);
+MODULE_PARM_DESC(quirks, "Override sdhci-acpi specific quirks");
 
 static inline void *sdhci_acpi_priv(struct sdhci_acpi_host *c)
 {
@@ -647,6 +656,24 @@ static const struct acpi_device_id sdhci_acpi_ids[] = {
 };
 MODULE_DEVICE_TABLE(acpi, sdhci_acpi_ids);
 
+static const struct dmi_system_id sdhci_acpi_quirks[] = {
+	{
+		/*
+		 * The Lenovo Miix 320-10ICR has a bug in the _PS0 method of
+		 * the SHC1 ACPI device, this bug causes it to reprogram the
+		 * wrong LDO (DLDO3) to 1.8V if 1.8V modes are used and the
+		 * card is (runtime) suspended + resumed. DLDO3 is used for
+		 * the LCD and setting it to 1.8V causes the LCD to go black.
+		 */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
+			DMI_MATCH(DMI_PRODUCT_VERSION, "Lenovo MIIX 320-10ICR"),
+		},
+		.driver_data = (void *)SDHCI_ACPI_QUIRK_SD_NO_1_8V,
+	},
+	{} /* Terminating entry */
+};
+
 static const struct sdhci_acpi_slot *sdhci_acpi_get_slot(struct acpi_device *adev)
 {
 	const struct sdhci_acpi_uid_slot *u;
@@ -663,12 +690,21 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	const struct sdhci_acpi_slot *slot;
 	struct acpi_device *device, *child;
+	const struct dmi_system_id *id;
 	struct sdhci_acpi_host *c;
 	struct sdhci_host *host;
 	struct resource *iomem;
 	resource_size_t len;
 	size_t priv_size;
 	int err;
+
+	if (quirks == -1) {
+		id = dmi_first_match(sdhci_acpi_quirks);
+		if (id)
+			quirks = (long)id->driver_data;
+		else
+			quirks = 0;
+	}
 
 	device = ACPI_COMPANION(dev);
 	if (!device)
@@ -759,6 +795,9 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 			dev_warn(dev, "failed to setup card detect gpio\n");
 			c->use_runtime_pm = false;
 		}
+
+		if (quirks & SDHCI_ACPI_QUIRK_SD_NO_1_8V)
+			host->quirks2 |= SDHCI_QUIRK2_NO_1_8_V;
 	}
 
 	err = sdhci_setup_host(host);
