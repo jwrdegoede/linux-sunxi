@@ -78,6 +78,7 @@ struct sdhci_acpi_host {
 
 enum {
 	SDHCI_ACPI_QUIRK_SD_NO_1_8V			= BIT(0),
+	SDHCI_ACPI_QUIRK_SD_NO_WRITE_PROTECT		= BIT(1),
 };
 
 static int quirks = -1;
@@ -671,6 +672,18 @@ static const struct dmi_system_id sdhci_acpi_quirks[] = {
 		},
 		.driver_data = (void *)SDHCI_ACPI_QUIRK_SD_NO_1_8V,
 	},
+	{
+		/*
+		 * The Acer Aspire Switch 10 (SW5-012) microSD slot always
+		 * reports the card being write-protected even though microSD
+		 * cards do not have a write-protect switch at all.
+		 */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Aspire SW5-012"),
+		},
+		.driver_data = (void *)SDHCI_ACPI_QUIRK_SD_NO_WRITE_PROTECT,
+	},
 	{} /* Terminating entry */
 };
 
@@ -798,6 +811,9 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 
 		if (quirks & SDHCI_ACPI_QUIRK_SD_NO_1_8V)
 			host->quirks2 |= SDHCI_QUIRK2_NO_1_8_V;
+
+		if (quirks & SDHCI_ACPI_QUIRK_SD_NO_WRITE_PROTECT)
+			host->mmc->caps2 |= MMC_CAP2_NO_WRITE_PROTECT;
 	}
 
 	err = sdhci_setup_host(host);
