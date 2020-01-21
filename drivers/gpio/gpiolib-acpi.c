@@ -21,18 +21,26 @@
 #include "gpiolib.h"
 #include "gpiolib-acpi.h"
 
-#define QUIRK_NO_EDGE_EVENTS_ON_BOOT		0x01l
-#define QUIRK_NO_WAKEUP				0x02l
+#define QUIRK_IGNORE_WAKE_MASK			GENMASK(15, 0)
+#define QUIRK_IGNORE_WAKE_SET			BIT(16)
+#define QUIRK_NO_EDGE_EVENTS_ON_BOOT		BIT(17)
+
+#define QUIRK_IGNORE_WAKE(x) \
+	(((x) & QUIRK_IGNORE_WAKE_MASK) | QUIRK_IGNORE_WAKE_SET)
+
+#define IGNORE_WAKE_AUTO			-1
+#define IGNORE_WAKE_ALL				-2
+#define IGNORE_WAKE_NONE			-3
+
+static int ignore_wake = IGNORE_WAKE_AUTO;
+module_param(ignore_wake, int, 0444);
+MODULE_PARM_DESC(ignore_wake,
+	"Ignore ACPI wake flag: x=ignore-for-pin-x, -1=auto, -2=all, -3=none");
 
 static int run_edge_events_on_boot = -1;
 module_param(run_edge_events_on_boot, int, 0444);
 MODULE_PARM_DESC(run_edge_events_on_boot,
 		 "Run edge _AEI event-handlers at boot: 0=no, 1=yes, -1=auto");
-
-static int honor_wakeup = -1;
-module_param(honor_wakeup, int, 0444);
-MODULE_PARM_DESC(honor_wakeup,
-		 "Honor the ACPI wake-capable flag: 0=no, 1=yes, -1=auto");
 
 /**
  * struct acpi_gpio_event - ACPI GPIO event handler data
@@ -214,6 +222,7 @@ static acpi_status acpi_gpiochip_alloc_event(struct acpi_resource *ares,
 	irq_handler_t handler = NULL;
 	struct gpio_desc *desc;
 	int ret, pin, irq;
+	bool honor_wakeup;
 
 	if (!acpi_gpio_get_irq_resource(ares, &agpio))
 		return AE_OK;
@@ -284,6 +293,17 @@ static acpi_status acpi_gpiochip_alloc_event(struct acpi_resource *ares,
 					   IRQF_TRIGGER_FALLING;
 			break;
 		}
+	}
+
+	switch (ignore_wake) {
+	case IGNORE_WAKE_ALL:
+		honor_wakeup = false;
+		break;
+	case IGNORE_WAKE_NONE:
+		honor_wakeup = true;
+		break;
+	default:
+		honor_wakeup = ignore_wake != pin;
 	}
 
 	event->handle = evt_handle;
@@ -1363,7 +1383,37 @@ static const struct dmi_system_id gpiolib_acpi_quirks[] = {
 			DMI_MATCH(DMI_SYS_VENDOR, "HP"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "HP x2 Detachable 10-p0XX"),
 		},
-		.driver_data = (void *)QUIRK_NO_WAKEUP,
+		.driver_data = (void *)QUIRK_IGNORE_WAKE(IGNORE_WAKE_ALL),
+	},
+	{
+		/*
+		 * HP X2 10 models with Cherry Trail SoC + AXP288 PMIC use an
+		 * external embedded-controller connected via I2C + an ACPI
+		 * GPIO event handler for pin 0x00, causing spurious wakeups.
+		 * Unlike the Cherry Trail + TI PMIC models, we do want to
+		 * honor the ACPI wake flag on the other GPIOs.
+		 */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HP"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "HP Pavilion x2 Detachable"),
+			DMI_MATCH(DMI_BOARD_NAME, "813E"),
+		},
+		.driver_data = (void *)QUIRK_IGNORE_WAKE(0x00),
+	},
+	{
+		/*
+		 * HP X2 10 models with Bay Trail SoC + AXP288 PMIC use an
+		 * external embedded-controller connected via I2C + an ACPI
+		 * GPIO event handler for pin 0x1c, causing spurious wakeups.
+		 * Unlike the Cherry Trail + TI PMIC models, we do want to
+		 * honor the ACPI wake flag on the other GPIOs.
+		 */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Hewlett-Packard"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "HP Pavilion x2 Detachable"),
+			DMI_MATCH(DMI_BOARD_NAME, "815D"),
+		},
+		.driver_data = (void *)QUIRK_IGNORE_WAKE(0x1c),
 	},
 	{} /* Terminating entry */
 };
@@ -1384,11 +1434,11 @@ static int acpi_gpio_setup_params(void)
 			run_edge_events_on_boot = 1;
 	}
 
-	if (honor_wakeup < 0) {
-		if (quirks & QUIRK_NO_WAKEUP)
-			honor_wakeup = 0;
+	if (ignore_wake == IGNORE_WAKE_AUTO) {
+		if (quirks & QUIRK_IGNORE_WAKE_SET)
+			ignore_wake = (s16)(quirks & QUIRK_IGNORE_WAKE_MASK);
 		else
-			honor_wakeup = 1;
+			ignore_wake = IGNORE_WAKE_NONE;
 	}
 
 	return 0;
