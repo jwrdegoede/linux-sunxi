@@ -306,6 +306,35 @@ static int cm32181_probe(struct i2c_client *client)
 		return -ENOMEM;
 	}
 
+	/*
+	 * On some ACPI platforms the ACPI tables contain I2cSerialBusV2
+	 * resources for both the SMBus alert ARA address (0x0c), which is
+	 * used for reading interrupt status when using SMBus alerts, as well
+	 * as a second I2cSerialBusV2 resource with the actual I2C address of
+	 * the CM3218 chip.
+	 * When this is the case the code below creates an i2c-client for the
+	 * second I2cSerialBusV2 resource and we will get called again and
+	 * bind to that i2c-client instead.
+	 */
+	if (ACPI_COMPANION(&client->dev) && client->addr == 0x0c) {
+		struct i2c_board_info board_info = {
+			.type = "CPLM3218",
+			/*
+			 * We do not want the dev_name() of the client to be
+			 * based on the ACPI fwnode as then it will conflict
+			 * with the already registered ARA i2c-client.
+			 */
+			.dev_name = "CPLM3218",
+			.fwnode = client->dev.fwnode,
+		};
+
+		client = i2c_acpi_new_device(&client->dev, 1, &board_info);
+		if (IS_ERR(client))
+			return PTR_ERR(client);
+
+		return -ENODEV;
+	}
+
 	cm32181 = iio_priv(indio_dev);
 	i2c_set_clientdata(client, indio_dev);
 	cm32181->client = client;
