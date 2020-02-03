@@ -1752,6 +1752,12 @@ out:
 	vlv_punit_put(dev_priv);
 }
 
+static void chv_pipe_power_well_sync_hw(struct drm_i915_private *dev_priv,
+				       struct i915_power_well *power_well)
+{
+	I915_WRITE(DISPLAY_PHY_CONTROL, dev_priv->chv_phy_control);
+}
+
 static void chv_pipe_power_well_enable(struct drm_i915_private *dev_priv,
 				       struct i915_power_well *power_well)
 {
@@ -2734,7 +2740,7 @@ static const struct i915_power_well_ops i9xx_always_on_power_well_ops = {
 };
 
 static const struct i915_power_well_ops chv_pipe_power_well_ops = {
-	.sync_hw = i9xx_power_well_sync_hw_noop,
+	.sync_hw = chv_pipe_power_well_sync_hw,
 	.enable = chv_pipe_power_well_enable,
 	.disable = chv_pipe_power_well_disable,
 	.is_enabled = chv_pipe_power_well_enabled,
@@ -5142,10 +5148,11 @@ static void chv_phy_control_init(struct drm_i915_private *dev_priv)
 		dev_priv->chv_phy_assert[DPIO_PHY1] = true;
 	}
 
-	I915_WRITE(DISPLAY_PHY_CONTROL, dev_priv->chv_phy_control);
 
 	DRM_DEBUG_KMS("Initial PHY_CONTROL=0x%08x\n",
 		      dev_priv->chv_phy_control);
+
+	/* Defer application of initial phy_control to enabling the powerwell */
 }
 
 static void vlv_cmnlane_wa(struct drm_i915_private *dev_priv)
