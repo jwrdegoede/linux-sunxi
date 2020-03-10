@@ -78,6 +78,7 @@ static void drm_client_modeset_release(struct drm_client_dev *client)
 		modeset->fb = NULL;
 
 		for (i = 0; i < modeset->num_connectors; i++) {
+			pr_err("%s: drm_connector_put: %s\n", __func__, modeset->connectors[i]->name);
 			drm_connector_put(modeset->connectors[i]);
 			modeset->connectors[i] = NULL;
 		}
@@ -860,6 +861,7 @@ int drm_client_modeset_probe(struct drm_client_dev *client, unsigned int width, 
 			}
 
 			modeset->mode = drm_mode_duplicate(dev, mode);
+			pr_err("%s: drm_connector_get: %s\n", __func__, connector->name);
 			drm_connector_get(connector);
 			modeset->connectors[modeset->num_connectors++] = connector;
 			modeset->x = offset->x;
