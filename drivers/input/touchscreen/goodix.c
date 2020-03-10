@@ -1137,6 +1137,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 	if (error)
 		return error;
 
+reset:
 	if (ts->reset_controller_at_probe) {
 		/* reset the controller */
 		error = goodix_reset(ts);
@@ -1148,6 +1149,12 @@ static int goodix_ts_probe(struct i2c_client *client,
 
 	error = goodix_i2c_test(client);
 	if (error) {
+		if (!ts->reset_controller_at_probe &&
+		    ts->irq_pin_access_method != IRQ_PIN_ACCESS_NONE) {
+			/* Retry after a controller reset */
+			ts->reset_controller_at_probe = true;
+			goto reset;
+		}
 		dev_err(&client->dev, "I2C communication failure: %d\n", error);
 		return error;
 	}
