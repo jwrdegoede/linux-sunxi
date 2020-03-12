@@ -445,6 +445,8 @@ Property Types and Blob Property Support
 .. kernel-doc:: drivers/gpu/drm/drm_property.c
    :export:
 
+.. _standard_connector_properties:
+
 Standard Connector Properties
 -----------------------------
 
