@@ -63,13 +63,20 @@
 #define MAX_CONTACTS_LOC	5
 #define TRIGGER_LOC		6
 
+/* Our special handling for GPIO accesses through ACPI is x86 specific */
+#if defined CONFIG_X86 && defined CONFIG_ACPI
+#define ACPI_GPIO_SUPPORT
+#endif
+
 struct goodix_ts_data;
 
 enum goodix_irq_pin_access_method {
 	IRQ_PIN_ACCESS_NONE,
 	IRQ_PIN_ACCESS_GPIO,
+#ifdef ACPI_GPIO_SUPPORT
 	IRQ_PIN_ACCESS_ACPI_GPIO,
 	IRQ_PIN_ACCESS_ACPI_METHOD,
+#endif
 };
 
 struct goodix_chip_data {
@@ -572,8 +579,8 @@ static int goodix_send_cfg(struct goodix_ts_data *ts, const u8 *cfg, int len)
 static int goodix_irq_direction_output(struct goodix_ts_data *ts,
 				       int value)
 {
-	struct device *dev = &ts->client->dev;
-	acpi_status status;
+	struct device *dev __maybe_unused = &ts->client->dev;
+	acpi_status status __maybe_unused;
 
 	switch (ts->irq_pin_access_method) {
 	case IRQ_PIN_ACCESS_NONE:
@@ -583,6 +590,7 @@ static int goodix_irq_direction_output(struct goodix_ts_data *ts,
 		return -EINVAL;
 	case IRQ_PIN_ACCESS_GPIO:
 		return gpiod_direction_output(ts->gpiod_int, value);
+#ifdef ACPI_GPIO_SUPPORT
 	case IRQ_PIN_ACCESS_ACPI_GPIO:
 		/*
 		 * The IRQ pin triggers on a falling edge, so its gets marked
@@ -593,6 +601,7 @@ static int goodix_irq_direction_output(struct goodix_ts_data *ts,
 		status = acpi_execute_simple_method(ACPI_HANDLE(dev),
 						    "INTO", value);
 		return ACPI_SUCCESS(status) ? 0 : -EIO;
+#endif
 	}
 
 	return -EINVAL; /* Never reached */
@@ -600,8 +609,8 @@ static int goodix_irq_direction_output(struct goodix_ts_data *ts,
 
 static int goodix_irq_direction_input(struct goodix_ts_data *ts)
 {
-	struct device *dev = &ts->client->dev;
-	acpi_status status;
+	struct device *dev __maybe_unused = &ts->client->dev;
+	acpi_status status __maybe_unused;
 
 	switch (ts->irq_pin_access_method) {
 	case IRQ_PIN_ACCESS_NONE:
@@ -610,12 +619,15 @@ static int goodix_irq_direction_input(struct goodix_ts_data *ts)
 			__func__);
 		return -EINVAL;
 	case IRQ_PIN_ACCESS_GPIO:
+		return gpiod_direction_input(ts->gpiod_int);
+#ifdef ACPI_GPIO_SUPPORT
 	case IRQ_PIN_ACCESS_ACPI_GPIO:
 		return gpiod_direction_input(ts->gpiod_int);
 	case IRQ_PIN_ACCESS_ACPI_METHOD:
 		status = acpi_evaluate_object(ACPI_HANDLE(dev), "INTI",
 					      NULL, NULL);
 		return ACPI_SUCCESS(status) ? 0 : -EIO;
+#endif
 	}
 
 	return -EINVAL; /* Never reached */
@@ -679,7 +691,7 @@ static int goodix_reset(struct goodix_ts_data *ts)
 	return 0;
 }
 
-#if defined CONFIG_X86 && defined CONFIG_ACPI
+#ifdef ACPI_GPIO_SUPPORT
 #include <asm/cpu_device_id.h>
 #include <asm/intel-family.h>
 
@@ -862,6 +874,7 @@ retry_get_irq_gpio:
 	ts->gpiod_rst = gpiod;
 
 	switch (ts->irq_pin_access_method) {
+#ifdef ACPI_GPIO_SUPPORT
 	case IRQ_PIN_ACCESS_ACPI_GPIO:
 		/*
 		 * We end up here if goodix_add_acpi_gpio_mappings() has
@@ -878,6 +891,7 @@ retry_get_irq_gpio:
 		if (!ts->gpiod_rst)
 			ts->irq_pin_access_method = IRQ_PIN_ACCESS_NONE;
 		break;
+#endif
 	default:
 		if (ts->gpiod_int && ts->gpiod_rst) {
 			ts->reset_controller_at_probe = true;
