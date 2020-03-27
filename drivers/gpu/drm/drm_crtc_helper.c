@@ -451,7 +451,6 @@ drm_crtc_helper_disable(struct drm_crtc *crtc)
 			connector->dpms = DRM_MODE_DPMS_OFF;
 
 			/* we keep a reference while the encoder is bound */
-			pr_err("%s: drm_connector_put: %s\n", __func__, connector->name);
 			drm_connector_put(connector);
 		}
 		drm_connector_list_iter_end(&conn_iter);
@@ -629,7 +628,6 @@ int drm_crtc_helper_set_config(struct drm_mode_set *set,
 	for (ro = 0; ro < set->num_connectors; ro++) {
 		if (set->connectors[ro]->encoder)
 			continue;
-		pr_err("%s: drm_connector_get: %s\n", __func__, set->connectors[ro]->name);
 		drm_connector_get(set->connectors[ro]);
 	}
 
@@ -783,7 +781,6 @@ fail:
 	for (ro = 0; ro < set->num_connectors; ro++) {
 		if (set->connectors[ro]->encoder)
 			continue;
-		pr_err("%s: drm_connector_put: %s\n", __func__, set->connectors[ro]->name);
 		drm_connector_put(set->connectors[ro]);
 	}
 
