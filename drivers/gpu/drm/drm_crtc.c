@@ -725,7 +725,6 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 				ret = -ENOENT;
 				goto out;
 			}
-			pr_err("%s: drm_connector_get: %s\n", __func__, connector->name);
 			DRM_DEBUG_KMS("[CONNECTOR:%d:%s]\n",
 					connector->base.id,
 					connector->name);
@@ -753,10 +752,8 @@ out:
 
 	if (connector_set) {
 		for (i = 0; i < crtc_req->count_connectors; i++) {
-			if (connector_set[i]) {
-				pr_err("%s: drm_connector_put: %s\n", __func__, connector_set[i]->name);
+			if (connector_set[i])
 				drm_connector_put(connector_set[i]);
-			}
 		}
 	}
 	kfree(connector_set);
