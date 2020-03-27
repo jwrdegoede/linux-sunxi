@@ -462,10 +462,8 @@ __drm_atomic_helper_connector_duplicate_state(struct drm_connector *connector,
 					    struct drm_connector_state *state)
 {
 	memcpy(state, connector->state, sizeof(*state));
-	if (state->crtc) {
-		pr_err("%s: drm_connector_get: %s\n", __func__, connector->name);
+	if (state->crtc)
 		drm_connector_get(connector);
-	}
 	state->commit = NULL;
 
 	if (state->hdr_output_metadata)
@@ -510,10 +508,8 @@ EXPORT_SYMBOL(drm_atomic_helper_connector_duplicate_state);
 void
 __drm_atomic_helper_connector_destroy_state(struct drm_connector_state *state)
 {
-	if (state->crtc) {
-		pr_err("%s: drm_connector_put: %s\n", __func__, state->connector->name);
+	if (state->crtc)
 		drm_connector_put(state->connector);
-	}
 
 	if (state->commit)
 		drm_crtc_commit_put(state->commit);

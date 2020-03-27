@@ -164,7 +164,6 @@ void drm_atomic_state_default_clear(struct drm_atomic_state *state)
 		state->connectors[i].state = NULL;
 		state->connectors[i].old_state = NULL;
 		state->connectors[i].new_state = NULL;
-		pr_err("%s: drm_connector_put: %s\n", __func__, connector->name);
 		drm_connector_put(connector);
 	}
 
@@ -977,7 +976,6 @@ drm_atomic_get_connector_state(struct drm_atomic_state *state,
 	if (!connector_state)
 		return ERR_PTR(-ENOMEM);
 
-	pr_err("%s: drm_connector_get: %s\n", __func__, connector->name);
 	drm_connector_get(connector);
 	state->connectors[index].state = connector_state;
 	state->connectors[index].old_state = connector->state;
