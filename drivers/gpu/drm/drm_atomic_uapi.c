@@ -309,7 +309,6 @@ drm_atomic_set_crtc_for_connector(struct drm_connector_state *conn_state,
 		crtc_state->connector_mask &=
 			~drm_connector_mask(conn_state->connector);
 
-		pr_err("%s: drm_connector_put: %s\n", __func__, conn_state->connector->name);
 		drm_connector_put(conn_state->connector);
 		conn_state->crtc = NULL;
 	}
@@ -322,7 +321,6 @@ drm_atomic_set_crtc_for_connector(struct drm_connector_state *conn_state,
 		crtc_state->connector_mask |=
 			drm_connector_mask(conn_state->connector);
 
-		pr_err("%s: drm_connector_get: %s\n", __func__, conn_state->connector->name);
 		drm_connector_get(conn_state->connector);
 		conn_state->crtc = crtc;
 
