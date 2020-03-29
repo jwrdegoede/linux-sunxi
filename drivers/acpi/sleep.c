@@ -1025,6 +1025,10 @@ static bool acpi_s2idle_wake(void)
 		if (acpi_any_gpe_status_set() && !acpi_ec_dispatch_gpe())
 			return true;
 
+		/* Check wakeups from drivers sharing the SCI. */
+		if (acpi_check_wakeup_handlers())
+			return true;
+
 		/*
 		 * Cancel the wakeup and process all pending events in case
 		 * there are any wakeup ones in there.
