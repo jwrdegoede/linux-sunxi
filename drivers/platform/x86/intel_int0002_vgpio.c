@@ -143,21 +143,9 @@ static struct irq_chip int0002_byt_irqchip = {
 	.irq_set_wake		= int0002_irq_set_wake,
 };
 
-static struct irq_chip int0002_cht_irqchip = {
-	.name			= DRV_NAME,
-	.irq_ack		= int0002_irq_ack,
-	.irq_mask		= int0002_irq_mask,
-	.irq_unmask		= int0002_irq_unmask,
-	/*
-	 * No set_wake, on CHT the IRQ is typically shared with the ACPI SCI
-	 * and we don't want to mess with the ACPI SCI irq settings.
-	 */
-	.flags			= IRQCHIP_SKIP_SET_WAKE,
-};
-
 static const struct x86_cpu_id int0002_cpu_ids[] = {
 	X86_MATCH_INTEL_FAM6_MODEL(ATOM_SILVERMONT,	&int0002_byt_irqchip),
-	X86_MATCH_INTEL_FAM6_MODEL(ATOM_AIRMONT,	&int0002_cht_irqchip),
+	X86_MATCH_INTEL_FAM6_MODEL(ATOM_AIRMONT,	&int0002_byt_irqchip),
 	{}
 };
 
@@ -179,6 +167,10 @@ static int int0002_probe(struct platform_device *pdev)
 	/* Menlow has a different INT0002 device? <sigh> */
 	cpu_id = x86_match_cpu(int0002_cpu_ids);
 	if (!cpu_id)
+		return -ENODEV;
+
+	/* We only need to directly deal with PMEs when using s2idle */
+	if (!pm_suspend_default_s2idle())
 		return -ENODEV;
 
 	irq = platform_get_irq(pdev, 0);
