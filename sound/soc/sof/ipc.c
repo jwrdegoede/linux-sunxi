@@ -312,6 +312,11 @@ int snd_sof_ipc_reply(struct snd_sof_dev *sdev, u32 msg_id)
 {
 	struct snd_sof_ipc_msg *msg = &sdev->ipc->msg;
 
+	/* Ignore msg_id 0 being send during fw-boot */
+	if (msg->ipc_complete && sdev->fw_state == SOF_FW_BOOT_IN_PROGRESS &&
+	    msg_id == 0)
+		return 0;
+
 	if (msg->ipc_complete) {
 		dev_err(sdev->dev, "error: no reply expected, received 0x%x",
 			msg_id);
