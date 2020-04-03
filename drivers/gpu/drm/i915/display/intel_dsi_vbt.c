@@ -841,8 +841,7 @@ void intel_dsi_vbt_gpio_init(struct intel_dsi *intel_dsi, bool panel_is_on)
 	struct pinctrl *pinctrl;
 	int ret;
 
-	if ((IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) &&
-	    mipi_config->pwm_blc == PPS_BLC_PMIC) {
+	if (IS_VALLEYVIEW(dev_priv) && mipi_config->pwm_blc == PPS_BLC_PMIC) {
 		gpiod_add_lookup_table(&pmic_panel_gpio_table);
 		want_panel_gpio = true;
 	}
@@ -897,8 +896,7 @@ void intel_dsi_vbt_gpio_cleanup(struct intel_dsi *intel_dsi)
 		intel_dsi->gpio_backlight = NULL;
 	}
 
-	if ((IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) &&
-	    mipi_config->pwm_blc == PPS_BLC_PMIC)
+	if (IS_VALLEYVIEW(dev_priv) && mipi_config->pwm_blc == PPS_BLC_PMIC)
 		gpiod_remove_lookup_table(&pmic_panel_gpio_table);
 
 	if (IS_VALLEYVIEW(dev_priv) && mipi_config->pwm_blc == PPS_BLC_SOC) {
