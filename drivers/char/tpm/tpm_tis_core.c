@@ -697,6 +697,7 @@ static bool tpm_tis_req_canceled(struct tpm_chip *chip, u8 status)
 	}
 }
 
+#if 0 /* See the comment in tpm_tis_core_init */
 static irqreturn_t tis_int_handler(int dummy, void *dev_id)
 {
 	struct tpm_chip *chip = dev_id;
@@ -838,6 +839,7 @@ static void tpm_tis_probe_irq(struct tpm_chip *chip, u32 intmask)
 					     original_int_vec))
 		return;
 }
+#endif
 
 void tpm_tis_remove(struct tpm_chip *chip)
 {
@@ -1048,6 +1050,14 @@ int tpm_tis_core_init(struct device *dev, struct tpm_tis_data *priv, int irq,
 	/* INTERRUPT Setup */
 	init_waitqueue_head(&priv->read_queue);
 	init_waitqueue_head(&priv->int_queue);
+/*
+ * Interrupt support is broken ATM, we never set TPM_CHIP_FLAG_IRQ.
+ * The below code still registers an interrupt handler even though we never
+ * wait for the wait_queues it signals. On some systems the interrupt we try
+ * to use creates an interrupt storm followed by an "irq XX: nobody cared"
+ * oops. So disable this code for now.
+ */
+#if 0
 	if (irq != -1) {
 		/* Before doing irq testing issue a command to the TPM in polling mode
 		 * to make sure it works. May as well use that command to set the
@@ -1069,6 +1079,7 @@ int tpm_tis_core_init(struct device *dev, struct tpm_tis_data *priv, int irq,
 			tpm_tis_probe_irq(chip, intmask);
 		}
 	}
+#endif
 
 	rc = tpm_chip_register(chip);
 	if (rc)
