@@ -223,8 +223,15 @@ static int lis3lv02d_get_pwron_wait(struct lis3lv02d *lis3)
 {
 	int div = lis3lv02d_get_odr(lis3);
 
-	if (WARN_ONCE(div == 0, "device returned spurious data"))
-		return -ENXIO;
+	if (div == 0) {
+		u8 ctrl1, ctrl4;
+		lis3->read(lis3, CTRL_REG1, &ctrl1);
+		lis3->read(lis3, CTRL_REG4, &ctrl4);
+		dev_err(&lis3->pdev->dev,
+			"Error samplerate = 0? CTRL1 %08x CTRL4 %08x\n",
+			ctrl1, ctrl4);
+		div = 1;
+	}
 
 	/* LIS3 power on delay is quite long */
 	msleep(lis3->pwron_delay / div);
