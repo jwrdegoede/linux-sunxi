@@ -1697,8 +1697,6 @@ static acpi_status chv_pinctrl_mmio_access_handler(u32 function,
 
 static int chv_pinctrl_probe(struct platform_device *pdev)
 {
-	struct acpi_object_list input;
-	union acpi_object params[2];
 	struct chv_pinctrl *pctrl;
 	struct acpi_device *adev;
 	acpi_status status;
@@ -1769,13 +1767,7 @@ static int chv_pinctrl_probe(struct platform_device *pdev)
 	 * the GeneralPurposeIo OpRegion. Manually call _REG here so that
 	 * the DSDT-s GeneralPurposeIo availability checks will succeed.
 	 */
-	params[0].type = ACPI_TYPE_INTEGER;
-	params[0].integer.value = ACPI_ADR_SPACE_GPIO;
-	params[1].type = ACPI_TYPE_INTEGER;
-	params[1].integer.value = 1;
-	input.count = 2;
-	input.pointer = params;
-	acpi_evaluate_object(adev->handle, "_REG", &input, NULL);
+	acpi_evaluate_reg(adev->handle, ACPI_ADR_SPACE_GPIO, ACPI_REG_CONNECT);
 
 	platform_set_drvdata(pdev, pctrl);
 
