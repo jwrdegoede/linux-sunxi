@@ -475,3 +475,8 @@ config DRM_PANEL_ORIENTATION_QUIRKS
 config DRM_LIB_RANDOM
 	bool
 	default n
+
+# Separate option, used by drivers outside of drivers/gpu/drm
+config DRM_PRIVACY_SCREEN
+	tristate
+	default n
