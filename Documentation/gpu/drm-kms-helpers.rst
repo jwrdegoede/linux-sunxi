@@ -423,3 +423,18 @@ SHMEM GEM Helper Reference
 
 .. kernel-doc:: drivers/gpu/drm/drm_gem_shmem_helper.c
    :export:
+
+Privacy-screen class
+====================
+
+.. kernel-doc:: drivers/gpu/drm/drm_privacy_screen.c
+   :doc: overview
+
+.. kernel-doc:: include/drm/drm_privacy_screen_driver.h
+   :internal:
+
+.. kernel-doc:: include/drm/drm_privacy_screen_machine.h
+   :internal:
+
+.. kernel-doc:: drivers/gpu/drm/drm_privacy_screen.c
+   :export:
