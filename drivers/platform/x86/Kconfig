@@ -485,6 +485,7 @@ config THINKPAD_ACPI
 	depends on ACPI_VIDEO || ACPI_VIDEO = n
 	depends on BACKLIGHT_CLASS_DEVICE
 	depends on ACPI_PLATFORM_PROFILE
+	select DRM_PRIVACY_SCREEN
 	select HWMON
 	select NVRAM
 	select NEW_LEDS
