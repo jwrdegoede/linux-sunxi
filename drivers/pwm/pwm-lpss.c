@@ -80,7 +80,7 @@ static inline int pwm_lpss_is_updating(struct pwm_device *pwm)
 }
 
 static void pwm_lpss_prepare(struct pwm_lpss_chip *lpwm, struct pwm_device *pwm,
-			     int duty_ns, int period_ns)
+			     int duty_ns, int period_ns, bool enable)
 {
 	unsigned long long on_time_div;
 	unsigned long c = lpwm->info->clk_rate, base_unit_range;
@@ -115,6 +115,8 @@ static void pwm_lpss_prepare(struct pwm_lpss_chip *lpwm, struct pwm_device *pwm,
 	ctrl &= ~((base_unit_range - 1) << PWM_BASE_UNIT_SHIFT);
 	ctrl |= (u32) base_unit << PWM_BASE_UNIT_SHIFT;
 	ctrl |= on_time_div;
+	if (enable)
+		ctrl |= PWM_ENABLE;
 
 	if (orig_ctrl != ctrl) {
 		pwm_lpss_write(pwm, ctrl);
@@ -142,8 +144,9 @@ static int pwm_lpss_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 				pm_runtime_put(chip->dev);
 				return ret;
 			}
-			pwm_lpss_prepare(lpwm, pwm, state->duty_cycle, state->period);
-			pwm_lpss_cond_enable(pwm, lpwm->info->bypass == false);
+			pwm_lpss_prepare(lpwm, pwm,
+					 state->duty_cycle, state->period,
+					 lpwm->info->bypass == false);
 			ret = pwm_lpss_wait_for_update(pwm);
 			if (ret) {
 				pm_runtime_put(chip->dev);
@@ -154,7 +157,8 @@ static int pwm_lpss_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			ret = pwm_lpss_is_updating(pwm);
 			if (ret)
 				return ret;
-			pwm_lpss_prepare(lpwm, pwm, state->duty_cycle, state->period);
+			pwm_lpss_prepare(lpwm, pwm, state->duty_cycle,
+					 state->period, false);
 			return pwm_lpss_wait_for_update(pwm);
 		}
 	} else if (pwm_is_enabled(pwm)) {
