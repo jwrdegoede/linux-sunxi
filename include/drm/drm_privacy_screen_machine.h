@@ -31,11 +31,16 @@ struct drm_privacy_screen_lookup {
 void drm_privacy_screen_lookup_add(struct drm_privacy_screen_lookup *lookup);
 void drm_privacy_screen_lookup_remove(struct drm_privacy_screen_lookup *lookup);
 
+#ifdef CONFIG_X86
+void drm_privacy_screen_arch_init(void);
+void drm_privacy_screen_arch_exit(void);
+#else
 static inline void drm_privacy_screen_arch_init(void)
 {
 }
 static inline void drm_privacy_screen_arch_exit(void)
 {
 }
+#endif
 
 #endif

@@ -57,11 +57,14 @@ drm_kms_helper-$(CONFIG_DRM_DP_CEC) += drm_dp_cec.o
 obj-$(CONFIG_DRM_KMS_HELPER) += drm_kms_helper.o
 obj-$(CONFIG_DRM_DEBUG_SELFTEST) += selftests/
 
+drm_privacy_screen_helper-y := drm_privacy_screen.o
+drm_privacy_screen_helper-$(CONFIG_X86) += drm_privacy_screen_x86.o
+obj-$(CONFIG_DRM_PRIVACY_SCREEN) += drm_privacy_screen_helper.o
+
 obj-$(CONFIG_DRM)	+= drm.o
 obj-$(CONFIG_DRM_MIPI_DBI) += drm_mipi_dbi.o
 obj-$(CONFIG_DRM_MIPI_DSI) += drm_mipi_dsi.o
 obj-$(CONFIG_DRM_PANEL_ORIENTATION_QUIRKS) += drm_panel_orientation_quirks.o
-obj-$(CONFIG_DRM_PRIVACY_SCREEN) += drm_privacy_screen.o
 obj-y			+= arm/
 obj-$(CONFIG_DRM_TTM)	+= ttm/
 obj-$(CONFIG_DRM_SCHED)	+= scheduler/
