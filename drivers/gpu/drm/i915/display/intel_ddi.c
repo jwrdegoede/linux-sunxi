@@ -25,6 +25,7 @@
  *
  */
 
+#include <drm/drm_privacy_screen_consumer.h>
 #include <drm/drm_scdc_helper.h>
 
 #include "i915_drv.h"
@@ -3004,6 +3005,7 @@ static void intel_enable_ddi_dp(struct intel_atomic_state *state,
 	if (port == PORT_A && DISPLAY_VER(dev_priv) < 9)
 		intel_dp_stop_link_train(intel_dp, crtc_state);
 
+	drm_connector_update_privacy_screen(conn_state);
 	intel_edp_backlight_on(crtc_state, conn_state);
 	intel_psr_enable(intel_dp, crtc_state, conn_state);
 
@@ -3231,6 +3233,7 @@ static void intel_ddi_update_pipe_dp(struct intel_atomic_state *state,
 	intel_edp_drrs_update(intel_dp, crtc_state);
 
 	intel_panel_update_backlight(state, encoder, crtc_state, conn_state);
+	drm_connector_update_privacy_screen(conn_state);
 }
 
 void intel_ddi_update_pipe(struct intel_atomic_state *state,
@@ -4052,6 +4055,19 @@ intel_ddi_init_dp_connector(struct intel_digital_port *dig_port)
 	if (!intel_dp_init_connector(dig_port, connector)) {
 		kfree(connector);
 		return NULL;
+	}
+
+	if (dig_port->base.type == INTEL_OUTPUT_EDP) {
+		struct drm_device *dev = dig_port->base.base.dev;
+		struct drm_privacy_screen *privacy_screen;
+
+		privacy_screen = drm_privacy_screen_get(dev->dev, NULL);
+		if (!IS_ERR(privacy_screen)) {
+			drm_connector_attach_privacy_screen_provider(&connector->base,
+								     privacy_screen);
+		} else if (PTR_ERR(privacy_screen) != -ENODEV) {
+			drm_warn(dev, "Error getting privacy-screen\n");
+		}
 	}
 
 	return connector;
