@@ -16251,6 +16251,8 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 	struct drm_device *dev = state->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_crtc_state *new_crtc_state, *old_crtc_state;
+	struct drm_connector_state *new_connector_state;
+	struct drm_connector *connector;
 	struct intel_crtc *crtc;
 	u64 put_domains[I915_MAX_PIPES] = {};
 	intel_wakeref_t wakeref = 0;
@@ -16345,6 +16347,9 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 		     new_crtc_state->update_pipe))
 			intel_color_load_luts(new_crtc_state);
 	}
+
+	for_each_new_connector_in_state(&state->base, connector, new_connector_state, i)
+		drm_connector_update_privacy_screen(connector, &state->base);
 
 	/*
 	 * Now that the vblank has passed, we can go ahead and program the
