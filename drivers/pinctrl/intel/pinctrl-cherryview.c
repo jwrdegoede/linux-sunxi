@@ -36,6 +36,12 @@
 #define CHV_PADCTRL0			0x000
 #define CHV_PADCTRL0_INTSEL_SHIFT	28
 #define CHV_PADCTRL0_INTSEL_MASK	GENMASK(31, 28)
+#define CHV_PADCTRL0_GLITCH_FILT_SHIFT	26
+#define CHV_PADCTRL0_GLITCH_FILT_MASK	GENMASK(27, 26)
+#define CHV_PADCTRL0_GLITCH_FILT_OFF	0
+#define CHV_PADCTRL0_GLITCH_FILT_EDGE	1
+#define CHV_PADCTRL0_GLITCH_FILT_DATA	2
+#define CHV_PADCTRL0_GLITCH_FILT_BOTH	3
 #define CHV_PADCTRL0_TERM_UP		BIT(23)
 #define CHV_PADCTRL0_TERM_SHIFT		20
 #define CHV_PADCTRL0_TERM_MASK		GENMASK(22, 20)
@@ -1376,9 +1382,14 @@ static int chv_gpio_irq_type(struct irq_data *d, unsigned int type)
 	}
 
 	value = chv_readl(pctrl, pin, CHV_PADCTRL0);
+
+	/* Enable glitch filtering */
+	value |= CHV_PADCTRL0_GLITCH_FILT_BOTH << CHV_PADCTRL0_GLITCH_FILT_SHIFT;
+	chv_writel(pctrl, pin, CHV_PADCTRL0, value);
+
+	/* Store interrupt-line to pin mapping for this pin*/
 	value &= CHV_PADCTRL0_INTSEL_MASK;
 	value >>= CHV_PADCTRL0_INTSEL_SHIFT;
-
 	cctx->intr_lines[value] = pin;
 
 	if (type & IRQ_TYPE_EDGE_BOTH)
