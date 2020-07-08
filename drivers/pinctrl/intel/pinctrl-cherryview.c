@@ -36,6 +36,12 @@
 #define CHV_PADCTRL0			0x000
 #define CHV_PADCTRL0_INTSEL_SHIFT	28
 #define CHV_PADCTRL0_INTSEL_MASK	GENMASK(31, 28)
+#define CHV_PADCTRL0_GLITCH_FILT_SHIFT	26
+#define CHV_PADCTRL0_GLITCH_FILT_MASK	GENMASK(27, 26)
+#define CHV_PADCTRL0_GLITCH_FILT_OFF	0
+#define CHV_PADCTRL0_GLITCH_FILT_EDGE	1
+#define CHV_PADCTRL0_GLITCH_FILT_DATA	2
+#define CHV_PADCTRL0_GLITCH_FILT_BOTH	3
 #define CHV_PADCTRL0_TERM_UP		BIT(23)
 #define CHV_PADCTRL0_TERM_SHIFT		20
 #define CHV_PADCTRL0_TERM_MASK		GENMASK(22, 20)
@@ -1349,6 +1355,7 @@ static int chv_gpio_irq_type(struct irq_data *d, unsigned int type)
 	struct chv_pinctrl *pctrl = gpiochip_get_data(gc);
 	unsigned int pin = irqd_to_hwirq(d);
 	unsigned long flags;
+	void __iomem *reg;
 	u32 value;
 
 	raw_spin_lock_irqsave(&chv_lock, flags);
@@ -1367,7 +1374,7 @@ static int chv_gpio_irq_type(struct irq_data *d, unsigned int type)
 	 *	Driver programs the IntWakeCfg bits and save the mapping.
 	 */
 	if (!chv_pad_locked(pctrl, pin)) {
-		void __iomem *reg = chv_padreg(pctrl, pin, CHV_PADCTRL1);
+		reg = chv_padreg(pctrl, pin, CHV_PADCTRL1);
 
 		value = readl(reg);
 		value &= ~CHV_PADCTRL1_INTWAKECFG_MASK;
@@ -1389,10 +1396,15 @@ static int chv_gpio_irq_type(struct irq_data *d, unsigned int type)
 		chv_writel(value, reg);
 	}
 
-	value = readl(chv_padreg(pctrl, pin, CHV_PADCTRL0));
+	/* Enable glitch filtering */
+	reg = chv_padreg(pctrl, pin, CHV_PADCTRL0);
+	value = readl(reg);
+	value |= CHV_PADCTRL0_GLITCH_FILT_BOTH << CHV_PADCTRL0_GLITCH_FILT_SHIFT;
+	chv_writel(value, reg);
+
+	/* Store interrupt-line to pin mapping for this pin*/
 	value &= CHV_PADCTRL0_INTSEL_MASK;
 	value >>= CHV_PADCTRL0_INTSEL_SHIFT;
-
 	pctrl->intr_lines[value] = pin;
 
 	if (type & IRQ_TYPE_EDGE_BOTH)
