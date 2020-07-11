@@ -142,6 +142,27 @@ properties:
       offer the power, Capability Mismatch is set. Required for power sink and
       power dual role.
 
+  altmodes:
+    description:
+      List of child nodes that specify the altmodes supported by the
+      "usb-c-connector". The child nodes must be named foo-altmode, e.g.
+      "displayport-altmode".
+
+    patternProperties:
+      "^.*-altmode$":
+        type: object
+        description: The altmodes node has 1 child-node per supported altmode.
+        properties:
+          svid:
+            description: USB Type-C / PD altmode-svid, see the USB specifications
+              for details.
+          vdo:
+            description: USB Type-C / PD altmode-vdo, see the USB specifications
+              for details.
+        required:
+          - svid
+          - vdo
+
   ports:
     description: OF graph bindings (specified in bindings/graph.txt) that model
       any data bus to the connector unless the bus is between parent node and
