@@ -87,6 +87,7 @@ static void rtsx_comm_set_aspm(struct rtsx_pcr *pcr, bool enable)
 	if (pcr->aspm_enabled == enable)
 		return;
 
+	pr_err("%s setting aspm enable to %d\n", __func__, enable ? pcr->aspm_en : 0);
 	pcie_capability_clear_and_set_word(pcr->pci, PCI_EXP_LNKCTL,
 					   PCI_EXP_LNKCTL_ASPMC,
 					   enable ? pcr->aspm_en : 0);
@@ -1414,7 +1415,7 @@ static int rtsx_pci_init_chip(struct rtsx_pcr *pcr)
 	if (pcr->ops->fetch_vendor_settings)
 		pcr->ops->fetch_vendor_settings(pcr);
 
-	pcr_dbg(pcr, "pcr->aspm_en = 0x%x\n", pcr->aspm_en);
+	dev_err(&pcr->pci->dev, "pcr->aspm_en = 0x%x\n", pcr->aspm_en);
 	pcr_dbg(pcr, "pcr->sd30_drive_sel_1v8 = 0x%x\n",
 			pcr->sd30_drive_sel_1v8);
 	pcr_dbg(pcr, "pcr->sd30_drive_sel_3v3 = 0x%x\n",
@@ -1440,6 +1441,8 @@ static int rtsx_pci_probe(struct pci_dev *pcidev,
 	struct pcr_handle *handle;
 	u32 base, len;
 	int ret, i, bar = 0;
+
+	pcie_print_link_status(pcidev);
 
 	dev_dbg(&(pcidev->dev),
 		": Realtek PCI-E Card Reader found at %s [%04x:%04x] (rev %x)\n",
@@ -1524,6 +1527,8 @@ static int rtsx_pci_probe(struct pci_dev *pcidev,
 
 	pci_set_master(pcidev);
 	synchronize_irq(pcr->irq);
+
+	pcie_print_link_status(pcidev);
 
 	ret = rtsx_pci_init_chip(pcr);
 	if (ret < 0)
