@@ -977,6 +977,14 @@ const struct dmi_system_id touchscreen_dmi_table[] = {
 		},
 	},
 	{
+		/* MP Man Converter 9, same hw as the I.T.Works TW891 2-in-1 */
+		.driver_data = (void *)&itworks_tw891_data,
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "MPMAN"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Converter9"),
+		},
+	},
+	{
 		/* MP Man MPWIN895CL */
 		.driver_data = (void *)&mpman_mpwin895cl_data,
 		.matches = {
