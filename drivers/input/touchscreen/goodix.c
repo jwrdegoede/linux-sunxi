@@ -827,9 +827,11 @@ static int goodix_add_acpi_gpio_mappings(struct goodix_ts_data *ts)
 	acpi_dev_free_resource_list(&resources);
 
 	if (ts->gpio_count == 2 && ts->gpio_int_idx == 0) {
+		dev_info(dev, "Using acpi_goodix_int_first_gpios\n");
 		ts->irq_pin_access_method = IRQ_PIN_ACCESS_ACPI_GPIO;
 		gpio_mapping = acpi_goodix_int_first_gpios;
 	} else if (ts->gpio_count == 2 && ts->gpio_int_idx == 1) {
+		dev_info(dev, "Using acpi_goodix_int_last_gpios\n");
 		ts->irq_pin_access_method = IRQ_PIN_ACCESS_ACPI_GPIO;
 		gpio_mapping = acpi_goodix_int_last_gpios;
 	} else if (ts->gpio_count == 1 && ts->gpio_int_idx == -1 &&
@@ -901,11 +903,13 @@ retry_get_irq_gpio:
 				GOODIX_GPIO_INT_NAME, error);
 		return error;
 	}
+#if 0
 	if (!gpiod && has_acpi_companion(dev) && !added_acpi_mappings) {
 		added_acpi_mappings = true;
 		if (goodix_add_acpi_gpio_mappings(ts) == 0)
 			goto retry_get_irq_gpio;
 	}
+#endif
 
 	ts->gpiod_int = gpiod;
 
@@ -946,6 +950,7 @@ retry_get_irq_gpio:
 		}
 	}
 
+//	ts->reset_controller_at_probe = true;
 	return 0;
 }
 
