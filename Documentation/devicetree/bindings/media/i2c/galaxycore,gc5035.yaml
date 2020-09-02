@@ -1,0 +1,142 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+# Copyright (c) 2019 MediaTek Inc.
+# Copyright 2020 Google LLC.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/i2c/galaxycore,gc5035.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Galaxycore Inc. GC5035 CMOS Sensor
+
+maintainers:
+  - Tomasz Figa <tfiga@chromium.org>
+
+description: |-
+  The Galaxycore Inc. GC5035 is a 5 megapixel, 1/5 inch CMOS 10-bit Bayer image
+  sensor that delivers 2592x1944 at 30fps. This chip is programmable through
+  an I2C interface. The image output is available via a MIPI CSI-2 interface.
+
+properties:
+  compatible:
+    const: galaxycore,gc5035
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    description:
+      Input clock for the sensor.
+    items:
+      - const: mclk
+
+  clock-frequency:
+    description:
+      Frequency of the mclk clock in Hz.
+
+  iovdd-supply:
+    description:
+      Regulator driving the I/O power rail.
+
+  avdd28-supply:
+    description:
+      Regulator driving the analog power rail.
+
+  dvdd12-supply:
+    description:
+      Regulator driving the digital power rail.
+
+  resetb-gpios:
+    description:
+      The GPIO pin that drives the RESETB signal, controlling sensor reset.
+      The RESETB signal must be driven low to activate the reset, so the
+      GPIO_ACTIVE_LOW flag should be given by default.
+
+  pwdn-gpios:
+    description:
+      The GPIO pin that drives the PWDN signal, controlling sensor power-down
+      mode. The PWDN signal must be driven low to activate the power-down
+      mode, so the GPIO_ACTIVE_LOW flag should be given by default.
+
+  port:
+    type: object
+    additionalProperties: false
+    description:
+      A node containing an output port node with an endpoint definition
+      as documented in
+      Documentation/devicetree/bindings/media/video-interfaces.txt
+
+    properties:
+      endpoint:
+        type: object
+        additionalProperties: false
+
+        properties:
+          data-lanes:
+            items:
+              - const: 1
+              - const: 2
+
+          link-frequencies: true
+          remote-endpoint: true
+
+        required:
+          - data-lanes
+          - link-frequencies
+          - remote-endpoint
+
+    required:
+      - endpoint
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - clock-frequency
+  - iovdd-supply
+  - avdd28-supply
+  - dvdd12-supply
+  - resetb-gpios
+  - pwdn-gpios
+  - port
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        gc5035: camera@10 {
+            compatible = "galaxycore,gc5035";
+            reg = <0x10>;
+
+            resetb-gpios = <&pio 111 GPIO_ACTIVE_LOW>;
+            pwdn-gpios = <&pio 112 GPIO_ACTIVE_LOW>;
+            pinctrl-names = "default";
+            pinctrl-0 = <&clk_24m_cam>;
+
+            clocks = <&cam_osc>;
+            clock-names = "mclk";
+            clock-frequency = <24000000>;
+
+            avdd28-supply = <&mt6358_vcama2_reg>;
+            dvdd12-supply = <&mt6358_vcamd_reg>;
+            iovdd-supply = <&mt6358_vcamio_reg>;
+
+            port {
+                wcam_out: endpoint {
+                    remote-endpoint = <&mipi_in_wcam>;
+                    data-lanes = <1 2>;
+                    link-frequencies = /bits/ 64 <438000000>;
+                };
+            };
+        };
+    };
+...
