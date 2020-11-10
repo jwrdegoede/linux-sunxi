@@ -152,6 +152,7 @@ struct kxcjk1013_data {
 	int64_t timestamp;
 	enum kx_chipset chipset;
 	enum kx_acpi_type acpi_type;
+	bool tablet_mode;
 };
 
 enum kxcjk1013_axis {
@@ -302,6 +303,50 @@ static int kiox010a_dsm(struct device *dev, int fn_index)
 	ACPI_FREE(obj);
 	return 0;
 }
+
+static ssize_t tablet_mode_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct kxcjk1013_data *data = iio_priv(indio_dev);
+
+	return sprintf(buf, "%d\n", data->tablet_mode);
+}
+
+static ssize_t tablet_mode_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct kxcjk1013_data *data = iio_priv(indio_dev);
+	unsigned long tablet_mode;
+	int err;
+
+	err = kstrtoul(buf, 0, &tablet_mode);
+	if (err)
+		return err;
+
+	err = kiox010a_dsm(&data->client->dev,
+			   tablet_mode ? KIOX010A_SET_TABLET_MODE :
+					 KIOX010A_SET_LAPTOP_MODE);
+	if (err)
+		return err;
+
+	data->tablet_mode = tablet_mode;
+	return len;
+}
+
+static DEVICE_ATTR_RW(tablet_mode);
+
+static struct attribute *tablet_mode_attrs[] = {
+	&dev_attr_tablet_mode.attr,
+	NULL
+};
+
+static const struct attribute_group tablet_mode_attrs_group = {
+	.attrs = tablet_mode_attrs,
+};
 #endif
 
 static int kxcjk1013_set_mode(struct kxcjk1013_data *data,
@@ -385,6 +430,10 @@ static int kxcjk1013_chip_init(struct kxcjk1013_data *data)
 	if (data->acpi_type == ACPI_KIOX010A) {
 		/* Make sure the kbd and touchpad on 2-in-1s using 2 KXCJ91008-s work */
 		kiox010a_dsm(&data->client->dev, KIOX010A_SET_LAPTOP_MODE);
+
+		ret = devm_device_add_group(&data->client->dev, &tablet_mode_attrs_group);
+		if (ret < 0)
+			dev_warn(&data->client->dev, "Error creating tablet_mode sysfs attribute\n");
 	}
 #endif
 
