@@ -64,8 +64,10 @@ static int process_sdio_pending_irqs(struct mmc_host *host)
 	struct sdio_func *func;
 
 	/* Don't process SDIO IRQs if the card is suspended. */
-	if (mmc_card_suspended(card))
+	if (mmc_card_suspended(card)) {
+		pr_err("not processing SDIO IRQ due to card being suspended\n");
 		return 0;
+	}
 
 	/* Clear the flag to indicate that we have processed the IRQ. */
 	host->sdio_irq_pending = false;
