@@ -595,6 +595,16 @@ static int arizona_hpdet_do_id(struct arizona_extcon_info *info, int *reading,
 	return 0;
 }
 
+static void arizona_set_extcon_state(struct arizona_extcon_info *info,
+				     unsigned int id, bool state)
+{
+	int ret;
+
+	ret = extcon_set_state_sync(info->edev, id, state);
+	if (ret)
+		dev_err(info->arizona->dev, "Failed to set extcon state: %d\n", ret);
+}
+
 static irqreturn_t arizona_hpdet_irq(int irq, void *data)
 {
 	struct arizona_extcon_info *info = data;
@@ -648,11 +658,7 @@ static irqreturn_t arizona_hpdet_irq(int irq, void *data)
 	else
 		report = EXTCON_JACK_HEADPHONE;
 
-	ret = extcon_set_state_sync(info->edev, report, true);
-	if (ret != 0)
-		dev_err(arizona->dev, "Failed to report HP/line: %d\n",
-			ret);
-
+	arizona_set_extcon_state(info, report, true);
 done:
 	/* Reset back to starting range */
 	regmap_update_bits(arizona->regmap,
@@ -727,9 +733,7 @@ err:
 	pm_runtime_put_autosuspend(info->dev);
 
 	/* Just report headphone */
-	ret = extcon_set_state_sync(info->edev, EXTCON_JACK_HEADPHONE, true);
-	if (ret != 0)
-		dev_err(arizona->dev, "Failed to report headphone: %d\n", ret);
+	arizona_set_extcon_state(info, EXTCON_JACK_HEADPHONE, true);
 
 	if (info->mic)
 		arizona_start_mic(info);
@@ -781,10 +785,7 @@ static void arizona_start_hpdet_acc_id(struct arizona_extcon_info *info)
 
 err:
 	/* Just report headphone */
-	ret = extcon_set_state_sync(info->edev, EXTCON_JACK_HEADPHONE, true);
-	if (ret != 0)
-		dev_err(arizona->dev, "Failed to report headphone: %d\n", ret);
-
+	arizona_set_extcon_state(info, EXTCON_JACK_HEADPHONE, true);
 	info->hpdet_active = false;
 }
 
@@ -904,11 +905,7 @@ static int arizona_micdet_reading(void *priv)
 
 		arizona_identify_headphone(info);
 
-		ret = extcon_set_state_sync(info->edev,
-					      EXTCON_JACK_MICROPHONE, true);
-		if (ret != 0)
-			dev_err(arizona->dev, "Headset report failed: %d\n",
-				ret);
+		arizona_set_extcon_state(info, EXTCON_JACK_MICROPHONE, true);
 
 		/* Don't need to regulate for button detection */
 		ret = regulator_allow_bypass(info->micvdd, true);
@@ -1175,12 +1172,7 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 
 	if (info->last_jackdet == present) {
 		dev_dbg(arizona->dev, "Detected jack\n");
-		ret = extcon_set_state_sync(info->edev,
-					      EXTCON_MECHANICAL, true);
-
-		if (ret != 0)
-			dev_err(arizona->dev, "Mechanical report failed: %d\n",
-				ret);
+		arizona_set_extcon_state(info, EXTCON_MECHANICAL, true);
 
 		info->detecting = true;
 		info->mic = false;
@@ -1216,13 +1208,8 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 					 info->micd_ranges[i].key, 0);
 		input_sync(info->input);
 
-		for (i = 0; i < ARRAY_SIZE(arizona_cable) - 1; i++) {
-			ret = extcon_set_state_sync(info->edev,
-					arizona_cable[i], false);
-			if (ret != 0)
-				dev_err(arizona->dev,
-					"Removal report failed: %d\n", ret);
-		}
+		for (i = 0; i < ARRAY_SIZE(arizona_cable) - 1; i++)
+			arizona_set_extcon_state(info, arizona_cable[i], false);
 
 		/*
 		 * If the jack was removed during a headphone detection we
