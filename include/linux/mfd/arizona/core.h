@@ -115,6 +115,7 @@ enum arizona_type {
 #define ARIZONA_NUM_IRQ                   75
 
 struct snd_soc_dapm_context;
+struct snd_soc_jack;
 
 struct arizona {
 	struct regmap *regmap;
@@ -148,6 +149,7 @@ struct arizona {
 	bool ctrlif_error;
 
 	struct snd_soc_dapm_context *dapm;
+	struct snd_soc_jack *jack;
 
 	int tdm_width[ARIZONA_MAX_AIF];
 	int tdm_slots[ARIZONA_MAX_AIF];
