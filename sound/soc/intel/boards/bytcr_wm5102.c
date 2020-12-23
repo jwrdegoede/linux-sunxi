@@ -13,11 +13,13 @@
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/init.h>
+#include <linux/input.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
+#include <sound/jack.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -31,6 +33,8 @@
 #define WM5102_MAX_SYSCLK_11025	45158400 /* max sysclk for 11.025K family */
 
 struct byt_wm5102_private {
+	struct snd_soc_jack jack;
+	struct arizona *arizona;
 	struct clk *mclk;
 	struct gpio_desc *spkvdd_en_gpio;
 };
@@ -184,11 +188,22 @@ static const struct snd_kcontrol_new byt_wm5102_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Speaker"),
 };
 
+static struct snd_soc_jack_pin byt_wm5102_pins[] = {
+	{
+		.pin	= "Headphone",
+		.mask	= SND_JACK_HEADPHONE,
+	},
+	{
+		.pin	= "Headset Mic",
+		.mask	= SND_JACK_MICROPHONE,
+	},
+};
+
 static int byt_wm5102_init(struct snd_soc_pcm_runtime *runtime)
 {
 	struct snd_soc_card *card = runtime->card;
 	struct byt_wm5102_private *priv = snd_soc_card_get_drvdata(card);
-	int ret;
+	int ret, jack_type;
 
 	card->dapm.idle_bias_off = true;
 
@@ -216,6 +231,22 @@ static int byt_wm5102_init(struct snd_soc_pcm_runtime *runtime)
 		dev_err(card->dev, "Error setting MCLK rate: %d\n", ret);
 		return ret;
 	}
+
+	jack_type = SND_JACK_HEADSET | SND_JACK_BTN_0 | SND_JACK_BTN_1 |
+		    SND_JACK_BTN_2 | SND_JACK_BTN_3;
+	ret = snd_soc_card_jack_new(card, "Headset", jack_type,
+				    &priv->jack, byt_wm5102_pins,
+				    ARRAY_SIZE(byt_wm5102_pins));
+	if (ret) {
+		dev_err(card->dev, "Error creating jack: %d\n", ret);
+		return ret;
+	}
+	snd_jack_set_key(priv->jack.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
+	snd_jack_set_key(priv->jack.jack, SND_JACK_BTN_1, KEY_VOICECOMMAND);
+	snd_jack_set_key(priv->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+	snd_jack_set_key(priv->jack.jack, SND_JACK_BTN_3, KEY_VOLUMEDOWN);
+
+	priv->arizona->jack = &priv->jack;
 
 	return 0;
 }
@@ -409,6 +440,8 @@ static int snd_byt_wm5102_mc_probe(struct platform_device *pdev)
 
 	/* Note no devm_ here since we call gpiod_get on codec_dev rather then dev */
 	priv->spkvdd_en_gpio = gpiod_get(codec_dev, "wlf,spkvdd-ena", GPIOD_OUT_LOW);
+
+	priv->arizona = dev_get_drvdata(codec_dev);
 	put_device(codec_dev);
 
 	if (IS_ERR(priv->spkvdd_en_gpio))
@@ -452,6 +485,7 @@ static int snd_byt_wm5102_mc_remove(struct platform_device *pdev)
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct byt_wm5102_private *priv = snd_soc_card_get_drvdata(card);
 
+	priv->arizona->jack = NULL;
 	gpiod_put(priv->spkvdd_en_gpio);
 	return 0;
 }
