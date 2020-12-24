@@ -20,6 +20,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/extcon-provider.h>
 
+#include <sound/jack.h>
 #include <sound/soc.h>
 
 #include <linux/mfd/arizona/core.h>
@@ -598,11 +599,19 @@ static int arizona_hpdet_do_id(struct arizona_extcon_info *info, int *reading,
 static void arizona_set_extcon_state(struct arizona_extcon_info *info,
 				     unsigned int id, bool state)
 {
-	int ret;
+	int ret, mask = 0;
 
 	ret = extcon_set_state_sync(info->edev, id, state);
 	if (ret)
 		dev_err(info->arizona->dev, "Failed to set extcon state: %d\n", ret);
+
+	switch (id) {
+	case EXTCON_JACK_HEADPHONE:	mask = SND_JACK_HEADPHONE;	break;
+	case EXTCON_JACK_MICROPHONE:	mask = SND_JACK_MICROPHONE;	break;
+	}
+
+	if (info->arizona->jack && mask)
+		snd_soc_jack_report(info->arizona->jack, state ? mask : 0, mask);
 }
 
 static irqreturn_t arizona_hpdet_irq(int irq, void *data)
