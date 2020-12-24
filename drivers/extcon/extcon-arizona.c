@@ -1376,6 +1376,7 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 {
 	struct arizona *arizona = dev_get_drvdata(pdev->dev.parent);
 	struct arizona_pdata *pdata = &arizona->pdata;
+	bool using_jack_input_dev = false;
 	struct arizona_extcon_info *info;
 	unsigned int val;
 	unsigned int clamp_mode;
@@ -1453,15 +1454,28 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	info->input = devm_input_allocate_device(&pdev->dev);
-	if (!info->input) {
-		dev_err(arizona->dev, "Can't allocate input dev\n");
-		ret = -ENOMEM;
-		return ret;
-	}
+#ifdef CONFIG_SND_JACK_INPUT_DEV
+	if (arizona->jack) {
+		info->input = input_get_device(arizona->jack->jack->input_dev);
+		using_jack_input_dev = true;
+	} else
+#endif
+	{
+		info->input = devm_input_allocate_device(&pdev->dev);
+		if (!info->input) {
+			dev_err(arizona->dev, "Can't allocate input dev\n");
+			ret = -ENOMEM;
+			return ret;
+		}
 
-	info->input->name = "Headset";
-	info->input->phys = "arizona/extcon";
+		/*
+		 * balance the put in arizona_extcon_remove, which is necessary
+		 * when re-using the jack-device's input-device.
+		 */
+		input_get_device(info->input);
+		info->input->name = "Headset";
+		info->input->phys = "arizona/extcon";
+	}
 
 	if (!pdata->micd_timeout)
 		pdata->micd_timeout = DEFAULT_MICD_TIMEOUT;
@@ -1603,8 +1617,9 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 			arizona_micd_levels[j], i);
 
 		arizona_micd_set_level(arizona, i, j);
-		input_set_capability(info->input, EV_KEY,
-				     info->micd_ranges[i].key);
+		if (!using_jack_input_dev)
+			input_set_capability(info->input, EV_KEY,
+					     info->micd_ranges[i].key);
 
 		/* Enable reporting of that range */
 		regmap_update_bits(arizona->regmap, ARIZONA_MIC_DETECT_2,
@@ -1718,10 +1733,12 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 		dev_warn(arizona->dev, "Failed to set MICVDD to bypass: %d\n",
 			 ret);
 
-	ret = input_register_device(info->input);
-	if (ret) {
-		dev_err(&pdev->dev, "Can't register input device: %d\n", ret);
-		goto err_hpdet;
+	if (!using_jack_input_dev) {
+		ret = input_register_device(info->input);
+		if (ret) {
+			dev_err(&pdev->dev, "Can't register input device: %d\n", ret);
+			goto err_hpdet;
+		}
 	}
 
 	pm_runtime_put(&pdev->dev);
@@ -1792,6 +1809,7 @@ static int arizona_extcon_remove(struct platform_device *pdev)
 			   ARIZONA_JD1_ENA, 0);
 	arizona_clk32k_disable(arizona);
 
+	input_put_device(info->input);
 	gpiod_put(info->micd_pol_gpio);
 
 	pm_runtime_disable(&pdev->dev);
