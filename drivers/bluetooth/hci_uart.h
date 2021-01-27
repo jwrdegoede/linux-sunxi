@@ -35,12 +35,13 @@
 #define HCI_UART_NOKIA	10
 #define HCI_UART_MRVL	11
 
-#define HCI_UART_RAW_DEVICE	0
-#define HCI_UART_RESET_ON_INIT	1
-#define HCI_UART_CREATE_AMP	2
-#define HCI_UART_INIT_PENDING	3
-#define HCI_UART_EXT_CONFIG	4
-#define HCI_UART_VND_DETECT	5
+#define HCI_UART_RAW_DEVICE		0
+#define HCI_UART_RESET_ON_INIT		1
+#define HCI_UART_CREATE_AMP		2
+#define HCI_UART_INIT_PENDING		3
+#define HCI_UART_EXT_CONFIG		4
+#define HCI_UART_VND_DETECT		5
+#define HCI_UART_NO_SUSPEND_NOTIFIER	6
 
 struct hci_uart;
 struct serdev_device;
