@@ -1263,16 +1263,12 @@ void assert_panel_unlocked(struct drm_i915_private *dev_priv, enum pipe pipe)
 	     pipe_name(pipe));
 }
 
-void assert_pipe(struct drm_i915_private *dev_priv,
-		 enum transcoder cpu_transcoder, bool state)
+bool intel_pipe_is_enabled(struct drm_i915_private *dev_priv,
+			   enum transcoder cpu_transcoder)
 {
 	bool cur_state;
 	enum intel_display_power_domain power_domain;
 	intel_wakeref_t wakeref;
-
-	/* we keep both pipes enabled on 830 */
-	if (IS_I830(dev_priv))
-		state = true;
 
 	power_domain = POWER_DOMAIN_TRANSCODER(cpu_transcoder);
 	wakeref = intel_display_power_get_if_enabled(dev_priv, power_domain);
@@ -1284,6 +1280,18 @@ void assert_pipe(struct drm_i915_private *dev_priv,
 	} else {
 		cur_state = false;
 	}
+
+	return cur_state;
+}
+
+void assert_pipe(struct drm_i915_private *dev_priv,
+		 enum transcoder cpu_transcoder, bool state)
+{
+	bool cur_state = intel_pipe_is_enabled(dev_priv, cpu_transcoder);
+
+	/* we keep both pipes enabled on 830 */
+	if (IS_I830(dev_priv))
+		state = true;
 
 	I915_STATE_WARN(cur_state != state,
 			"transcoder %s assertion failure (expected %s, current %s)\n",
