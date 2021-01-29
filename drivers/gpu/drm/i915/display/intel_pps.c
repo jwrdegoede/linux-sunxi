@@ -164,6 +164,7 @@ static enum pipe vlv_find_free_pps(struct drm_i915_private *dev_priv)
 {
 	struct intel_encoder *encoder;
 	unsigned int pipes = (1 << PIPE_A) | (1 << PIPE_B);
+	enum pipe pipe;
 
 	/*
 	 * We don't have power sequencer currently.
@@ -186,6 +187,27 @@ static enum pipe vlv_find_free_pps(struct drm_i915_private *dev_priv)
 
 			if (intel_dp->pps.active_pipe != INVALID_PIPE)
 				pipes &= ~(1 << intel_dp->pps.active_pipe);
+		}
+	}
+
+	/*
+	 * If the DPLL is not enabled and the pipe is enabled then the pipe is
+	 * in use for non DP uses. In this case we *must* not use it for pps.
+	 * This may happen when PIPE A is used for a DSI panel, yet the VLV code
+	 * in intel_setup_outputs() thinks port B may be used for eDP and calls
+	 * intel_dp_init() to check.
+	 */
+	for (pipe = PIPE_A; pipe <= PIPE_B; pipe++) {
+		if (!(pipes & (1 << pipe)))
+			continue;
+
+		if (intel_de_read(dev_priv, DPLL(pipe)) & DPLL_VCO_ENABLE)
+			continue;
+
+		if (intel_pipe_is_enabled(dev_priv, (enum transcoder)pipe)) {
+			drm_info(&dev_priv->drm, "Pipe %c is used for non DP, not using it for pps\n",
+				 pipe_name(pipe));
+			pipes &= ~(1 << pipe);
 		}
 	}
 
