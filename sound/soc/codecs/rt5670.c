@@ -690,7 +690,8 @@ static const struct snd_kcontrol_new rt5670_snd_controls[] = {
 	/* DAC Digital Volume */
 	SOC_DOUBLE("DAC2 Playback Switch", RT5670_DAC_CTRL,
 		RT5670_M_DAC_L2_VOL_SFT, RT5670_M_DAC_R2_VOL_SFT, 1, 1),
-	SOC_DOUBLE_EXT("DAC1 Playback Switch", SND_SOC_NOPM, 0, 1, 1, 0,
+	SOC_DOUBLE_EXT_ACCESS("DAC1 Playback Switch", SND_SOC_NOPM, 0, 1, 1, 0,
+			SNDRV_CTL_ELEM_ACCESS_SPK_LED,
 			rt5670_dac1_playback_switch_get, rt5670_dac1_playback_switch_put),
 	SOC_DOUBLE_TLV("DAC1 Playback Volume", RT5670_DAC1_DIG_VOL,
 			RT5670_L_VOL_SFT, RT5670_R_VOL_SFT,
@@ -708,8 +709,9 @@ static const struct snd_kcontrol_new rt5670_snd_controls[] = {
 			RT5670_INL_VOL_SFT, RT5670_INR_VOL_SFT,
 			31, 1, in_vol_tlv),
 	/* ADC Digital Volume Control */
-	SOC_DOUBLE("ADC Capture Switch", RT5670_STO1_ADC_DIG_VOL,
-		RT5670_L_MUTE_SFT, RT5670_R_MUTE_SFT, 1, 1),
+	SOC_DOUBLE_ACCESS("ADC Capture Switch", RT5670_STO1_ADC_DIG_VOL,
+			  RT5670_L_MUTE_SFT, RT5670_R_MUTE_SFT, 1, 1,
+			  SNDRV_CTL_ELEM_ACCESS_MIC_LED),
 	SOC_DOUBLE_TLV("ADC Capture Volume", RT5670_STO1_ADC_DIG_VOL,
 			RT5670_L_VOL_SFT, RT5670_R_VOL_SFT,
 			127, 0, adc_vol_tlv),
@@ -3252,6 +3254,8 @@ static int rt5670_i2c_probe(struct i2c_client *i2c,
 		}
 
 	}
+
+	snd_ctl_led_request();
 
 	pm_runtime_enable(&i2c->dev);
 	pm_request_idle(&i2c->dev);
