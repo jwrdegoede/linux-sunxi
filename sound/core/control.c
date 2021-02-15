@@ -278,6 +278,7 @@ struct snd_kcontrol *snd_ctl_new1(const struct snd_kcontrol_new *ncontrol,
 		   SNDRV_CTL_ELEM_ACCESS_TLV_READWRITE |
 		   SNDRV_CTL_ELEM_ACCESS_TLV_COMMAND |
 		   SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK |
+		   SNDRV_CTL_ELEM_ACCESS_LED_MASK |
 		   SNDRV_CTL_ELEM_ACCESS_SKIP_CHECK);
 
 	err = snd_ctl_new(&kctl, count, access, NULL);

@@ -266,6 +266,17 @@ int snd_ctl_apply_vmaster_followers(struct snd_kcontrol *kctl,
 				    void *arg);
 
 /*
+ * Control LED trigger layer
+ */
+#define SND_CTL_LAYER_MODULE_LED	"snd-ctl-led"
+
+#if IS_MODULE(CONFIG_SND_CTL_LED)
+static inline int snd_ctl_led_request(void) { return snd_ctl_request_layer(SND_CTL_LAYER_MODULE_LED); }
+#else
+static inline int snd_ctl_led_request(void) { return 0; }
+#endif
+
+/*
  * Helper functions for jack-detection controls
  */
 struct snd_kcontrol *
