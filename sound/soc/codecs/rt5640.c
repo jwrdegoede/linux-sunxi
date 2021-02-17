@@ -378,6 +378,56 @@ static const char * const rt5640_clsd_spk_ratio[] = {"1.66x", "1.83x", "1.94x",
 static SOC_ENUM_SINGLE_DECL(rt5640_clsd_spk_ratio_enum, RT5640_CLS_D_OUT,
 			    RT5640_CLSD_RATIO_SFT, rt5640_clsd_spk_ratio);
 
+/*
+ * For reliable output-mute LED control we need a "DAC1 Playback Switch" control.
+ * We emulate this by only clearing the RT5640_M_IF1_DAC_L/_R AD_DA_MIXER register
+ * bits when both our emulated DAC1 Playback Switch control and the DAC1 MIXL/R
+ * DAPM-mixer DAC1 input are enabled.
+ */
+static void rt5640_update_ad_da_mixer_if1_dac_m_bits(struct rt5640_priv *rt5640)
+{
+	int val = RT5640_M_IF1_DAC_L | RT5640_M_IF1_DAC_R;
+
+	if (rt5640->dac1_mixl_if1_switch && rt5640->dac1_playback_switch_l)
+		val &= ~RT5640_M_IF1_DAC_L;
+
+	if (rt5640->dac1_mixr_if1_switch && rt5640->dac1_playback_switch_r)
+		val &= ~RT5640_M_IF1_DAC_R;
+
+	regmap_update_bits(rt5640->regmap, RT5640_AD_DA_MIXER,
+			   RT5640_M_IF1_DAC_L | RT5640_M_IF1_DAC_R, val);
+}
+
+static int rt5640_dac1_playback_switch_get(struct snd_kcontrol *kcontrol,
+					   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct rt5640_priv *rt5640 = snd_soc_component_get_drvdata(component);
+
+	ucontrol->value.integer.value[0] = rt5640->dac1_playback_switch_l;
+	ucontrol->value.integer.value[1] = rt5640->dac1_playback_switch_r;
+
+	return 0;
+}
+
+static int rt5640_dac1_playback_switch_put(struct snd_kcontrol *kcontrol,
+					   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct rt5640_priv *rt5640 = snd_soc_component_get_drvdata(component);
+
+	if (rt5640->dac1_playback_switch_l == ucontrol->value.integer.value[0] &&
+	    rt5640->dac1_playback_switch_r == ucontrol->value.integer.value[1])
+		return 0;
+
+	rt5640->dac1_playback_switch_l = ucontrol->value.integer.value[0];
+	rt5640->dac1_playback_switch_r = ucontrol->value.integer.value[1];
+
+	rt5640_update_ad_da_mixer_if1_dac_m_bits(rt5640);
+
+	return 1;
+}
+
 static const struct snd_kcontrol_new rt5640_snd_controls[] = {
 	/* Speaker Output Volume */
 	SOC_DOUBLE("Speaker Channel Switch", RT5640_SPK_VOL,
@@ -400,6 +450,8 @@ static const struct snd_kcontrol_new rt5640_snd_controls[] = {
 	/* DAC Digital Volume */
 	SOC_DOUBLE("DAC2 Playback Switch", RT5640_DAC2_CTRL,
 		RT5640_M_DAC_L2_VOL_SFT, RT5640_M_DAC_R2_VOL_SFT, 1, 1),
+	SOC_DOUBLE_EXT("DAC1 Playback Switch", SND_SOC_NOPM, 0, 1, 1, 0,
+			rt5640_dac1_playback_switch_get, rt5640_dac1_playback_switch_put),
 	SOC_DOUBLE_TLV("DAC1 Playback Volume", RT5640_DAC1_DIG_VOL,
 			RT5640_L_VOL_SFT, RT5640_R_VOL_SFT,
 			175, 0, dac_vol_tlv),
@@ -515,18 +567,44 @@ static const struct snd_kcontrol_new rt5640_mono_adc_r_mix[] = {
 			RT5640_M_MONO_ADC_R2_SFT, 1, 1),
 };
 
+/* See comment above rt5640_update_ad_da_mixer_if1_dac_m_bits() */
+static int rt5640_put_dac1_mix_if1_switch(struct snd_kcontrol *kcontrol,
+					  struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc = (struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_component *component = snd_soc_dapm_kcontrol_component(kcontrol);
+	struct rt5640_priv *rt5640 = snd_soc_component_get_drvdata(component);
+	int ret;
+
+	if (mc->shift == 0)
+		rt5640->dac1_mixl_if1_switch = ucontrol->value.integer.value[0];
+	else
+		rt5640->dac1_mixr_if1_switch = ucontrol->value.integer.value[0];
+
+	/* Apply the update (if any) */
+	ret = snd_soc_dapm_put_volsw(kcontrol, ucontrol);
+	if (ret == 0)
+		return 0;
+
+	rt5640_update_ad_da_mixer_if1_dac_m_bits(rt5640);
+
+	return 1;
+}
+
+#define SOC_DAPM_SINGLE_RT5640_IF1_SW(name, shift) \
+	SOC_SINGLE_EXT(name, SND_SOC_NOPM, shift, 1, 0, \
+		       snd_soc_dapm_get_volsw, rt5640_put_dac1_mix_if1_switch)
+
 static const struct snd_kcontrol_new rt5640_dac_l_mix[] = {
 	SOC_DAPM_SINGLE("Stereo ADC Switch", RT5640_AD_DA_MIXER,
 			RT5640_M_ADCMIX_L_SFT, 1, 1),
-	SOC_DAPM_SINGLE("INF1 Switch", RT5640_AD_DA_MIXER,
-			RT5640_M_IF1_DAC_L_SFT, 1, 1),
+	SOC_DAPM_SINGLE_RT5640_IF1_SW("INF1 Switch", 0),
 };
 
 static const struct snd_kcontrol_new rt5640_dac_r_mix[] = {
 	SOC_DAPM_SINGLE("Stereo ADC Switch", RT5640_AD_DA_MIXER,
 			RT5640_M_ADCMIX_R_SFT, 1, 1),
-	SOC_DAPM_SINGLE("INF1 Switch", RT5640_AD_DA_MIXER,
-			RT5640_M_IF1_DAC_R_SFT, 1, 1),
+	SOC_DAPM_SINGLE_RT5640_IF1_SW("INF1 Switch", 1),
 };
 
 static const struct snd_kcontrol_new rt5640_sto_dac_l_mix[] = {
@@ -2830,6 +2908,16 @@ static int rt5640_i2c_probe(struct i2c_client *i2c,
 	rt5640->irq = i2c->irq;
 	INIT_DELAYED_WORK(&rt5640->bp_work, rt5640_button_press_work);
 	INIT_WORK(&rt5640->jack_work, rt5640_jack_work);
+
+	/*
+	 * Enable the emulated "DAC1 Playback Switch" by default to avoid
+	 * muting the output with older UCM profiles.
+	 */
+	rt5640->dac1_playback_switch_l = true;
+	rt5640->dac1_playback_switch_r = true;
+	/* The Power-On-Reset values for the DAC1 mixer have the INF1 input enabled. */
+	rt5640->dac1_mixl_if1_switch = true;
+	rt5640->dac1_mixr_if1_switch = true;
 
 	/* Make sure work is stopped on probe-error / remove */
 	ret = devm_add_action_or_reset(&i2c->dev, rt5640_cancel_work, rt5640);

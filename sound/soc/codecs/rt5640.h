@@ -2135,6 +2135,10 @@ struct rt5640_priv {
 
 	bool hp_mute;
 	bool asrc_en;
+	bool dac1_mixl_if1_switch;
+	bool dac1_mixr_if1_switch;
+	bool dac1_playback_switch_l;
+	bool dac1_playback_switch_r;
 
 	/* Jack and button detect data */
 	bool ovcd_irq_enabled;
