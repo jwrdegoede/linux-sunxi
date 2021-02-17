@@ -448,12 +448,14 @@ static const struct snd_kcontrol_new rt5640_snd_controls[] = {
 		RT5640_L_VOL_SFT, RT5640_R_VOL_SFT, 39, 1, out_vol_tlv),
 
 	/* DAC Digital Volume */
-	SOC_DOUBLE("DAC2 Playback Switch", RT5640_DAC2_CTRL,
-		RT5640_M_DAC_L2_VOL_SFT, RT5640_M_DAC_R2_VOL_SFT, 1, 1),
+	SOC_DOUBLE_ACCESS("DAC2 Playback Switch", RT5640_DAC2_CTRL,
+		RT5640_M_DAC_L2_VOL_SFT, RT5640_M_DAC_R2_VOL_SFT, 1, 1,
+		SNDRV_CTL_ELEM_ACCESS_SPK_LED),
 	SOC_DOUBLE_TLV("DAC2 Playback Volume", RT5640_DAC2_DIG_VOL,
 			RT5640_L_VOL_SFT, RT5640_R_VOL_SFT,
 			175, 0, dac_vol_tlv),
-	SOC_DOUBLE_EXT("DAC1 Playback Switch", SND_SOC_NOPM, 0, 1, 1, 0,
+	SOC_DOUBLE_EXT_ACCESS("DAC1 Playback Switch", SND_SOC_NOPM, 0, 1, 1, 0,
+			SNDRV_CTL_ELEM_ACCESS_SPK_LED,
 			rt5640_dac1_playback_switch_get, rt5640_dac1_playback_switch_put),
 	SOC_DOUBLE_TLV("DAC1 Playback Volume", RT5640_DAC1_DIG_VOL,
 			RT5640_L_VOL_SFT, RT5640_R_VOL_SFT,
@@ -471,13 +473,15 @@ static const struct snd_kcontrol_new rt5640_snd_controls[] = {
 			RT5640_INL_VOL_SFT, RT5640_INR_VOL_SFT,
 			31, 1, in_vol_tlv),
 	/* ADC Digital Volume Control */
-	SOC_DOUBLE("ADC Capture Switch", RT5640_ADC_DIG_VOL,
-		RT5640_L_MUTE_SFT, RT5640_R_MUTE_SFT, 1, 1),
+	SOC_DOUBLE_ACCESS("ADC Capture Switch", RT5640_ADC_DIG_VOL,
+		RT5640_L_MUTE_SFT, RT5640_R_MUTE_SFT, 1, 1,
+		SNDRV_CTL_ELEM_ACCESS_MIC_LED),
 	SOC_DOUBLE_TLV("ADC Capture Volume", RT5640_ADC_DIG_VOL,
 			RT5640_L_VOL_SFT, RT5640_R_VOL_SFT,
 			127, 0, adc_vol_tlv),
-	SOC_DOUBLE("Mono ADC Capture Switch", RT5640_DUMMY1,
-		RT5640_M_MONO_ADC_L_SFT, RT5640_M_MONO_ADC_R_SFT, 1, 1),
+	SOC_DOUBLE_ACCESS("Mono ADC Capture Switch", RT5640_DUMMY1,
+		RT5640_M_MONO_ADC_L_SFT, RT5640_M_MONO_ADC_R_SFT, 1, 1,
+		SNDRV_CTL_ELEM_ACCESS_MIC_LED),
 	SOC_DOUBLE_TLV("Mono ADC Capture Volume", RT5640_ADC_DATA,
 			RT5640_L_VOL_SFT, RT5640_R_VOL_SFT,
 			127, 0, adc_vol_tlv),
@@ -2935,6 +2939,8 @@ static int rt5640_i2c_probe(struct i2c_client *i2c,
 			 rt5640->irq, ret);
 		rt5640->irq = -ENXIO;
 	}
+
+	snd_ctl_led_request();
 
 	return devm_snd_soc_register_component(&i2c->dev,
 				      &soc_component_dev_rt5640,
