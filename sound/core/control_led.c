@@ -235,11 +235,10 @@ static void snd_ctl_led_register(struct snd_card *card)
 	mutex_lock(&snd_ctl_led_mutex);
 	snd_ctl_led_card_valid[card->number] = true;
 	mutex_unlock(&snd_ctl_led_mutex);
-	down_read(&card->controls_rwsem);
+	/* the register callback is already called with held card->controls_rwsem */
 	list_for_each_entry(kctl, &card->controls, list)
 		for (ioff = 0; ioff < kctl->count; ioff++)
 			snd_ctl_led_notify(card, SNDRV_CTL_EVENT_MASK_VALUE, kctl, ioff);
-	up_read(&card->controls_rwsem);
 	snd_ctl_led_refresh();
 }
 

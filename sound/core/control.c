@@ -2051,7 +2051,9 @@ void snd_ctl_register_layer(struct snd_ctl_layer_ops *lops)
 	for (card_number = 0; card_number < SNDRV_CARDS; card_number++) {
 		card = snd_card_ref(card_number);
 		if (card) {
+			down_read(&card->controls_rwsem);
 			lops->lregister(card);
+			up_read(&card->controls_rwsem);
 			snd_card_unref(card);
 		}
 	}
@@ -2113,10 +2115,12 @@ static int snd_ctl_dev_register(struct snd_device *device)
 				  &snd_ctl_f_ops, card, &card->ctl_dev);
 	if (err < 0)
 		return err;
+	down_read(&card->controls_rwsem);
 	down_read(&snd_ctl_layer_rwsem);
 	for (lops = snd_ctl_layer; lops; lops = lops->next)
 		lops->lregister(card);
 	up_read(&snd_ctl_layer_rwsem);
+	up_read(&card->controls_rwsem);
 	return 0;
 }
 
@@ -2137,10 +2141,12 @@ static int snd_ctl_dev_disconnect(struct snd_device *device)
 	}
 	read_unlock_irqrestore(&card->ctl_files_rwlock, flags);
 
+	down_read(&card->controls_rwsem);
 	down_read(&snd_ctl_layer_rwsem);
 	for (lops = snd_ctl_layer; lops; lops = lops->next)
 		lops->ldisconnect(card);
 	up_read(&snd_ctl_layer_rwsem);
+	up_read(&card->controls_rwsem);
 
 	return snd_unregister_device(&card->ctl_dev);
 }
