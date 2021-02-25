@@ -1228,6 +1228,12 @@ static void elants_i2c_power_off(void *_data)
 	}
 }
 
+static const struct acpi_device_id i2c_hid_ids[] = {
+	{"ACPI0C50", 0 },
+	{"PNP0C50", 0 },
+	{ },
+};
+
 static int elants_i2c_probe(struct i2c_client *client,
 			    const struct i2c_device_id *id)
 {
@@ -1235,6 +1241,10 @@ static int elants_i2c_probe(struct i2c_client *client,
 	struct elants_data *ts;
 	unsigned long irqflags;
 	int error;
+
+	/* Don't bind to i2c-hid compatible devices, these are handled by the i2c-hid drv. */
+	if (acpi_match_device_ids(ACPI_COMPANION(&client->dev), i2c_hid_ids) == 0)
+		return -ENODEV;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev,
