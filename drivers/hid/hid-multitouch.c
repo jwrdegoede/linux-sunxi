@@ -1759,12 +1759,33 @@ static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
 }
 
 #ifdef CONFIG_PM
+
+/* Check if the parent which has the power/wakeup* sysfs attributes may wake the hdev */
+static bool mt_parent_may_wake(struct hid_device *hdev)
+{
+	struct device *parent = hdev->dev.parent;
+
+	/*
+	 * USB-HID is attached to the usb_interface (our parent), the
+	 * power/wakeup* attr are part of the usb-device which is its parent.
+	 */
+	if (hid_is_using_ll_driver(hdev, &usb_hid_driver) && parent)
+		parent = parent->parent;
+
+	if (parent)
+		return device_may_wakeup(parent);
+
+	/* Huh? Play it safe and keep reporting events. */
+	return true;
+}
+
 static int mt_suspend(struct hid_device *hdev, pm_message_t state)
 {
 	struct mt_device *td = hid_get_drvdata(hdev);
 
 	/* High latency is desirable for power savings during S3/S0ix */
-	if (td->mtclass.quirks & MT_QUIRK_DISABLE_WAKEUP)
+	if ((td->mtclass.quirks & MT_QUIRK_DISABLE_WAKEUP) ||
+	    !mt_parent_may_wake(hdev))
 		mt_set_modes(hdev, HID_LATENCY_HIGH, false, false);
 	else
 		mt_set_modes(hdev, HID_LATENCY_HIGH, true, true);
