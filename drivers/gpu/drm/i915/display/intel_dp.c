@@ -4538,7 +4538,11 @@ intel_dp_check_mst_status(struct intel_dp *intel_dp)
 	drm_WARN_ON_ONCE(&i915->drm, intel_dp->active_mst_links < 0);
 
 	for (;;) {
-		u8 esi[DP_DPRX_ESI_LEN] = {};
+		/*
+		 * drm_dp_channel_eq_ok() expects a 6 byte large buffer, but
+		 * the ESI info only contains 4 bytes, pass 2 extra 0 bytes.
+		 */
+		u8 esi[DP_DPRX_ESI_LEN + 2] = {};
 		bool handled;
 		int retry;
 
