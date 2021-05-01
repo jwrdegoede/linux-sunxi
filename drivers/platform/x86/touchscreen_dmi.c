@@ -218,6 +218,17 @@ static const struct ts_dmi_data cube_iwork8_air_data = {
 	.properties	= cube_iwork8_air_props,
 };
 
+static const struct property_entry cube_iwork10_ultimate_i15_tc_props[] = {
+	PROPERTY_ENTRY_BOOL("touchscreen-inverted-x"),
+	{ }
+};
+
+static const struct ts_dmi_data cube_iwork10_ultimate_i15_tc_data = {
+	.acpi_hid	= "GDIX1001",
+	.properties	= cube_iwork10_ultimate_i15_tc_props,
+};
+
+
 static const struct property_entry cube_knote_i1101_props[] = {
 	PROPERTY_ENTRY_U32("touchscreen-min-x", 20),
 	PROPERTY_ENTRY_U32("touchscreen-min-y",  22),
@@ -990,6 +1001,14 @@ const struct dmi_system_id touchscreen_dmi_table[] = {
 			DMI_MATCH(DMI_SYS_VENDOR, "cube"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "i1-TF"),
 			DMI_MATCH(DMI_BOARD_NAME, "Cherry Trail CR"),
+		},
+	},
+	{
+		/* CUBE iWork10 Ultimate (I15-TC) */
+		.driver_data = (void *)&cube_iwork10_ultimate_i15_tc_data,
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Cube"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "I15-TC")
 		},
 	},
 	{
