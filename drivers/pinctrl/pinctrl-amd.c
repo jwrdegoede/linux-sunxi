@@ -742,11 +742,19 @@ static int amd_pinconf_get(struct pinctrl_dev *pctldev,
 		break;
 
 	case PIN_CONFIG_BIAS_PULL_DOWN:
-		arg = (pin_reg >> PULL_DOWN_ENABLE_OFF) & BIT(0);
+		if (!(pin_reg & BIT(PULL_DOWN_ENABLE_OFF)))
+			return -EINVAL;
+		arg = 1;
 		break;
 
 	case PIN_CONFIG_BIAS_PULL_UP:
-		arg = (pin_reg >> PULL_UP_SEL_OFF) & (BIT(0) | BIT(1));
+		if (!(pin_reg & BIT(PULL_UP_ENABLE_OFF)))
+			return -EINVAL;
+
+		if (pin_reg & BIT(PULL_UP_SEL_OFF))
+			arg = 8000;
+		else
+			arg = 4000;
 		break;
 
 	case PIN_CONFIG_DRIVE_STRENGTH:
@@ -788,15 +796,28 @@ static int amd_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			break;
 
 		case PIN_CONFIG_BIAS_PULL_DOWN:
-			pin_reg &= ~BIT(PULL_DOWN_ENABLE_OFF);
-			pin_reg |= (arg & BIT(0)) << PULL_DOWN_ENABLE_OFF;
+			pin_reg |= BIT(PULL_DOWN_ENABLE_OFF);
 			break;
 
 		case PIN_CONFIG_BIAS_PULL_UP:
-			pin_reg &= ~BIT(PULL_UP_SEL_OFF);
-			pin_reg |= (arg & BIT(0)) << PULL_UP_SEL_OFF;
-			pin_reg &= ~BIT(PULL_UP_ENABLE_OFF);
-			pin_reg |= ((arg>>1) & BIT(0)) << PULL_UP_ENABLE_OFF;
+			/* Set default ohm value in case none is given */
+			if (arg == 1)
+				arg = 4000;
+
+			switch (arg) {
+			case 4000:
+				pin_reg &= ~BIT(PULL_UP_SEL_OFF);
+				pin_reg |= BIT(PULL_UP_ENABLE_OFF);
+				break;
+			case 8000:
+				pin_reg |= BIT(PULL_UP_SEL_OFF);
+				pin_reg |= BIT(PULL_UP_ENABLE_OFF);
+				break;
+			default:
+				dev_err(&gpio_dev->pdev->dev,
+					"Invalid pull-up arg %u\n", arg);
+				ret = -EINVAL;
+			}
 			break;
 
 		case PIN_CONFIG_DRIVE_STRENGTH:
