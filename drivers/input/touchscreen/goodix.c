@@ -53,6 +53,10 @@
 #define ACPI_GPIO_SUPPORT
 #endif
 
+static char *settings;
+module_param(settings, charp, 0444);
+MODULE_PARM_DESC(settings, "Override touchscreen settings using a ; separated key=value list, e.g. \"touchscreen-fuzz-x=5;touchscreen-fuzz-y=5;touchscreen-swapped-x-y\"");
+
 struct goodix_chip_id {
 	const char *id;
 	const struct goodix_chip_data *data;
@@ -1163,7 +1167,8 @@ retry_read_config:
 	goodix_read_config(ts);
 
 	/* Try overriding touchscreen parameters via device properties */
-	touchscreen_parse_properties(ts->input_dev, true, &ts->prop);
+	touchscreen_parse_properties_with_settings(ts->input_dev, true,
+						   &ts->prop, settings);
 
 	if (!ts->prop.max_x || !ts->prop.max_y || !ts->max_touch_num) {
 		if (!ts->reset_controller_at_probe &&
