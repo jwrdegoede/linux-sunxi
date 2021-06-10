@@ -374,7 +374,7 @@ static int exc3000_probe(struct i2c_client *client)
 	input_set_abs_params(input, ABS_MT_POSITION_X, 0, max_xy, 0, 0);
 	input_set_abs_params(input, ABS_MT_POSITION_Y, 0, max_xy, 0, 0);
 
-	touchscreen_parse_properties(input, true, &data->prop);
+	touchscreen_parse_properties(input, true, &data->prop, NULL);
 
 	error = input_mt_init_slots(input, EXC3000_NUM_SLOTS,
 				    INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED);

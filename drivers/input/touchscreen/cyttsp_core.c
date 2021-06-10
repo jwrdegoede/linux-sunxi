@@ -697,7 +697,7 @@ struct cyttsp *cyttsp_probe(const struct cyttsp_bus_ops *bus_ops,
 	/* One byte for width 0..255 so this is the limit */
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 
-	touchscreen_parse_properties(input_dev, true, NULL);
+	touchscreen_parse_properties(input_dev, true, NULL, NULL);
 
 	error = input_mt_init_slots(input_dev, CY_MAX_ID, INPUT_MT_DIRECT);
 	if (error) {

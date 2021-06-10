@@ -214,7 +214,7 @@ static int icn8318_probe(struct i2c_client *client,
 	input_set_capability(input, EV_ABS, ABS_MT_POSITION_X);
 	input_set_capability(input, EV_ABS, ABS_MT_POSITION_Y);
 
-	touchscreen_parse_properties(input, true, &data->prop);
+	touchscreen_parse_properties(input, true, &data->prop, NULL);
 	if (!input_abs_get_max(input, ABS_MT_POSITION_X) ||
 	    !input_abs_get_max(input, ABS_MT_POSITION_Y)) {
 		dev_err(dev, "Error touchscreen-size-x and/or -y missing\n");

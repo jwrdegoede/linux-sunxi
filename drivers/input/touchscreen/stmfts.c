@@ -662,7 +662,7 @@ static int stmfts_probe(struct i2c_client *client,
 
 	input_set_capability(sdata->input, EV_ABS, ABS_MT_POSITION_X);
 	input_set_capability(sdata->input, EV_ABS, ABS_MT_POSITION_Y);
-	touchscreen_parse_properties(sdata->input, true, &sdata->prop);
+	touchscreen_parse_properties(sdata->input, true, &sdata->prop, NULL);
 
 	input_set_abs_params(sdata->input, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(sdata->input, ABS_MT_TOUCH_MINOR, 0, 255, 0, 0);

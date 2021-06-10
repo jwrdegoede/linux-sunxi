@@ -474,7 +474,7 @@ static int ilitek_input_dev_init(struct device *dev, struct ilitek_ts_data *ts)
 	input_set_abs_params(input, ABS_MT_POSITION_Y,
 			     ts->screen_min_y, ts->screen_max_y, 0, 0);
 
-	touchscreen_parse_properties(input, true, &ts->prop);
+	touchscreen_parse_properties(input, true, &ts->prop, NULL);
 
 	error = input_mt_init_slots(input, ts->max_tp,
 				    INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED);

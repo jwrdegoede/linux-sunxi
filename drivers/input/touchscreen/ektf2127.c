@@ -298,7 +298,7 @@ static int ektf2127_probe(struct i2c_client *client,
 
 	input_set_abs_params(input, ABS_MT_POSITION_X, 0, max_x, 0, 0);
 	input_set_abs_params(input, ABS_MT_POSITION_Y, 0, max_y, 0, 0);
-	touchscreen_parse_properties(input, true, &ts->prop);
+	touchscreen_parse_properties(input, true, &ts->prop, NULL);
 
 	error = input_mt_init_slots(input, EKTF2127_MAX_TOUCHES,
 				    INPUT_MT_DIRECT |

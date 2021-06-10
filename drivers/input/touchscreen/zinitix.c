@@ -438,7 +438,7 @@ static int zinitix_init_input_dev(struct bt541_ts_data *bt541)
 	input_set_abs_params(input_dev, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 
-	touchscreen_parse_properties(input_dev, true, &bt541->prop);
+	touchscreen_parse_properties(input_dev, true, &bt541->prop, NULL);
 	if (!bt541->prop.max_x || !bt541->prop.max_y) {
 		dev_err(&bt541->client->dev,
 			"Touchscreen-size-x and/or touchscreen-size-y not set in dts\n");

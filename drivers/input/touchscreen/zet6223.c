@@ -208,7 +208,7 @@ static int zet6223_probe(struct i2c_client *client,
 	input_set_abs_params(input, ABS_MT_POSITION_X, 0, ts->max_x, 0, 0);
 	input_set_abs_params(input, ABS_MT_POSITION_Y, 0, ts->max_y, 0, 0);
 
-	touchscreen_parse_properties(input, true, &ts->prop);
+	touchscreen_parse_properties(input, true, &ts->prop, NULL);
 
 	error = input_mt_init_slots(input, ts->fingernum,
 				    INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED);

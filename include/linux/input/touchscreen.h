@@ -18,7 +18,14 @@ struct touchscreen_properties {
 };
 
 void touchscreen_parse_properties(struct input_dev *input, bool multitouch,
-				  struct touchscreen_properties *prop);
+				  struct touchscreen_properties *prop,
+				  const char *settings_override);
+
+int touchscreen_property_read_u32(struct device *dev, const char *propname,
+				  const char *settings_override, u32 *val);
+
+bool touchscreen_property_read_bool(struct device *dev, const char *propname,
+				    const char *settings_override);
 
 void touchscreen_set_mt_pos(struct input_mt_pos *pos,
 			    const struct touchscreen_properties *prop,

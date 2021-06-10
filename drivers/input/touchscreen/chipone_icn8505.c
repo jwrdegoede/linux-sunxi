@@ -445,7 +445,7 @@ static int icn8505_probe(struct i2c_client *client)
 	input_set_abs_params(input, ABS_MT_POSITION_Y, 0,
 			     le16_to_cpu(resolution[1]) - 1, 0, 0);
 
-	touchscreen_parse_properties(input, true, &icn8505->prop);
+	touchscreen_parse_properties(input, true, &icn8505->prop, NULL);
 	if (!input_abs_get_max(input, ABS_MT_POSITION_X) ||
 	    !input_abs_get_max(input, ABS_MT_POSITION_Y)) {
 		dev_err(dev, "Error touchscreen-size-x and/or -y missing\n");
