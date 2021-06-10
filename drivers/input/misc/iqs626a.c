@@ -1484,7 +1484,7 @@ static int iqs626_input_init(struct iqs626_private *iqs626)
 					     ABS_X, 0, 128, 0, 0);
 
 		touchscreen_parse_properties(iqs626->trackpad, false,
-					     &iqs626->prop);
+					     &iqs626->prop, NULL);
 	} else {
 		for (i = 0; i < IQS626_NUM_GESTURES; i++)
 			if (iqs626->tp_code[i] != KEY_RESERVED)

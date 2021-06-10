@@ -517,7 +517,7 @@ static int hycon_hy46xx_probe(struct i2c_client *client,
 	input_set_abs_params(input, ABS_MT_POSITION_X, 0, -1, 0, 0);
 	input_set_abs_params(input, ABS_MT_POSITION_Y, 0, -1, 0, 0);
 
-	touchscreen_parse_properties(input, true, &tsdata->prop);
+	touchscreen_parse_properties(input, true, &tsdata->prop, NULL);
 
 	error = input_mt_init_slots(input, HY46XX_MAX_SUPPORTED_POINTS,
 				    INPUT_MT_DIRECT);

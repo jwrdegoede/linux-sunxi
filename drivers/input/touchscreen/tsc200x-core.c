@@ -533,7 +533,7 @@ int tsc200x_probe(struct device *dev, int irq, const struct input_id *tsc_id,
 	input_set_abs_params(input_dev, ABS_PRESSURE,
 			     0, MAX_12BIT, TSC200X_DEF_P_FUZZ, 0);
 
-	touchscreen_parse_properties(input_dev, false, NULL);
+	touchscreen_parse_properties(input_dev, false, NULL, NULL);
 
 	/* Ensure the touchscreen is off */
 	tsc200x_stop_scan(ts);

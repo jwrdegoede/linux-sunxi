@@ -441,7 +441,7 @@ static int s6sy761_probe(struct i2c_client *client,
 	input_set_abs_params(sdata->input, ABS_MT_TOUCH_MINOR, 0, 255, 0, 0);
 	input_set_abs_params(sdata->input, ABS_MT_PRESSURE, 0, 255, 0, 0);
 
-	touchscreen_parse_properties(sdata->input, true, &sdata->prop);
+	touchscreen_parse_properties(sdata->input, true, &sdata->prop, NULL);
 
 	if (!input_abs_get_max(sdata->input, ABS_X) ||
 	    !input_abs_get_max(sdata->input, ABS_Y)) {

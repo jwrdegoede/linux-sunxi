@@ -516,7 +516,7 @@ static int iqs5xx_axis_init(struct i2c_client *client)
 	input_set_abs_params(iqs5xx->input, ABS_MT_POSITION_Y, 0, max_y, 0, 0);
 	input_set_abs_params(iqs5xx->input, ABS_MT_PRESSURE, 0, U16_MAX, 0, 0);
 
-	touchscreen_parse_properties(iqs5xx->input, true, prop);
+	touchscreen_parse_properties(iqs5xx->input, true, prop, NULL);
 
 	/*
 	 * The device reserves 0xFFFF for coordinates that correspond to slots
