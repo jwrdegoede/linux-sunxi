@@ -58,6 +58,10 @@
 
 #define SILEAD_MAX_FINGERS	10
 
+static char *settings;
+module_param(settings, charp, 0444);
+MODULE_PARM_DESC(settings, "Override touchscreen settings using a ; separated key=value list, e.g. \"touchscreen-size-x=1665;touchscreen-size-y=1140;touchscreen-swapped-x-y\"");
+
 enum silead_ts_power {
 	SILEAD_POWER_ON  = 1,
 	SILEAD_POWER_OFF = 0
@@ -96,13 +100,13 @@ static int silead_ts_request_input_dev(struct silead_ts_data *data)
 
 	input_set_abs_params(data->input, ABS_MT_POSITION_X, 0, 4095, 0, 0);
 	input_set_abs_params(data->input, ABS_MT_POSITION_Y, 0, 4095, 0, 0);
-	touchscreen_parse_properties(data->input, true, &data->prop, NULL);
+	touchscreen_parse_properties(data->input, true, &data->prop, settings);
 
 	input_mt_init_slots(data->input, data->max_fingers,
 			    INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED |
 			    INPUT_MT_TRACK);
 
-	if (device_property_read_bool(dev, "silead,home-button"))
+	if (touchscreen_property_read_bool(dev, "silead,home-button", settings))
 		input_set_capability(data->input, EV_KEY, KEY_LEFTMETA);
 
 	data->input->name = SILEAD_TS_NAME;
@@ -369,8 +373,8 @@ static int silead_ts_setup(struct i2c_client *client)
 	 * this.
 	 */
 
-	if (device_property_read_bool(&client->dev,
-				      "silead,stuck-controller-bug")) {
+	if (touchscreen_property_read_bool(&client->dev, "silead,stuck-controller-bug",
+					   settings)) {
 		pm_runtime_set_active(&client->dev);
 		pm_runtime_enable(&client->dev);
 		pm_runtime_allow(&client->dev);
@@ -437,8 +441,8 @@ static void silead_ts_read_props(struct i2c_client *client)
 	const char *str;
 	int error;
 
-	error = device_property_read_u32(dev, "silead,max-fingers",
-					 &data->max_fingers);
+	error = touchscreen_property_read_u32(dev, "silead,max-fingers", settings,
+					      &data->max_fingers);
 	if (error) {
 		dev_dbg(dev, "Max fingers read error %d\n", error);
 		data->max_fingers = 5; /* Most devices handle up-to 5 fingers */
