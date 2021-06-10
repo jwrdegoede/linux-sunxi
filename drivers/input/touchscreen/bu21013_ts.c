@@ -451,7 +451,7 @@ static int bu21013_probe(struct i2c_client *client,
 	input_set_abs_params(in_dev, ABS_MT_POSITION_X, 0, max_x, 0, 0);
 	input_set_abs_params(in_dev, ABS_MT_POSITION_Y, 0, max_y, 0, 0);
 
-	touchscreen_parse_properties(in_dev, true, &ts->props);
+	touchscreen_parse_properties(in_dev, true, &ts->props, NULL);
 
 	/* Adjust for the legacy "flip" properties, if present */
 	if (!ts->props.invert_x &&

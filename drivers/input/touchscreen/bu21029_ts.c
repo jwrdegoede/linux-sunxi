@@ -397,7 +397,7 @@ static int bu21029_probe(struct i2c_client *client,
 	input_set_abs_params(in_dev, ABS_X, 0, MAX_12BIT, 0, 0);
 	input_set_abs_params(in_dev, ABS_Y, 0, MAX_12BIT, 0, 0);
 	input_set_abs_params(in_dev, ABS_PRESSURE, 0, MAX_12BIT, 0, 0);
-	touchscreen_parse_properties(in_dev, false, &bu21029->prop);
+	touchscreen_parse_properties(in_dev, false, &bu21029->prop, NULL);
 
 	input_set_drvdata(in_dev, bu21029);
 

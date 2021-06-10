@@ -476,7 +476,7 @@ static int mms114_probe(struct i2c_client *client,
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
 			     0, MMS114_MAX_AREA, 0, 0);
 
-	touchscreen_parse_properties(input_dev, true, &data->props);
+	touchscreen_parse_properties(input_dev, true, &data->props, NULL);
 	if (!data->props.max_x || !data->props.max_y) {
 		dev_dbg(&client->dev,
 			"missing X/Y size properties, trying legacy bindings\n");

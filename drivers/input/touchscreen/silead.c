@@ -133,7 +133,7 @@ static int silead_ts_request_input_dev(struct silead_ts_data *data)
 
 	input_set_abs_params(data->input, ABS_MT_POSITION_X, 0, 4095, 0, 0);
 	input_set_abs_params(data->input, ABS_MT_POSITION_Y, 0, 4095, 0, 0);
-	touchscreen_parse_properties(data->input, true, &data->prop);
+	touchscreen_parse_properties(data->input, true, &data->prop, NULL);
 	silead_apply_efi_fw_min_max(data);
 
 	input_mt_init_slots(data->input, data->max_fingers,
@@ -178,7 +178,7 @@ static int silead_ts_request_pen_input_dev(struct silead_ts_data *data)
 	 */
 	input_set_capability(data->pen_input, EV_KEY, BTN_STYLUS);
 	set_bit(INPUT_PROP_DIRECT, data->pen_input->propbit);
-	touchscreen_parse_properties(data->pen_input, false, &data->prop);
+	touchscreen_parse_properties(data->pen_input, false, &data->prop, NULL);
 	input_abs_set_res(data->pen_input, ABS_X, data->pen_x_res);
 	input_abs_set_res(data->pen_input, ABS_Y, data->pen_y_res);
 

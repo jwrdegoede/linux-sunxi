@@ -361,7 +361,7 @@ static int sx8654_probe(struct i2c_client *client,
 	input_set_abs_params(input, ABS_X, 0, MAX_12BIT, 0, 0);
 	input_set_abs_params(input, ABS_Y, 0, MAX_12BIT, 0, 0);
 
-	touchscreen_parse_properties(input, false, &sx8654->props);
+	touchscreen_parse_properties(input, false, &sx8654->props, NULL);
 
 	sx8654->client = client;
 	sx8654->input = input;

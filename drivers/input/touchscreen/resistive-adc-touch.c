@@ -256,7 +256,7 @@ static int grts_probe(struct platform_device *pdev)
 	input_set_capability(input, EV_KEY, BTN_TOUCH);
 
 	/* parse optional device tree properties */
-	touchscreen_parse_properties(input, false, &st->prop);
+	touchscreen_parse_properties(input, false, &st->prop, NULL);
 
 	st->input = input;
 	input_set_drvdata(input, st);

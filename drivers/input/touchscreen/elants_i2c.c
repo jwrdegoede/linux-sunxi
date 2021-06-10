@@ -1478,7 +1478,7 @@ static int elants_i2c_probe(struct i2c_client *client)
 	input_set_abs_params(ts->input, ABS_MT_TOOL_TYPE,
 			     0, MT_TOOL_PALM, 0, 0);
 
-	touchscreen_parse_properties(ts->input, true, &ts->prop);
+	touchscreen_parse_properties(ts->input, true, &ts->prop, NULL);
 
 	if (ts->chip_id == EKTF3624 && ts->phy_x && ts->phy_y) {
 		/* calculate resolution from size */

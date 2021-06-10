@@ -193,7 +193,7 @@ static int eeti_ts_probe(struct i2c_client *client,
 	input_set_abs_params(input, ABS_Y, 0, EETI_MAXVAL, 0, 0);
 	input_set_abs_params(input, ABS_PRESSURE, 0, 0xff, 0, 0);
 
-	touchscreen_parse_properties(input, false, &eeti->props);
+	touchscreen_parse_properties(input, false, &eeti->props, NULL);
 
 	input->name = client->name;
 	input->id.bustype = BUS_I2C;

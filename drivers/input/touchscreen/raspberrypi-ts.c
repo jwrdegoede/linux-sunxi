@@ -182,7 +182,7 @@ static int rpi_ts_probe(struct platform_device *pdev)
 			     RPI_TS_DEFAULT_WIDTH, 0, 0);
 	input_set_abs_params(input, ABS_MT_POSITION_Y, 0,
 			     RPI_TS_DEFAULT_HEIGHT, 0, 0);
-	touchscreen_parse_properties(input, true, &ts->prop);
+	touchscreen_parse_properties(input, true, &ts->prop, NULL);
 
 	error = input_mt_init_slots(input, RPI_TS_MAX_SUPPORTED_POINTS,
 				    INPUT_MT_DIRECT);

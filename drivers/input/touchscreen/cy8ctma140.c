@@ -235,7 +235,7 @@ static int cy8ctma140_probe(struct i2c_client *client,
 	 * The firmware takes care of finger tracking and dropping
 	 * invalid ranges.
 	 */
-	touchscreen_parse_properties(input, true, &ts->props);
+	touchscreen_parse_properties(input, true, &ts->props, NULL);
 	input_abs_set_fuzz(input, ABS_MT_POSITION_X, 0);
 	input_abs_set_fuzz(input, ABS_MT_POSITION_Y, 0);
 

@@ -209,7 +209,7 @@ static int msg2638_init_input_dev(struct msg2638_ts_data *msg2638)
 	input_set_capability(input_dev, EV_ABS, ABS_MT_POSITION_X);
 	input_set_capability(input_dev, EV_ABS, ABS_MT_POSITION_Y);
 
-	touchscreen_parse_properties(input_dev, true, &msg2638->prop);
+	touchscreen_parse_properties(input_dev, true, &msg2638->prop, NULL);
 	if (!msg2638->prop.max_x || !msg2638->prop.max_y) {
 		dev_err(dev, "touchscreen-size-x and/or touchscreen-size-y not set in properties\n");
 		return -EINVAL;

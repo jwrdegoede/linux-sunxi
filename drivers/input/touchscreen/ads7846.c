@@ -1331,7 +1331,7 @@ static int ads7846_probe(struct spi_device *spi)
 	 * correct behaviour in case of using the legacy vendor bindings. The
 	 * general binding value overrides the vendor specific one.
 	 */
-	touchscreen_parse_properties(ts->input, false, &ts->core_prop);
+	touchscreen_parse_properties(ts->input, false, &ts->core_prop, NULL);
 	ts->pressure_max = input_abs_get_max(input_dev, ABS_PRESSURE) ? : ~0;
 
 	/*

@@ -12,15 +12,80 @@
 #include <linux/input/touchscreen.h>
 #include <linux/module.h>
 
+static int touchscreen_get_prop_from_settings_string(const char *settings,
+						     const char *propname,
+						     bool is_boolean,
+						     u32 *val_ret)
+{
+	char *begin, *end;
+	u32 val;
+
+	if (!settings)
+		return -ENOENT;
+
+	begin = strstr(settings, propname);
+	if (!begin)
+		return -ENOENT;
+
+	/* begin must be either the begin of settings, or be preceded by a ';' */
+	if (begin != settings && begin[-1] != ';')
+		return -EINVAL;
+
+	end = begin + strlen(propname);
+	if (*end != '=') {
+		if (is_boolean && (*end == '\0' || *end == ';')) {
+			*val_ret = true;
+			return 0;
+		}
+		return -EINVAL;
+	}
+
+	val = simple_strtoul(end + 1, &end, 0);
+	if (*end != '\0' && *end != ';')
+		return -EINVAL;
+
+	*val_ret = val;
+	return 0;
+}
+
+int touchscreen_property_read_u32(struct device *dev, const char *propname,
+				  const char *settings_override, u32 *val)
+{
+	int error;
+
+	error = device_property_read_u32(dev, propname, val);
+
+	if (touchscreen_get_prop_from_settings_string(settings_override, propname,
+						      false, val) == 0)
+		error = 0;
+
+	return error;
+}
+EXPORT_SYMBOL(touchscreen_property_read_u32);
+
+bool touchscreen_property_read_bool(struct device *dev, const char *propname,
+				    const char *settings_override)
+{
+	u32 val;
+
+	val = device_property_read_bool(dev, propname);
+
+	touchscreen_get_prop_from_settings_string(settings_override, propname, true, &val);
+
+	return val;
+}
+EXPORT_SYMBOL(touchscreen_property_read_bool);
+
 static bool touchscreen_get_prop_u32(struct device *dev,
 				     const char *property,
+				     const char *settings_override,
 				     unsigned int default_value,
 				     unsigned int *value)
 {
 	u32 val;
 	int error;
 
-	error = device_property_read_u32(dev, property, &val);
+	error = touchscreen_property_read_u32(dev, property, settings_override, &val);
 	if (error) {
 		*value = default_value;
 		return false;
@@ -57,13 +122,20 @@ static void touchscreen_set_params(struct input_dev *dev,
  * @prop: pointer to a struct touchscreen_properties into which to store
  *	axis swap and invert info for use with touchscreen_report_x_y();
  *	or %NULL
+ * @settings_override: string with ; separated name=value pairs overriding
+ *	the device-properties or %NULL.
  *
  * This function parses common properties for touchscreens and sets up the
  * input device accordingly. The function keeps previously set up default
  * values if no value is specified.
+ *
+ * Callers can optional specify a settings string overriding the
+ * device-properties, this can be used to implement a module option which
+ * allows users to easily specify alternative settings for testing.
  */
 void touchscreen_parse_properties(struct input_dev *input, bool multitouch,
-				  struct touchscreen_properties *prop)
+				  struct touchscreen_properties *prop,
+				  const char *settings_override)
 {
 	struct device *dev = input->dev.parent;
 	struct input_absinfo *absinfo;
@@ -79,26 +151,32 @@ void touchscreen_parse_properties(struct input_dev *input, bool multitouch,
 	axis_y = multitouch ? ABS_MT_POSITION_Y : ABS_Y;
 
 	data_present = touchscreen_get_prop_u32(dev, "touchscreen-min-x",
+						settings_override,
 						input_abs_get_min(input, axis_x),
 						&minimum);
 	data_present |= touchscreen_get_prop_u32(dev, "touchscreen-size-x",
+						 settings_override,
 						 input_abs_get_max(input,
 								   axis_x) + 1,
 						 &maximum);
 	data_present |= touchscreen_get_prop_u32(dev, "touchscreen-fuzz-x",
+						 settings_override,
 						 input_abs_get_fuzz(input, axis_x),
 						 &fuzz);
 	if (data_present)
 		touchscreen_set_params(input, axis_x, minimum, maximum - 1, fuzz);
 
 	data_present = touchscreen_get_prop_u32(dev, "touchscreen-min-y",
+						settings_override,
 						input_abs_get_min(input, axis_y),
 						&minimum);
 	data_present |= touchscreen_get_prop_u32(dev, "touchscreen-size-y",
+						 settings_override,
 						 input_abs_get_max(input,
 								   axis_y) + 1,
 						 &maximum);
 	data_present |= touchscreen_get_prop_u32(dev, "touchscreen-fuzz-y",
+						 settings_override,
 						 input_abs_get_fuzz(input, axis_y),
 						 &fuzz);
 	if (data_present)
@@ -107,10 +185,12 @@ void touchscreen_parse_properties(struct input_dev *input, bool multitouch,
 	axis = multitouch ? ABS_MT_PRESSURE : ABS_PRESSURE;
 	data_present = touchscreen_get_prop_u32(dev,
 						"touchscreen-max-pressure",
+						settings_override,
 						input_abs_get_max(input, axis),
 						&maximum);
 	data_present |= touchscreen_get_prop_u32(dev,
 						 "touchscreen-fuzz-pressure",
+						 settings_override,
 						 input_abs_get_fuzz(input, axis),
 						 &fuzz);
 	if (data_present)
@@ -122,24 +202,24 @@ void touchscreen_parse_properties(struct input_dev *input, bool multitouch,
 	prop->max_x = input_abs_get_max(input, axis_x);
 	prop->max_y = input_abs_get_max(input, axis_y);
 
-	prop->invert_x =
-		device_property_read_bool(dev, "touchscreen-inverted-x");
+	prop->invert_x = touchscreen_property_read_bool(dev, "touchscreen-inverted-x",
+							settings_override);
 	if (prop->invert_x) {
 		absinfo = &input->absinfo[axis_x];
 		absinfo->maximum -= absinfo->minimum;
 		absinfo->minimum = 0;
 	}
 
-	prop->invert_y =
-		device_property_read_bool(dev, "touchscreen-inverted-y");
+	prop->invert_y = touchscreen_property_read_bool(dev, "touchscreen-inverted-y",
+							settings_override);
 	if (prop->invert_y) {
 		absinfo = &input->absinfo[axis_y];
 		absinfo->maximum -= absinfo->minimum;
 		absinfo->minimum = 0;
 	}
 
-	prop->swap_x_y =
-		device_property_read_bool(dev, "touchscreen-swapped-x-y");
+	prop->swap_x_y = touchscreen_property_read_bool(dev, "touchscreen-swapped-x-y",
+							settings_override);
 	if (prop->swap_x_y)
 		swap(input->absinfo[axis_x], input->absinfo[axis_y]);
 }

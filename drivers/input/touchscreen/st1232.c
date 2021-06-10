@@ -309,7 +309,7 @@ static int st1232_ts_probe(struct i2c_client *client,
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
 			     0, max_y, 0, 0);
 
-	touchscreen_parse_properties(input_dev, true, &ts->prop);
+	touchscreen_parse_properties(input_dev, true, &ts->prop, NULL);
 
 	error = input_mt_init_slots(input_dev, ts->chip_info->max_fingers,
 				    INPUT_MT_DIRECT | INPUT_MT_TRACK |

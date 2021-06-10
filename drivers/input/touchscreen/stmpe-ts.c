@@ -339,7 +339,7 @@ static int stmpe_input_probe(struct platform_device *pdev)
 	input_set_abs_params(idev, ABS_Y, 0, XY_MASK, 0, 0);
 	input_set_abs_params(idev, ABS_PRESSURE, 0x0, 0xff, 0, 0);
 
-	touchscreen_parse_properties(idev, false, &ts->prop);
+	touchscreen_parse_properties(idev, false, &ts->prop, NULL);
 
 	error = input_register_device(idev);
 	if (error) {

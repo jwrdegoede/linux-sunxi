@@ -805,7 +805,7 @@ static int hideep_init_input(struct hideep_ts *ts)
 	input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_TOOL_TYPE,
 			     0, MT_TOOL_MAX, 0, 0);
-	touchscreen_parse_properties(ts->input_dev, true, &ts->prop);
+	touchscreen_parse_properties(ts->input_dev, true, &ts->prop, NULL);
 
 	if (ts->prop.max_x == 0 || ts->prop.max_y == 0) {
 		error = hideep_get_axis_info(ts);

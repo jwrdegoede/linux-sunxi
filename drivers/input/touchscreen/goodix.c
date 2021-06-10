@@ -1027,7 +1027,7 @@ static int goodix_configure_dev(struct goodix_ts_data *ts)
 	goodix_read_config(ts);
 
 	/* Try overriding touchscreen parameters via device properties */
-	touchscreen_parse_properties(ts->input_dev, true, &ts->prop);
+	touchscreen_parse_properties(ts->input_dev, true, &ts->prop, NULL);
 
 	if (!ts->prop.max_x || !ts->prop.max_y || !ts->max_touch_num) {
 		dev_err(&ts->client->dev,
