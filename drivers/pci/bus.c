@@ -183,6 +183,8 @@ static int pci_bus_alloc_from_region(struct pci_bus *bus, struct resource *res,
 		    !(res->flags & IORESOURCE_PREFETCH))
 			continue;
 
+		pr_info("pci_bus_alloc_from_region trying to alloc 0x%llx bytes from region %pR\n", size, r);
+
 		avail = *r;
 		pci_clip_resource_to_region(bus, &avail, region);
 
@@ -200,6 +202,7 @@ static int pci_bus_alloc_from_region(struct pci_bus *bus, struct resource *res,
 		/* Ok, try it out.. */
 		ret = allocate_resource(r, res, size, min_used, max,
 					align, alignf, alignf_data);
+		pr_info("pci_bus_alloc_from_region tried to alloc 0x%llx bytes between 0x%llx and 0x%llx of region %pR, ret %d\n", size, min_used, max, &avail, ret);
 		if (ret == 0)
 			return 0;
 	}
