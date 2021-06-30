@@ -610,22 +610,26 @@ static int __find_resource(struct resource *root, struct resource *old,
 			tmp.end = (this == old) ?  this->end : this->start - 1;
 		else
 			tmp.end = root->end;
-
+			
+		pr_info("__find_resource() trying 0x%llx - 0x%llx\n", tmp.start, tmp.end);
 		if (tmp.end < tmp.start)
 			goto next;
 
 		resource_clip(&tmp, constraint->min, constraint->max);
 		arch_remove_reservations(&tmp);
+		pr_info("__find_resource() after clip + arch-reserv 0x%llx - 0x%llx\n", tmp.start, tmp.end);
 
 		/* Check for overflow after ALIGN() */
 		avail.start = ALIGN(tmp.start, constraint->align);
 		avail.end = tmp.end;
 		avail.flags = new->flags & ~IORESOURCE_UNSET;
+		pr_info("__find_resource() avail %pR\n", &avail);
 		if (avail.start >= tmp.start) {
 			alloc.flags = avail.flags;
 			alloc.start = constraint->alignf(constraint->alignf_data, &avail,
 					size, constraint->align);
 			alloc.end = alloc.start + size - 1;
+			pr_info("__find_resource() alloc %pR\n", &alloc);
 			if (alloc.start <= alloc.end &&
 			    resource_contains(&avail, &alloc)) {
 				new->start = alloc.start;
@@ -674,8 +678,9 @@ static int reallocate_resource(struct resource *root, struct resource *old,
 
 	write_lock(&resource_lock);
 
-	if ((err = __find_resource(root, old, &new, newsize, constraint)))
+	if ((err = __find_resource(root, old, &new, newsize, constraint))) {
 		goto out;
+	}
 
 	if (resource_contains(&new, old)) {
 		old->start = new.start;
@@ -684,6 +689,7 @@ static int reallocate_resource(struct resource *root, struct resource *old,
 	}
 
 	if (old->child) {
+		pr_info("reallocate_resource root %pR new %pR find_resource ERROR old has child\n", root, &new);
 		err = -EBUSY;
 		goto out;
 	}
@@ -699,6 +705,7 @@ static int reallocate_resource(struct resource *root, struct resource *old,
 	}
 out:
 	write_unlock(&resource_lock);
+	pr_info("reallocate_resource root %pR new %pR result %d\n", root, &new, err);
 	return err;
 }
 
@@ -727,6 +734,9 @@ int allocate_resource(struct resource *root, struct resource *new,
 	int err;
 	struct resource_constraint constraint;
 
+	pr_info("allocate_resource root %pR new %pR size 0x%llx min 0x%llx max 0x%llx align 0x%llx alignf %p\n",
+		root, new, size, min, max, align, alignf);
+
 	if (!alignf)
 		alignf = simple_align_resource;
 
@@ -737,6 +747,7 @@ int allocate_resource(struct resource *root, struct resource *new,
 	constraint.alignf_data = alignf_data;
 
 	if ( new->parent ) {
+		pr_info("allocate_resource root %pR new %pR has parent, re-allocating\n", root, new);
 		/* resource is already allocated, try reallocating with
 		   the new constraints */
 		return reallocate_resource(root, new, size, &constraint);
@@ -744,8 +755,11 @@ int allocate_resource(struct resource *root, struct resource *new,
 
 	write_lock(&resource_lock);
 	err = find_resource(root, new, size, &constraint);
-	if (err >= 0 && __request_resource(root, new))
+	pr_info("allocate_resource root %pR new %pR find_resource result %d\n", root, new, err);
+	if (err >= 0 && __request_resource(root, new)) {
+		pr_info("allocate_resource root %pR new %pR __request_resource FAILED\n", root, new);
 		err = -EBUSY;
+	}
 	write_unlock(&resource_lock);
 	return err;
 }
