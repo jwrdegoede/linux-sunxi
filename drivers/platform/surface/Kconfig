@@ -124,6 +124,16 @@ config SURFACE_DTX
 	  Aggregator Bus (i.e. CONFIG_SURFACE_AGGREGATOR_BUS=n). In that case,
 	  some devices, specifically the Surface Book 3, will not be supported.
 
+config SURFACE_GO_2
+	bool "Surface Go 2 Specific Driver"
+	help
+	  This board file performs some platform specific configuration to help
+	  the regulator, gpio and clk frameworks link those resources to the
+	  consuming devices - specifically the world facing camera.
+
+	  Select Y here if your device is a Microsoft Surface Go 2, otherwise
+	  select N.
+
 config SURFACE_GPE
 	tristate "Surface GPE/Lid Support Driver"
 	depends on DMI
