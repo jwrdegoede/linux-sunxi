@@ -73,6 +73,7 @@ enum {
 #define BYT_RT5640_MCLK_EN		BIT(22)
 #define BYT_RT5640_MCLK_25MHZ		BIT(23)
 #define BYT_RT5640_NO_SPEAKERS		BIT(24)
+#define BYT_RT5640_LINEOUT		BIT(25)
 
 #define BYTCR_INPUT_DEFAULTS				\
 	(BYT_RT5640_IN3_MAP |				\
@@ -139,6 +140,8 @@ static void log_quirks(struct device *dev)
 		dev_info(dev, "quirk MONO_SPEAKER enabled\n");
 	if (byt_rt5640_quirk & BYT_RT5640_NO_SPEAKERS)
 		dev_info(dev, "quirk NO_SPEAKERS enabled\n");
+	if (byt_rt5640_quirk & BYT_RT5640_LINEOUT)
+		dev_info(dev, "quirk LINEOUT enabled\n");
 	if (byt_rt5640_quirk & BYT_RT5640_DIFF_MIC)
 		dev_info(dev, "quirk DIFF_MIC enabled\n");
 	if (byt_rt5640_quirk & BYT_RT5640_SSP0_AIF1) {
@@ -281,10 +284,10 @@ static const struct snd_soc_dapm_widget byt_rt5640_widgets[] = {
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Internal Mic", NULL),
 	SND_SOC_DAPM_SPK("Speaker", NULL),
+	SND_SOC_DAPM_LINE("Line Out", NULL),
 	SND_SOC_DAPM_SUPPLY("Platform Clock", SND_SOC_NOPM, 0, 0,
 			    platform_clock_control, SND_SOC_DAPM_PRE_PMU |
 			    SND_SOC_DAPM_POST_PMD),
-
 };
 
 static const struct snd_soc_dapm_route byt_rt5640_audio_map[] = {
@@ -368,11 +371,18 @@ static const struct snd_soc_dapm_route byt_rt5640_mono_spk_map[] = {
 	{"Speaker", NULL, "SPOLN"},
 };
 
+static const struct snd_soc_dapm_route byt_rt5640_lineout_map[] = {
+	{"Line Out", NULL, "Platform Clock"},
+	{"Line Out", NULL, "LOUTR"},
+	{"Line Out", NULL, "LOUTL"},
+};
+
 static const struct snd_kcontrol_new byt_rt5640_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Headphone"),
 	SOC_DAPM_PIN_SWITCH("Headset Mic"),
 	SOC_DAPM_PIN_SWITCH("Internal Mic"),
 	SOC_DAPM_PIN_SWITCH("Speaker"),
+	SOC_DAPM_PIN_SWITCH("Line Out"),
 };
 
 static struct snd_soc_jack_pin rt5640_pins[] = {
@@ -1056,6 +1066,14 @@ static int byt_rt5640_init(struct snd_soc_pcm_runtime *runtime)
 	if (ret)
 		return ret;
 
+	if (byt_rt5640_quirk & BYT_RT5640_LINEOUT) {
+		ret = snd_soc_dapm_add_routes(&card->dapm,
+					byt_rt5640_lineout_map,
+					ARRAY_SIZE(byt_rt5640_lineout_map));
+		if (ret)
+			return ret;
+	}
+
 	if (byt_rt5640_quirk & BYT_RT5640_MCLK_EN) {
 		/*
 		 * The firmware might enable the clock at
@@ -1222,7 +1240,7 @@ static char byt_rt5640_codec_name[SND_ACPI_I2C_ID_LEN];
 #if !IS_ENABLED(CONFIG_SND_SOC_INTEL_USER_FRIENDLY_LONG_NAMES)
 static char byt_rt5640_long_name[40]; /* = "bytcr-rt5640-*-spk-*-mic" */
 #endif
-static char byt_rt5640_components[32]; /* = "cfg-spk:* cfg-mic:*" */
+static char byt_rt5640_components[64]; /* = "cfg-spk:* cfg-mic:* ..." */
 
 static int byt_rt5640_suspend(struct snd_soc_card *card)
 {
@@ -1294,6 +1312,7 @@ static int snd_byt_rt5640_mc_probe(struct platform_device *pdev)
 	const struct dmi_system_id *dmi_id;
 	struct byt_rt5640_private *priv;
 	struct snd_soc_acpi_mach *mach;
+	const char *lineout_string;
 	const char *platform_name;
 	struct acpi_device *adev;
 	bool sof_parent;
@@ -1454,9 +1473,15 @@ static int snd_byt_rt5640_mc_probe(struct platform_device *pdev)
 		spk_type = "stereo";
 	}
 
+	if (byt_rt5640_quirk & BYT_RT5640_LINEOUT)
+		lineout_string = " cfg-lineout:1";
+	else
+		lineout_string = "";
+
 	snprintf(byt_rt5640_components, sizeof(byt_rt5640_components),
-		 "cfg-spk:%d cfg-mic:%s aif:%d", cfg_spk,
-		 map_name[BYT_RT5640_MAP(byt_rt5640_quirk)], aif);
+		 "cfg-spk:%d cfg-mic:%s aif:%d%s", cfg_spk,
+		 map_name[BYT_RT5640_MAP(byt_rt5640_quirk)], aif,
+		 lineout_string);
 	byt_rt5640_card.components = byt_rt5640_components;
 #if !IS_ENABLED(CONFIG_SND_SOC_INTEL_USER_FRIENDLY_LONG_NAMES)
 	snprintf(byt_rt5640_long_name, sizeof(byt_rt5640_long_name),
