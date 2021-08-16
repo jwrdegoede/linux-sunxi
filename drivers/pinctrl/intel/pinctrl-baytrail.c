@@ -981,6 +981,8 @@ static int byt_pin_config_set(struct pinctrl_dev *pctl_dev,
 			      unsigned long *configs,
 			      unsigned int num_configs)
 {
+	/* See BYT_DEBOUNCE_REG definitions */
+	const unsigned int db_timeouts[] = { 0, 375, 750, 1500, 3000, 6000, 12000, 24000 };
 	struct intel_pinctrl *vg = pinctrl_dev_get_drvdata(pctl_dev);
 	unsigned int param, arg;
 	void __iomem *conf_reg = byt_gpio_reg(vg, offset, BYT_CONF0_REG);
@@ -988,7 +990,7 @@ static int byt_pin_config_set(struct pinctrl_dev *pctl_dev,
 	void __iomem *db_reg = byt_gpio_reg(vg, offset, BYT_DEBOUNCE_REG);
 	unsigned long flags;
 	u32 conf, val, debounce;
-	int i, ret = 0;
+	int i, j, ret = 0;
 
 	raw_spin_lock_irqsave(&byt_lock, flags);
 
@@ -1048,50 +1050,25 @@ static int byt_pin_config_set(struct pinctrl_dev *pctl_dev,
 
 			break;
 		case PIN_CONFIG_INPUT_DEBOUNCE:
-			debounce = readl(db_reg);
-
-			if (arg)
-				conf |= BYT_DEBOUNCE_EN;
-			else
+			if (!arg) {
 				conf &= ~BYT_DEBOUNCE_EN;
-
-			switch (arg) {
-			case 375:
-				debounce &= ~BYT_DEBOUNCE_PULSE_MASK;
-				debounce |= BYT_DEBOUNCE_PULSE_375US;
-				break;
-			case 750:
-				debounce &= ~BYT_DEBOUNCE_PULSE_MASK;
-				debounce |= BYT_DEBOUNCE_PULSE_750US;
-				break;
-			case 1500:
-				debounce &= ~BYT_DEBOUNCE_PULSE_MASK;
-				debounce |= BYT_DEBOUNCE_PULSE_1500US;
-				break;
-			case 3000:
-				debounce &= ~BYT_DEBOUNCE_PULSE_MASK;
-				debounce |= BYT_DEBOUNCE_PULSE_3MS;
-				break;
-			case 6000:
-				debounce &= ~BYT_DEBOUNCE_PULSE_MASK;
-				debounce |= BYT_DEBOUNCE_PULSE_6MS;
-				break;
-			case 12000:
-				debounce &= ~BYT_DEBOUNCE_PULSE_MASK;
-				debounce |= BYT_DEBOUNCE_PULSE_12MS;
-				break;
-			case 24000:
-				debounce &= ~BYT_DEBOUNCE_PULSE_MASK;
-				debounce |= BYT_DEBOUNCE_PULSE_24MS;
-				break;
-			default:
-				if (arg)
-					ret = -EINVAL;
 				break;
 			}
 
-			if (!ret)
-				writel(debounce, db_reg);
+			conf |= BYT_DEBOUNCE_EN;
+
+			for (j = 0; arg > db_timeouts[j]; j++) {
+				if ((j + 1) == ARRAY_SIZE(db_timeouts)) {
+					dev_dbg(vg->dev,
+						"pin %u requested timeout of %u exceeds max timeout of %u\n",
+						offset, arg, db_timeouts[j]);
+					break;
+				}
+			}
+			debounce = readl(db_reg);
+			debounce &= ~BYT_DEBOUNCE_PULSE_MASK;
+			debounce |= j;
+			writel(debounce, db_reg);
 			break;
 		default:
 			ret = -ENOTSUPP;
