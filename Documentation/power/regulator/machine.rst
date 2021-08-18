@@ -95,3 +95,34 @@ Finally the regulator devices must be registered in the usual manner::
 
   /* register regulator 2 device */
   platform_device_register(&regulator_devices[1]);
+
+Alternatively, if the struct regulator_init_data is being created in a process
+distinct from the registration of the regulator devices themselves (for example
+if the regulator devices themselves are enumerated through devicetree or ACPI
+but the system lacks regulator_init_data in firmware), then it must be added to
+a lookup table that will be checked when the regulator devices are registered.
+
+  static struct regulator_lookup regulator1_lookup = {
+	.device_name = "regulator.1",
+	.regulator_name = "Regulator-1",
+	.init_data = {
+		.constraints = {
+			.name = "Regulator-1",
+			.min_uV = 3300000,
+			.max_uV = 3300000,
+			.valid_ops_mask = REGULATOR_MODE_NORMAL,
+		},
+		.num_consumer_supplies = ARRAY_SIZE(regulator1_consumers),
+		.consumer_supplies = regulator1_consumers,
+	},
+  };
+
+  regulator_add_lookup(&regulator1_lookup);
+
+The .device_name field should match that of the struct device that the
+regulator driver will bind to. The .regulator_name field should match the name
+field in the struct regulator_desc that is used to register the regulator that
+this regulator_init_data is intended to be mapped to. Neither field can be null
+since regulator_register() will not allow the name field of the regulator_desc
+to be null, and without at least the device name we cannot guarantee we're
+passing the init_data to the right regulator.
