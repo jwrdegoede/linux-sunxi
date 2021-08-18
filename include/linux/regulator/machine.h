@@ -12,6 +12,7 @@
 #ifndef __LINUX_REGULATOR_MACHINE_H_
 #define __LINUX_REGULATOR_MACHINE_H_
 
+#include <linux/list.h>
 #include <linux/regulator/consumer.h>
 #include <linux/suspend.h>
 
@@ -272,12 +273,34 @@ struct regulator_init_data {
 	void *driver_data;	/* core does not touch this */
 };
 
+/**
+ * struct regulator_lookup - lookup table entry for regulator_init_data
+ *
+ * @device_name:	The name of the device from regulator_config.dev
+ * @regulator_name:	The name of the regulator from the &struct regulator_desc
+ *			to match to during regulator_register()
+ * @init_data:		An instance of &struct regulator_init_data that you
+ *			wish to pass to the regulator during regulator_register()
+ */
+struct regulator_lookup {
+	const char *device_name;
+	const char *regulator_name;
+
+	struct regulator_init_data init_data;
+
+	struct list_head list;
+};
+
 #ifdef CONFIG_REGULATOR
 void regulator_has_full_constraints(void);
+void regulator_add_lookup(struct regulator_lookup *lookup);
+void regulator_remove_lookup(struct regulator_lookup *lookup);
 #else
 static inline void regulator_has_full_constraints(void)
 {
 }
+static inline void regulator_add_lookup(struct regulator_lookup *lookup) { }
+static inline void regulator_remove_lookup(struct regulator_lookup *lookup) { }
 #endif
 
 static inline int regulator_suspend_prepare(suspend_state_t state)

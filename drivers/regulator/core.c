@@ -36,6 +36,8 @@
 static DEFINE_WW_CLASS(regulator_ww_class);
 static DEFINE_MUTEX(regulator_nesting_mutex);
 static DEFINE_MUTEX(regulator_list_mutex);
+static DEFINE_MUTEX(regulator_lookup_mutex);
+static LIST_HEAD(regulator_lookup_list);
 static LIST_HEAD(regulator_map_list);
 static LIST_HEAD(regulator_ena_gpio_list);
 static LIST_HEAD(regulator_supply_alias_list);
@@ -1868,6 +1870,7 @@ static struct regulator_dev *regulator_lookup_by_name(const char *name)
 static struct regulator_dev *regulator_dev_lookup(struct device *dev,
 						  const char *supply)
 {
+	struct regulator_lookup *lookup;
 	struct regulator_dev *r = NULL;
 	struct device_node *node;
 	struct regulator_map *map;
@@ -1917,7 +1920,34 @@ static struct regulator_dev *regulator_dev_lookup(struct device *dev,
 	if (r)
 		return r;
 
-	return ERR_PTR(-ENODEV);
+	/*
+	 * The regulator might still exist and be called out in a lookup table,
+	 * but simply not yet have probed. Check to see if the consumer device
+	 * is referenced in any init data in the lookups.
+	 */
+
+	mutex_lock(&regulator_lookup_mutex);
+	list_for_each_entry(lookup, &regulator_lookup_list, list) {
+		struct regulator_init_data *init_data = &lookup->init_data;
+		unsigned int i;
+
+		if (!devname)
+			break;
+
+		for (i = 0; i < init_data->num_consumer_supplies; i++) {
+			if (strcmp(init_data->consumer_supplies[i].dev_name, devname))
+				continue;
+
+			r = ERR_PTR(-EPROBE_DEFER);
+			goto out;
+		}
+	}
+
+	r = ERR_PTR(-ENODEV);
+
+out:
+	mutex_unlock(&regulator_lookup_mutex);
+	return r;
 }
 
 static int regulator_resolve_supply(struct regulator_dev *rdev)
@@ -5303,6 +5333,54 @@ static struct regulator_coupler generic_regulator_coupler = {
 };
 
 /**
+ * regulator_lookup_init_data - Check regulator_lookup_list for matching entries
+ * @desc:	Regulator desc containing name of the regulator
+ * @cfg:	Regulator config containing pointer to the registering device
+ *
+ * Calling this function scans the regulator_lookup_list and checks each entry
+ * to see if the .device_name and .regulator_name fields match the device name
+ * and regulator name contained in @cfg and @desc. If so, a pointer to the
+ * embedded &struct regulator_init_data is returned. No matches returns NULL.
+ */
+struct regulator_init_data *
+regulator_lookup_init_data(const struct regulator_desc *desc,
+			   const struct regulator_config *cfg)
+{
+	struct regulator_lookup *lookup;
+
+	if (!desc || !cfg || !cfg->dev)
+		return NULL;
+
+	mutex_lock(&regulator_lookup_mutex);
+
+	list_for_each_entry(lookup, &regulator_lookup_list, list) {
+		/*
+		 * We need the lookup to have at least a device_name or there's
+		 * no guarantee of a match, and regulator_register() checks to
+		 * make sure that desc->name is not null, so any entry with
+		 * either field null is invalid.
+		 */
+		if (!lookup->device_name || !lookup->regulator_name)
+			continue;
+
+		if (strcmp(lookup->device_name, dev_name(cfg->dev)))
+			continue;
+
+		if (strcmp(lookup->regulator_name, desc->name))
+			continue;
+
+		goto found;
+	}
+
+	lookup = NULL;
+
+found:
+	mutex_unlock(&regulator_lookup_mutex);
+
+	return lookup ? &lookup->init_data : NULL;
+}
+
+/**
  * regulator_register - register regulator
  * @regulator_desc: regulator to register
  * @cfg: runtime configuration for regulator
@@ -5385,6 +5463,9 @@ regulator_register(const struct regulator_desc *regulator_desc,
 
 	init_data = regulator_of_get_init_data(dev, regulator_desc, config,
 					       &rdev->dev.of_node);
+
+	if (!init_data)
+		init_data = regulator_lookup_init_data(regulator_desc, config);
 
 	/*
 	 * Sometimes not all resources are probed already so we need to take
@@ -5739,6 +5820,42 @@ void *regulator_get_init_drvdata(struct regulator_init_data *reg_init_data)
 	return reg_init_data->driver_data;
 }
 EXPORT_SYMBOL_GPL(regulator_get_init_drvdata);
+
+/**
+ * regulator_add_lookup - Add an entry to regulator_lookup_list
+ * @lookup:	Pointer to the &struct regulator_lookup to add to the list
+ *
+ * This function can be used in board files to add an entry to the
+ * regulator_lookup_list. During regulator_register(), entries will be checked
+ * for matching device name and regulator name and when matching, the associated
+ * &struct regulator_init_data will be used.
+ */
+void regulator_add_lookup(struct regulator_lookup *lookup)
+{
+	mutex_lock(&regulator_lookup_mutex);
+
+	list_add_tail(&lookup->list, &regulator_lookup_list);
+
+	mutex_unlock(&regulator_lookup_mutex);
+}
+EXPORT_SYMBOL_GPL(regulator_add_lookup);
+
+/**
+ * regulator_remove_lookup - Remove an entry from regulator_lookup_list
+ * @lookup:	Pointer to the &struct regulator_lookup to remove from the list
+ *
+ * Calling this function will remove the passed regulator_lookup from the list,
+ * intended for error handling paths in board files.
+ */
+void regulator_remove_lookup(struct regulator_lookup *lookup)
+{
+	mutex_lock(&regulator_lookup_mutex);
+
+	list_del(&lookup->list);
+
+	mutex_unlock(&regulator_lookup_mutex);
+}
+EXPORT_SYMBOL_GPL(regulator_remove_lookup);
 
 #ifdef CONFIG_DEBUG_FS
 static int supply_map_show(struct seq_file *sf, void *data)
