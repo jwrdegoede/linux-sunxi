@@ -72,7 +72,7 @@ static struct clk_lookup *clk_find(const char *dev_id, const char *con_id)
 struct clk_hw *clk_find_hw(const char *dev_id, const char *con_id)
 {
 	struct clk_lookup *cl;
-	struct clk_hw *hw = ERR_PTR(-ENOENT);
+	struct clk_hw *hw = ERR_PTR(-EPROBE_DEFER);
 
 	mutex_lock(&clocks_mutex);
 	cl = clk_find(dev_id, con_id);
