@@ -971,12 +971,12 @@ static unsigned int __ov5693_calc_vts(u32 height)
 
 static struct v4l2_mbus_framefmt *
 __ov5693_get_pad_format(struct ov5693_device *ov5693,
-			struct v4l2_subdev_pad_config *cfg,
+			struct v4l2_subdev_state *sd_state,
 			unsigned int pad, enum v4l2_subdev_format_whence which)
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(&ov5693->sd, cfg, pad);
+		return v4l2_subdev_get_try_format(&ov5693->sd, sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &ov5693->mode.format;
 	default:
@@ -986,12 +986,12 @@ __ov5693_get_pad_format(struct ov5693_device *ov5693,
 
 static struct v4l2_rect *
 __ov5693_get_pad_crop(struct ov5693_device *ov5693,
-		      struct v4l2_subdev_pad_config *cfg,
+		      struct v4l2_subdev_state *sd_state,
 		      unsigned int pad, enum v4l2_subdev_format_whence which)
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_crop(&ov5693->sd, cfg, pad);
+		return v4l2_subdev_get_try_crop(&ov5693->sd, sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &ov5693->mode.crop;
 	}
@@ -1000,7 +1000,7 @@ __ov5693_get_pad_crop(struct ov5693_device *ov5693,
 }
 
 static int ov5693_get_fmt(struct v4l2_subdev *sd,
-			  struct v4l2_subdev_pad_config *cfg,
+			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *format)
 {
 	struct ov5693_device *ov5693 = to_ov5693_sensor(sd);
@@ -1011,7 +1011,7 @@ static int ov5693_get_fmt(struct v4l2_subdev *sd,
 }
 
 static int ov5693_set_fmt(struct v4l2_subdev *sd,
-			  struct v4l2_subdev_pad_config *cfg,
+			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *format)
 {
 	struct ov5693_device *ov5693 = to_ov5693_sensor(sd);
@@ -1023,7 +1023,7 @@ static int ov5693_set_fmt(struct v4l2_subdev *sd,
 	int exposure_max;
 	int ret = 0;
 
-	crop = __ov5693_get_pad_crop(ov5693, cfg, format->pad, format->which);
+	crop = __ov5693_get_pad_crop(ov5693, sd_state, format->pad, format->which);
 
 	/*
 	 * Align to two to simplify the binning calculations below, and clamp
@@ -1041,7 +1041,7 @@ static int ov5693_set_fmt(struct v4l2_subdev *sd,
 	hratio = clamp_t(unsigned int, DIV_ROUND_CLOSEST(crop->width, width), 1, 2);
 	vratio = clamp_t(unsigned int, DIV_ROUND_CLOSEST(crop->height, height), 1, 2);
 
-	fmt = __ov5693_get_pad_format(ov5693, cfg, format->pad, format->which);
+	fmt = __ov5693_get_pad_format(ov5693, sd_state, format->pad, format->which);
 
 	fmt->width = crop->width / hratio;
 	fmt->height = crop->height / vratio;
@@ -1083,7 +1083,7 @@ static int ov5693_set_fmt(struct v4l2_subdev *sd,
 }
 
 static int ov5693_get_selection(struct v4l2_subdev *sd,
-				struct v4l2_subdev_pad_config *cfg,
+				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {
 	struct ov5693_device *ov5693 = to_ov5693_sensor(sd);
@@ -1091,7 +1091,7 @@ static int ov5693_get_selection(struct v4l2_subdev *sd,
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
 		mutex_lock(&ov5693->lock);
-		sel->r = *__ov5693_get_pad_crop(ov5693, cfg, sel->pad,
+		sel->r = *__ov5693_get_pad_crop(ov5693, sd_state, sel->pad,
 						sel->which);
 		mutex_unlock(&ov5693->lock);
 		break;
@@ -1116,7 +1116,7 @@ static int ov5693_get_selection(struct v4l2_subdev *sd,
 }
 
 static int ov5693_set_selection(struct v4l2_subdev *sd,
-				struct v4l2_subdev_pad_config *cfg,
+				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {
 	struct ov5693_device *ov5693 = to_ov5693_sensor(sd);
@@ -1147,14 +1147,14 @@ static int ov5693_set_selection(struct v4l2_subdev *sd,
 	rect.height = min_t(unsigned int, rect.height,
 			    OV5693_NATIVE_HEIGHT - rect.top);
 
-	__crop = __ov5693_get_pad_crop(ov5693, cfg, sel->pad, sel->which);
+	__crop = __ov5693_get_pad_crop(ov5693, sd_state, sel->pad, sel->which);
 
 	if (rect.width != __crop->width || rect.height != __crop->height) {
 		/*
 		 * Reset the output image size if the crop rectangle size has
 		 * been modified.
 		 */
-		format = __ov5693_get_pad_format(ov5693, cfg, sel->pad, sel->which);
+		format = __ov5693_get_pad_format(ov5693, sd_state, sel->pad, sel->which);
 		format->width = rect.width;
 		format->height = rect.height;
 	}
@@ -1212,7 +1212,7 @@ static int ov5693_g_frame_interval(struct v4l2_subdev *sd,
 }
 
 static int ov5693_enum_mbus_code(struct v4l2_subdev *sd,
-				 struct v4l2_subdev_pad_config *cfg,
+				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_mbus_code_enum *code)
 {
 	/* Only a single mbus format is supported */
@@ -1224,7 +1224,7 @@ static int ov5693_enum_mbus_code(struct v4l2_subdev *sd,
 }
 
 static int ov5693_enum_frame_size(struct v4l2_subdev *sd,
-				  struct v4l2_subdev_pad_config *cfg,
+				  struct v4l2_subdev_state *sd_state,
 				  struct v4l2_subdev_frame_size_enum *fse)
 {
 	struct ov5693_device *ov5693 = to_ov5693_sensor(sd);
@@ -1233,7 +1233,7 @@ static int ov5693_enum_frame_size(struct v4l2_subdev *sd,
 	if (fse->index > 1 || fse->code != MEDIA_BUS_FMT_SBGGR10_1X10)
 		return -EINVAL;
 
-	__crop = __ov5693_get_pad_crop(ov5693, cfg, fse->pad, fse->which);
+	__crop = __ov5693_get_pad_crop(ov5693, sd_state, fse->pad, fse->which);
 	if (!__crop)
 		return -EINVAL;
 
