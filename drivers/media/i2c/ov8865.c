@@ -2698,12 +2698,12 @@ static int ov8865_enum_frame_interval(struct v4l2_subdev *subdev,
 
 static void
 __ov8865_get_pad_crop(struct ov8865_sensor *sensor,
-		      struct v4l2_subdev_pad_config *cfg, unsigned int pad,
+		      struct v4l2_subdev_state *sd_state, unsigned int pad,
 		      enum v4l2_subdev_format_whence which, struct v4l2_rect *r)
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		*r = *v4l2_subdev_get_try_crop(&sensor->subdev, cfg, pad);
+		*r = *v4l2_subdev_get_try_crop(&sensor->subdev, sd_state, pad);
 		break;
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		r->height = sensor->state.mode->output_size_y;
@@ -2715,7 +2715,7 @@ __ov8865_get_pad_crop(struct ov8865_sensor *sensor,
 }
 
 static int ov8865_get_selection(struct v4l2_subdev *subdev,
-				struct v4l2_subdev_pad_config *cfg,
+				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {
 	struct ov8865_sensor *sensor = ov8865_subdev_sensor(subdev);
@@ -2723,7 +2723,7 @@ static int ov8865_get_selection(struct v4l2_subdev *subdev,
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
 		mutex_lock(&sensor->mutex);
-			__ov8865_get_pad_crop(sensor, cfg, sel->pad,
+			__ov8865_get_pad_crop(sensor, sd_state, sel->pad,
 					      sel->which, &sel->r);
 		mutex_unlock(&sensor->mutex);
 		break;
