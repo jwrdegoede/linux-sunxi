@@ -227,27 +227,16 @@ static int tps68470_clk_probe(struct platform_device *pdev)
 	if (IS_ERR(tps68470_clkdata->clk))
 		return PTR_ERR(tps68470_clkdata->clk);
 
-	/* FIXME: Cannot remove clkdev so block module removal */
-	ret = try_module_get(THIS_MODULE);
-	if (!ret)
-		goto error;
-
-	ret = clk_register_clkdev(tps68470_clkdata->clk,
-				  TPS68470_CLK_NAME, NULL);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to register clkdev:%d\n", ret);
-		goto error;
-	}
+	ret = devm_clk_hw_register_clkdev(&pdev->dev, &tps68470_clkdata->clkout_hw,
+					  TPS68470_CLK_NAME, NULL);
+	if (ret)
+		return ret;
 
 	platform_set_drvdata(pdev, tps68470_clkdata);
 
 	dev_info(&pdev->dev, "Registered %s clk\n", pdev->name);
 
 	return 0;
-error:
-	clk_unregister(tps68470_clkdata->clk);
-
-	return ret;
 }
 
 static struct platform_driver tps68470_clk = {
