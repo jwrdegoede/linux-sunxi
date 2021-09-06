@@ -3043,7 +3043,7 @@ static int ov8865_probe(struct i2c_client *client)
 
 	/* External Clock */
 
-	sensor->extclk = devm_clk_get(dev, "tps68470-clk");
+	sensor->extclk = devm_clk_get(dev, NULL);
 	if (IS_ERR(sensor->extclk)) {
 		dev_err(dev, "failed to get external clock\n");
 		ret = PTR_ERR(sensor->extclk);
