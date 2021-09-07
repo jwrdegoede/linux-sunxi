@@ -36,18 +36,6 @@
 		.n_linear_ranges	= _nlr,				\
 	}
 
-
-enum tps68470_regulators {
-	TPS68470_CORE,
-	TPS68470_ANA,
-	TPS68470_VCM,
-	TPS68470_VIO,
-	TPS68470_VSIO,
-	TPS68470_AUX1,
-	TPS68470_AUX2,
-	TPS68470_NUM_REGULATORS
-};
-
 static const struct linear_range tps68470_ldo_ranges[] = {
 	REGULATOR_LINEAR_RANGE(875000, 0, 125, 17800),
 };
