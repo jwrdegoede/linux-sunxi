@@ -133,14 +133,14 @@ struct regulator_init_data tps68470_init[] = {
 
 static int tps68470_regulator_probe(struct platform_device *pdev)
 {
-	unsigned int i = TPS68470_NUM_REGULATORS;
 	struct regulator_config config = { };
 	struct regmap *tps68470_regmap;
 	struct regulator_dev *rdev;
+	int i;
 
 	tps68470_regmap = dev_get_drvdata(pdev->dev.parent);
 
-	while (i--) {
+	for (i = 0; i < TPS68470_NUM_REGULATORS; i++) {
 		config.dev = pdev->dev.parent;
 		config.init_data = &tps68470_init[i];
 		config.regmap = tps68470_regmap;
