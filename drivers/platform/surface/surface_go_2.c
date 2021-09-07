@@ -10,8 +10,8 @@
 static const struct dmi_system_id surface_go_2_dmi_table[] = {
 	{
 		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Surface Go 2"),
+			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Go"),
 		},
 	},
 	{ }
