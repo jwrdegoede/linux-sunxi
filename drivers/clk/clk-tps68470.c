@@ -7,8 +7,8 @@
 #include <linux/mfd/tps68470.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/platform_data/tps68470.h>
 #include <linux/regmap.h>
-
 
 #define TPS68470_CLK_NAME "tps68470-clk"
 
@@ -212,6 +212,7 @@ static struct clk_init_data tps68470_clk_initdata = {
 
 static int tps68470_clk_probe(struct platform_device *pdev)
 {
+	struct tps68470_clk_platform_data *pdata = pdev->dev.platform_data;
 	struct tps68470_clkdata *tps68470_clkdata;
 	int ret;
 
@@ -231,6 +232,15 @@ static int tps68470_clk_probe(struct platform_device *pdev)
 					  TPS68470_CLK_NAME, NULL);
 	if (ret)
 		return ret;
+
+	if (pdata) {
+		ret = devm_clk_hw_register_clkdev(&pdev->dev,
+						  &tps68470_clkdata->clkout_hw,
+						  pdata->consumer_con_id,
+						  pdata->consumer_dev_name);
+		if (ret)
+			return ret;
+	}
 
 	platform_set_drvdata(pdev, tps68470_clkdata);
 
