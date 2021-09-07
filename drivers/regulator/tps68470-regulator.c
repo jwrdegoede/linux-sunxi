@@ -12,16 +12,17 @@
 #include <linux/init.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
+#include <linux/platform_data/tps68470.h>
 
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/mfd/tps68470.h>
 
-#define TPS68470_REGULATOR(_name, _id, _of_match, _ops, _n, _vr,	\
-			_vm, _er, _em, _t, _lr, _nlr)			\
-	{								\
-		.name			= _name,			\
+#define TPS68470_REGULATOR(_name, _id, _ops, _n, _vr,			\
+			   _vm, _er, _em, _t, _lr, _nlr)		\
+	[TPS68470_ ## _name] = {					\
+		.name			= # _name,			\
 		.id			= _id,				\
 		.ops			= &_ops,			\
 		.n_voltages		= _n,				\
@@ -56,25 +57,25 @@ static struct regulator_ops tps68470_regulator_ops = {
 };
 
 static const struct regulator_desc regulators[] = {
-	TPS68470_REGULATOR("CORE", TPS68470_CORE, "core",
+	TPS68470_REGULATOR(CORE, TPS68470_CORE,
 			   tps68470_regulator_ops, 43, TPS68470_REG_VDVAL,
 			   TPS68470_VDVAL_DVOLT_MASK, TPS68470_REG_VDCTL,
 			   TPS68470_VDCTL_EN_MASK,
 			   NULL, tps68470_core_ranges,
 			   ARRAY_SIZE(tps68470_core_ranges)),
-	TPS68470_REGULATOR("ANA", TPS68470_ANA, "ana",
+	TPS68470_REGULATOR(ANA, TPS68470_ANA,
 			   tps68470_regulator_ops, 126, TPS68470_REG_VAVAL,
 			   TPS68470_VAVAL_AVOLT_MASK, TPS68470_REG_VACTL,
 			   TPS68470_VACTL_EN_MASK,
 			   NULL, tps68470_ldo_ranges,
 			   ARRAY_SIZE(tps68470_ldo_ranges)),
-	TPS68470_REGULATOR("VCM", TPS68470_VCM, "vcm",
+	TPS68470_REGULATOR(VCM, TPS68470_VCM,
 			   tps68470_regulator_ops, 126, TPS68470_REG_VCMVAL,
 			   TPS68470_VCMVAL_VCVOLT_MASK, TPS68470_REG_VCMCTL,
 			   TPS68470_VCMCTL_EN_MASK,
 			   NULL, tps68470_ldo_ranges,
 			   ARRAY_SIZE(tps68470_ldo_ranges)),
-	TPS68470_REGULATOR("VIO", TPS68470_VIO, "vio",
+	TPS68470_REGULATOR(VIO, TPS68470_VIO,
 			   tps68470_regulator_ops, 126, TPS68470_REG_VIOVAL,
 			   TPS68470_VIOVAL_IOVOLT_MASK, TPS68470_REG_S_I2C_CTL,
 			   TPS68470_S_I2C_CTL_EN_MASK,
@@ -87,20 +88,20 @@ static const struct regulator_desc regulators[] = {
  * (2) If there is no I2C daisy chain it can be set freely.
  *
  */
-	TPS68470_REGULATOR("VSIO", TPS68470_VSIO, "vsio",
+	TPS68470_REGULATOR(VSIO, TPS68470_VSIO,
 			   tps68470_regulator_ops, 126, TPS68470_REG_VSIOVAL,
 			   TPS68470_VSIOVAL_IOVOLT_MASK, TPS68470_REG_S_I2C_CTL,
 			   TPS68470_S_I2C_CTL_EN_MASK,
 			   NULL, tps68470_ldo_ranges,
 			   ARRAY_SIZE(tps68470_ldo_ranges)),
-	TPS68470_REGULATOR("AUX1", TPS68470_AUX1, "aux1",
+	TPS68470_REGULATOR(AUX1, TPS68470_AUX1,
 			   tps68470_regulator_ops, 126, TPS68470_REG_VAUX1VAL,
 			   TPS68470_VAUX1VAL_AUX1VOLT_MASK,
 			   TPS68470_REG_VAUX1CTL,
 			   TPS68470_VAUX1CTL_EN_MASK,
 			   NULL, tps68470_ldo_ranges,
 			   ARRAY_SIZE(tps68470_ldo_ranges)),
-	TPS68470_REGULATOR("AUX2", TPS68470_AUX2, "aux2",
+	TPS68470_REGULATOR(AUX2, TPS68470_AUX2,
 			   tps68470_regulator_ops, 126, TPS68470_REG_VAUX2VAL,
 			   TPS68470_VAUX2VAL_AUX2VOLT_MASK,
 			   TPS68470_REG_VAUX2CTL,
@@ -109,25 +110,25 @@ static const struct regulator_desc regulators[] = {
 			   ARRAY_SIZE(tps68470_ldo_ranges)),
 };
 
-#define tps68470_reg_init_data(_name, _min_uV, _max_uV)\
-{\
-	.constraints = {\
-		.name = (const char *)_name,\
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE	\
-			| REGULATOR_CHANGE_STATUS,\
-		.min_uV = _min_uV,\
-		.max_uV = _max_uV,\
-	},\
-}
+#define TPS68470_REG_INIT_DATA(_name, _min_uV, _max_uV)			\
+	[TPS68470_ ## _name] = {					\
+		.constraints = {					\
+			.name = # _name,				\
+			.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |	\
+					  REGULATOR_CHANGE_STATUS,	\
+			.min_uV = _min_uV,				\
+			.max_uV = _max_uV,				\
+		},							\
+	}
 
 struct regulator_init_data tps68470_init[] = {
-	tps68470_reg_init_data("CORE", 900000, 1950000),
-	tps68470_reg_init_data("ANA", 875000, 3100000),
-	tps68470_reg_init_data("VCM", 875000, 3100000),
-	tps68470_reg_init_data("VIO", 875000, 3100000),
-	tps68470_reg_init_data("VSIO", 875000, 3100000),
-	tps68470_reg_init_data("AUX1", 875000, 3100000),
-	tps68470_reg_init_data("AUX2", 875000, 3100000),
+	TPS68470_REG_INIT_DATA(CORE, 900000, 1950000),
+	TPS68470_REG_INIT_DATA(ANA, 875000, 3100000),
+	TPS68470_REG_INIT_DATA(VCM, 875000, 3100000),
+	TPS68470_REG_INIT_DATA(VIO, 875000, 3100000),
+	TPS68470_REG_INIT_DATA(VSIO, 875000, 3100000),
+	TPS68470_REG_INIT_DATA(AUX1, 875000, 3100000),
+	TPS68470_REG_INIT_DATA(AUX2, 875000, 3100000),
 };
 
 static int tps68470_regulator_probe(struct platform_device *pdev)
