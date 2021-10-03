@@ -462,10 +462,10 @@ struct brcmf_fw {
 };
 
 #ifdef CONFIG_EFI
-/* In some cases the EFI-var stored nvram contains "ccode=ALL" or "ccode=XV"
- * to specify "worldwide" compatible settings, but these 2 ccode-s do not work
- * properly. "ccode=ALL" causes channels 12 and 13 to not be available,
- * "ccode=XV" causes all 5GHz channels to not be available. So we replace both
+/* In some cases the EFI-var stored nvram contains "ccode=ALL", "ccode=XV" or "ccode=XT",
+ * to specify "worldwide" compatible settings, but these ccode-s do not work properly.
+ * "ccode=ALL" causes channels 12 and 13 to not be available, "ccode=XV" / "ccode=XT"
+ * may cause all 5GHz channels to not be available. So we replace these
  * with "ccode=X2" which allows channels 12+13 and 5Ghz channels in
  * no-Initiate-Radiation mode. This means that we will never send on these
  * channels without first having received valid wifi traffic on the channel.
@@ -477,6 +477,8 @@ static void brcmf_fw_fix_efi_nvram_ccode(char *data, unsigned long data_len)
 	ccode = strnstr((char *)data, "ccode=ALL", data_len);
 	if (!ccode)
 		ccode = strnstr((char *)data, "ccode=XV\r", data_len);
+	if (!ccode)
+		ccode = strnstr((char *)data, "ccode=XT\r", data_len);
 	if (!ccode)
 		return;
 
