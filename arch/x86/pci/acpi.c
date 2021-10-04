@@ -21,6 +21,8 @@ struct pci_root_info {
 
 static bool pci_use_crs = true;
 static bool pci_ignore_seg = false;
+/* Consumed in arch/x86/kernel/resource.c */
+bool pci_use_e820 = false;
 
 static int __init set_use_crs(const struct dmi_system_id *id)
 {
@@ -160,6 +162,32 @@ void __init pci_acpi_crs_quirks(void)
 	       "if necessary, use \"pci=%s\" and report a bug\n",
 	       pci_use_crs ? "Using" : "Ignoring",
 	       pci_use_crs ? "nocrs" : "use_crs");
+
+	/*
+	 * Some BIOS-es contain a bug where they add addresses which map to
+	 * system RAM in the PCI host bridge window returned by the ACPI _CRS
+	 * method, see commit 4dc2287c1805 ("x86: avoid E820 regions when
+	 * allocating address space"). To avoid this Linux by default excludes
+	 * E820 reservations when allocating addresses since 2010.
+	 * In 2020 some systems have shown-up with E820 reservations which cover
+	 * the entire _CRS returned PCI host bridge window, causing all attempts
+	 * to assign memory to PCI BARs to fail if Linux uses E820 reservations.
+	 *
+	 * Ideally Linux would fully stop using E820 reservations, but then
+	 * the old systems this was added for will regress.
+	 * Instead keep the old behavior for old systems, while ignoring the
+	 * E820 reservations for any systems from now on.
+	 */
+	if (year >= 0 && year < 2018)
+		pci_use_e820 = true;
+
+	if (pci_probe & PCI_NO_E820)
+		pci_use_e820 = false;
+	else if (pci_probe & PCI_USE_E820)
+		pci_use_e820 = true;
+
+	printk(KERN_INFO "PCI: %s E820 reservations for host bridge windows\n",
+	       pci_use_e820 ? "Using" : "Ignoring");
 }
 
 #ifdef	CONFIG_PCI_MMCONFIG
