@@ -801,12 +801,12 @@ static int ov5693_mode_configure(struct ov5693_device *ov5693)
 	return ret;
 }
 
-static int ov5693_sw_standby(struct ov5693_device *ov5693, bool standby)
+static int ov5693_enable_streaming(struct ov5693_device *ov5693, bool enable)
 {
 	int ret = 0;
 
 	ov5693_write_reg(ov5693, OV5693_SW_STREAM_REG,
-			 standby ? OV5693_STOP_STREAMING : OV5693_START_STREAMING,
+			 enable ? OV5693_START_STREAMING : OV5693_STOP_STREAMING,
 			 &ret);
 
 	return ret;
@@ -843,9 +843,9 @@ static int ov5693_sensor_init(struct ov5693_device *ov5693)
 		return ret;
 	}
 
-	ret = ov5693_sw_standby(ov5693, true);
+	ret = ov5693_enable_streaming(ov5693, false);
 	if (ret)
-		dev_err(ov5693->dev, "%s software standby error\n", __func__);
+		dev_err(ov5693->dev, "%s stop streaming error\n", __func__);
 
 	return ret;
 }
@@ -1181,7 +1181,7 @@ static int ov5693_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	mutex_lock(&ov5693->lock);
-	ret = ov5693_sw_standby(ov5693, !enable);
+	ret = ov5693_enable_streaming(ov5693, enable);
 	mutex_unlock(&ov5693->lock);
 
 	if (ret)
