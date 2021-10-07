@@ -1175,17 +1175,23 @@ static int ov5693_s_stream(struct v4l2_subdev *sd, int enable)
 		if (ret < 0)
 			goto err_power_down;
 
+		mutex_lock(&ov5693->lock);
 		ret = __v4l2_ctrl_handler_setup(&ov5693->ctrls.handler);
-		if (ret)
+		if (ret) {
+			mutex_unlock(&ov5693->lock);
 			goto err_power_down;
+		}
+
+		ret = ov5693_enable_streaming(ov5693, true);
+		mutex_unlock(&ov5693->lock);
+	} else {
+		mutex_lock(&ov5693->lock);
+		ret = ov5693_enable_streaming(ov5693, false);
+		mutex_unlock(&ov5693->lock);
 	}
-
-	mutex_lock(&ov5693->lock);
-	ret = ov5693_enable_streaming(ov5693, enable);
-	mutex_unlock(&ov5693->lock);
-
 	if (ret)
 		goto err_power_down;
+
 	ov5693->streaming = !!enable;
 
 	if (!enable)
