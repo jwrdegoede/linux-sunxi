@@ -500,6 +500,25 @@ int drm_mode_rmfb_ioctl(struct drm_device *dev,
 	return drm_mode_rmfb(dev, *fb_id, file_priv);
 }
 
+int drm_mode_closefb_ioctl(struct drm_device *dev,
+			   void *data, struct drm_file *file_priv)
+{
+	uint32_t *fb_id = data;
+	struct drm_framebuffer *fb;
+	int ret;
+
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		return -EOPNOTSUPP;
+
+	fb = drm_framebuffer_lookup(dev, file_priv, *fb_id);
+	if (!fb)
+		return -ENOENT;
+
+	ret = drm_mode_closefb(fb, file_priv);
+	drm_framebuffer_put(fb);
+	return ret;
+}
+
 /**
  * drm_mode_getfb - get FB info
  * @dev: drm device for the ioctl
