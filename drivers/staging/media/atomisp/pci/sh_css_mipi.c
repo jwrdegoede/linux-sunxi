@@ -444,10 +444,12 @@ allocate_mipi_frames(struct ia_css_pipe *pipe,
 		return IA_CSS_SUCCESS; /* AM TODO: Check  */
 	}
 
-	if (!atomisp_hw_is_isp2401)
+	if (!atomisp_hw_is_isp2401) {
 		port = (unsigned int)pipe->stream->config.source.port.port;
-	else
-		err = ia_css_mipi_is_source_port_valid(pipe, &port);
+	} else {
+		/* Returns true if port is valid. So, invert it */
+		err = !ia_css_mipi_is_source_port_valid(pipe, &port);
+	}
 
 	assert(port < N_CSI_PORTS);
 
@@ -594,10 +596,12 @@ free_mipi_frames(struct ia_css_pipe *pipe) {
 			return err;
 		}
 
-		if (!atomisp_hw_is_isp2401)
+		if (!atomisp_hw_is_isp2401) {
 			port = (unsigned int)pipe->stream->config.source.port.port;
-		else
-			err = ia_css_mipi_is_source_port_valid(pipe, &port);
+		} else {
+			/* Returns true if port is valid. So, invert it */
+			err = !ia_css_mipi_is_source_port_valid(pipe, &port);
+		}
 
 		assert(port < N_CSI_PORTS);
 
@@ -711,10 +715,12 @@ send_mipi_frames(struct ia_css_pipe *pipe) {
 		/* TODO: AM: maybe this should be returning an error. */
 	}
 
-	if (!atomisp_hw_is_isp2401)
+	if (!atomisp_hw_is_isp2401) {
 		port = (unsigned int)pipe->stream->config.source.port.port;
-	else
-		err = ia_css_mipi_is_source_port_valid(pipe, &port);
+	} else {
+		/* Returns true if port is valid. So, invert it */
+		err = !ia_css_mipi_is_source_port_valid(pipe, &port);
+	}
 
 	assert(port < N_CSI_PORTS);
 
