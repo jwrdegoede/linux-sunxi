@@ -648,7 +648,7 @@ static int ov2680_probe(struct i2c_client *client)
 	if (ret)
 		return ret;
 
-	sensor->powerdown = devm_gpiod_get(dev, "powerdown", GPIOD_OUT_HIGH);
+	sensor->powerdown = devm_gpiod_get_optional(dev, "powerdown", GPIOD_OUT_HIGH);
 	if (IS_ERR(sensor->powerdown))
 		return dev_err_probe(dev, PTR_ERR(sensor->powerdown), "getting powerdown GPIO\n");
 
