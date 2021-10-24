@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Touchscreen driver DMI based configuration code
+ * DMI based device-property addition (adding info missing from ACPI tables)
  *
- * Copyright (c) 2017 Red Hat Inc.
+ * Copyright (c) 2017-2021 Red Hat Inc.
  *
  * Red Hat authors:
  * Hans de Goede <hdegoede@redhat.com>
@@ -979,7 +979,7 @@ static const struct ts_dmi_data vinga_twizzle_j116_data = {
 };
 
 /* NOTE: Please keep this table sorted alphabetically */
-const struct dmi_system_id touchscreen_dmi_table[] = {
+const struct dmi_system_id dmi_device_properties[] = {
 	{
 		/* Chuwi Hi8 */
 		.driver_data = (void *)&chuwi_hi8_data,
@@ -1633,7 +1633,7 @@ static int __init ts_dmi_init(void)
 	const struct dmi_system_id *dmi_id;
 	int error;
 
-	dmi_id = dmi_first_match(touchscreen_dmi_table);
+	dmi_id = dmi_first_match(dmi_device_properties);
 	if (!dmi_id)
 		return 0; /* Not an error */
 

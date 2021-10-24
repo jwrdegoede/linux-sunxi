@@ -21,8 +21,8 @@ bool efi_embedded_fw_checked;
 EXPORT_SYMBOL_NS_GPL(efi_embedded_fw_checked, TEST_FIRMWARE);
 
 static const struct dmi_system_id * const embedded_fw_table[] = {
-#ifdef CONFIG_TOUCHSCREEN_DMI
-	touchscreen_dmi_table,
+#ifdef CONFIG_DMI_DEVICE_PROPERTIES
+	dmi_device_properties,
 #endif
 	NULL
 };

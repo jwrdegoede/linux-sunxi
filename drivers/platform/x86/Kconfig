@@ -981,17 +981,19 @@ config MLX_PLATFORM
 
 	  If you have a Mellanox system, say Y or M here.
 
-config TOUCHSCREEN_DMI
-	bool "DMI based touchscreen configuration info"
-	depends on ACPI && DMI && I2C=y && TOUCHSCREEN_SILEAD
+config DMI_DEVICE_PROPERTIES
+	bool "DMI based extra device properties"
+	depends on ACPI && DMI && I2C=y
 	select EFI_EMBEDDED_FIRMWARE if EFI
 	help
-	  Certain ACPI based tablets with e.g. Silead or Chipone touchscreens
-	  do not have enough data in ACPI tables for the touchscreen driver to
-	  handle the touchscreen properly, as OEMs expect the data to be baked
-	  into the tablet model specific version of the driver shipped with the
-	  the OS-image for the device. This option supplies the missing info.
-	  Enable this for x86 tablets with Silead or Chipone touchscreens.
+	  Sometimes ACPI based x86 devices do not have enough data in their ACPI
+	  tables to fully describe the hardware. This option enables support for
+	  supplying the missing info based on DMI (vendor & model string)
+	  matching for devices where this info has been added to the
+	  dmi-device-properties code.
+
+	  This option is often necessary for correct operation of x86 based
+	  tablets and 2-in-1 devices. If in doubt, say Y here.
 
 config FW_ATTR_CLASS
 	tristate
