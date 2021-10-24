@@ -207,6 +207,7 @@ enum drrs_type {
 #define QUIRK_INCREASE_T12_DELAY (1<<6)
 #define QUIRK_INCREASE_DDI_DISABLED_TIME (1<<7)
 #define QUIRK_NO_PPS_BACKLIGHT_POWER_HOOK (1<<8)
+#define QUIRK_NO_VLV_DISP_PW_DPIO_CMN_BC_INIT (1<<9)
 
 struct i915_suspend_saved_registers {
 	u32 saveDSPARB;
