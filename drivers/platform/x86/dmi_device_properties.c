@@ -387,6 +387,16 @@ static const struct ts_dmi_data gp_electronic_t701_data = {
 	.properties	= gp_electronic_t701_props,
 };
 
+static const struct property_entry gpd_win_pocket_props[] = {
+	PROPERTY_ENTRY_STRING("intel,cht-wc-setup", "bq24292i,max17047,fusb302,pi3usb30532"),
+	{ }
+};
+
+static const struct ts_dmi_data gpd_win_pocket_data = {
+	.acpi_name      = "INT34D3:00",
+	.properties     = gpd_win_pocket_props,
+};
+
 static const struct property_entry irbis_tw90_props[] = {
 	PROPERTY_ENTRY_U32("touchscreen-size-x", 1720),
 	PROPERTY_ENTRY_U32("touchscreen-size-y", 1138),
@@ -978,6 +988,16 @@ static const struct ts_dmi_data vinga_twizzle_j116_data = {
 	.properties	= vinga_twizzle_j116_props,
 };
 
+static const struct property_entry xiaomi_mi_pad2_props[] = {
+	PROPERTY_ENTRY_STRING("intel,cht-wc-setup", "bq25890,bq27520"),
+	{ }
+};
+
+static const struct ts_dmi_data xiaomi_mi_pad2_data = {
+	.acpi_name      = "INT34D3:00",
+	.properties     = xiaomi_mi_pad2_props,
+};
+
 /* NOTE: Please keep this table sorted alphabetically */
 const struct dmi_system_id dmi_device_properties[] = {
 	{
@@ -1164,6 +1184,24 @@ const struct dmi_system_id dmi_device_properties[] = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Insyde"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "i71c"),
 			DMI_MATCH(DMI_BIOS_VERSION, "itWORKS.G.WI71C.JGBMRB"),
+		},
+	},
+	{
+		/* GPD win / GPD pocket mini laptops */
+		.driver_data = (void *)&gpd_win_pocket_data,
+		/*
+		 * Note this may not seem like a very unique match, but in the
+		 * 24000+ DMI decode dumps from linux-hardware.org only 42 have
+		 * a board_vendor value of "AMI Corporation" and of those 42
+		 * only 1 (the GPD win/pocket entry) has a board_name of
+		 * "Default string". Also few devices have both board_ and
+		 * product_name not set.
+		 */
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "AMI Corporation"),
+			DMI_MATCH(DMI_BOARD_NAME, "Default string"),
+			DMI_MATCH(DMI_BOARD_SERIAL, "Default string"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Default string"),
 		},
 	},
 	{
@@ -1576,6 +1614,14 @@ const struct dmi_system_id dmi_device_properties[] = {
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "WinBook"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "TW700")
+		},
+	},
+	{
+		/* Xiaomi Mi Pad 2 */
+		.driver_data = (void *)&xiaomi_mi_pad2_data,
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Xiaomi Inc"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Mipad2"),
 		},
 	},
 	{
