@@ -2189,8 +2189,14 @@ __intel_display_power_get_domain(struct drm_i915_private *dev_priv,
 	if (intel_display_power_grab_async_put_ref(dev_priv, domain))
 		return;
 
-	for_each_power_domain_well(dev_priv, power_well, BIT_ULL(domain))
+	for_each_power_domain_well(dev_priv, power_well, BIT_ULL(domain)) {
+		if (domain == POWER_DOMAIN_INIT &&
+		    (dev_priv->quirks & QUIRK_NO_VLV_DISP_PW_DPIO_CMN_BC_INIT) &&
+		    power_well->desc->id == VLV_DISP_PW_DPIO_CMN_BC)
+			continue;
+
 		intel_power_well_get(dev_priv, power_well);
+	}
 
 	power_domains->domain_use_count[domain]++;
 }
@@ -2283,8 +2289,14 @@ __intel_display_power_put_domain(struct drm_i915_private *dev_priv,
 
 	power_domains->domain_use_count[domain]--;
 
-	for_each_power_domain_well_reverse(dev_priv, power_well, BIT_ULL(domain))
+	for_each_power_domain_well_reverse(dev_priv, power_well, BIT_ULL(domain)) {
+		if (domain == POWER_DOMAIN_INIT &&
+		    (dev_priv->quirks & QUIRK_NO_VLV_DISP_PW_DPIO_CMN_BC_INIT) &&
+		    power_well->desc->id == VLV_DISP_PW_DPIO_CMN_BC)
+			continue;
+
 		intel_power_well_put(dev_priv, power_well);
+	}
 }
 
 static void __intel_display_power_put(struct drm_i915_private *dev_priv,
