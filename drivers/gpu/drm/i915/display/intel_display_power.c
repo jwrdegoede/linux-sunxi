@@ -19,6 +19,7 @@
 #include "intel_mchbar_regs.h"
 #include "intel_pch_refclk.h"
 #include "intel_pcode.h"
+#include "intel_quirks.h"
 #include "intel_snps_phy.h"
 #include "skl_watermark.h"
 #include "vlv_sideband.h"
@@ -471,6 +472,12 @@ out_verify:
 	return ret;
 }
 
+static const struct i915_power_well_instance *
+i915_power_well_instance(const struct i915_power_well *power_well)
+{
+	return &power_well->desc->instances->list[power_well->instance_idx];
+}
+
 static void
 __intel_display_power_get_domain(struct drm_i915_private *dev_priv,
 				 enum intel_display_power_domain domain)
@@ -481,8 +488,14 @@ __intel_display_power_get_domain(struct drm_i915_private *dev_priv,
 	if (intel_display_power_grab_async_put_ref(dev_priv, domain))
 		return;
 
-	for_each_power_domain_well(dev_priv, power_well, domain)
+	for_each_power_domain_well(dev_priv, power_well, domain) {
+		if (domain == POWER_DOMAIN_INIT &&
+		    intel_has_quirk(dev_priv, QUIRK_NO_VLV_DISP_PW_DPIO_CMN_BC_INIT) &&
+		    i915_power_well_instance(power_well)->id == VLV_DISP_PW_DPIO_CMN_BC)
+			continue;
+
 		intel_power_well_get(dev_priv, power_well);
+	}
 
 	power_domains->domain_use_count[domain]++;
 }
@@ -577,8 +590,14 @@ __intel_display_power_put_domain(struct drm_i915_private *dev_priv,
 
 	power_domains->domain_use_count[domain]--;
 
-	for_each_power_domain_well_reverse(dev_priv, power_well, domain)
+	for_each_power_domain_well_reverse(dev_priv, power_well, domain) {
+		if (domain == POWER_DOMAIN_INIT &&
+		    intel_has_quirk(dev_priv, QUIRK_NO_VLV_DISP_PW_DPIO_CMN_BC_INIT) &&
+		    i915_power_well_instance(power_well)->id == VLV_DISP_PW_DPIO_CMN_BC)
+			continue;
+
 		intel_power_well_put(dev_priv, power_well);
+	}
 }
 
 static void __intel_display_power_put(struct drm_i915_private *dev_priv,

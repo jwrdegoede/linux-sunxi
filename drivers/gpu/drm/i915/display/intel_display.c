@@ -8664,6 +8664,8 @@ int intel_modeset_init_noirq(struct drm_i915_private *i915)
 	if (ret)
 		goto cleanup_bios;
 
+	intel_init_quirks(i915);
+
 	/* FIXME: completely on the wrong abstraction layer */
 	intel_power_domains_init_hw(i915, false);
 
@@ -8693,8 +8695,6 @@ int intel_modeset_init_noirq(struct drm_i915_private *i915)
 	init_llist_head(&i915->display.atomic_helper.free_list);
 	INIT_WORK(&i915->display.atomic_helper.free_work,
 		  intel_atomic_helper_free_state_worker);
-
-	intel_init_quirks(i915);
 
 	intel_fbc_init(i915);
 
