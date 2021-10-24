@@ -78,6 +78,13 @@ static void quirk_fw_sync_len(struct intel_dp *intel_dp)
 	drm_info(display->drm, "Applying Fast Wake sync pulse count quirk\n");
 }
 
+/* The Xiaomi Mi Pad 2 CHT tablet hangs on enabling the dpio-common-bc well */
+static void quirk_no_vlv_disp_pw_dpio_cmn_bc_init(struct intel_display *display)
+{
+	intel_set_quirk(display, QUIRK_NO_VLV_DISP_PW_DPIO_CMN_BC_INIT);
+	drm_info(display->drm, "Applying no dpio-common-bc powerwell init quirk\n");
+}
+
 struct intel_quirk {
 	int device;
 	int subsystem_vendor;
@@ -229,6 +236,8 @@ static struct intel_quirk intel_quirks[] = {
 	{ 0x3184, 0x1019, 0xa94d, quirk_increase_ddi_disabled_time },
 	/* HP Notebook - 14-r206nv */
 	{ 0x0f31, 0x103c, 0x220f, quirk_invert_brightness },
+	/* Xiaomi Mi Pad 2 */
+	{ 0x22b0, 0x1d72, 0x1502, quirk_no_vlv_disp_pw_dpio_cmn_bc_init },
 };
 
 static const struct intel_dpcd_quirk intel_dpcd_quirks[] = {
