@@ -1340,11 +1340,11 @@ static void acpi_set_pnp_ids(acpi_handle handle, struct acpi_device_pnp *pnp,
 				for (i = 0; i < cid_list->count; i++)
 					acpi_add_id(pnp, cid_list->ids[i].string);
 			}
-		}
-		if (info->valid & ACPI_VALID_ADR) {
+		} else if (info->valid & ACPI_VALID_ADR) {
 			pnp->bus_address = info->address;
 			pnp->type.bus_address = 1;
 		}
+
 		if (info->valid & ACPI_VALID_UID)
 			pnp->unique_id = kstrdup(info->unique_id.string,
 							GFP_KERNEL);
