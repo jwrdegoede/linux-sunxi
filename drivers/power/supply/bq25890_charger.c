@@ -73,6 +73,7 @@ enum bq25890_fields {
 
 /* initial field values, converted to register values */
 struct bq25890_init_data {
+	u8 write_cfg;	/* write firmware cfg to chip?	*/
 	u8 ichg;	/* charge current		*/
 	u8 vreg;	/* regulation voltage		*/
 	u8 iterm;	/* termination current		*/
@@ -638,7 +639,7 @@ static int bq25890_chip_reset(struct bq25890_device *bq)
 
 static int bq25890_rw_init_data(struct bq25890_device *bq)
 {
-	bool write = true;
+	bool write = bq->init_data.write_cfg;
 	int ret;
 	int i;
 
@@ -682,10 +683,12 @@ static int bq25890_hw_init(struct bq25890_device *bq)
 {
 	int ret;
 
-	ret = bq25890_chip_reset(bq);
-	if (ret < 0) {
-		dev_dbg(bq->dev, "Reset failed %d\n", ret);
-		return ret;
+	if (bq->init_data.write_cfg) {
+		ret = bq25890_chip_reset(bq);
+		if (ret < 0) {
+			dev_dbg(bq->dev, "Reset failed %d\n", ret);
+			return ret;
+		}
 	}
 
 	/* disable watchdog */
@@ -920,6 +923,10 @@ static int bq25890_fw_probe(struct bq25890_device *bq)
 	int ret;
 	struct bq25890_init_data *init = &bq->init_data;
 
+	init->write_cfg = !device_property_read_bool(bq->dev, "ti,skip-init");
+	if (!init->write_cfg)
+		return 0;
+
 	ret = bq25890_fw_read_u32_props(bq);
 	if (ret < 0)
 		return ret;
@@ -1033,8 +1040,10 @@ static int bq25890_remove(struct i2c_client *client)
 	if (!IS_ERR_OR_NULL(bq->usb_phy))
 		usb_unregister_notifier(bq->usb_phy, &bq->usb_nb);
 
-	/* reset all registers to default values */
-	bq25890_chip_reset(bq);
+	if (bq->init_data.write_cfg) {
+		/* reset all registers to default values */
+		bq25890_chip_reset(bq);
+	}
 
 	return 0;
 }
