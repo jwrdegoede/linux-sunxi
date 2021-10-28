@@ -58,6 +58,11 @@ static const struct always_present_id always_present_ids[] = {
 	ENTRY("80862289", "2", X86_MATCH(ATOM_AIRMONT), {
 			DMI_MATCH(DMI_PRODUCT_NAME, "Lenovo YB1-X9"),
 		}),
+	/* The Xiaomi Mi Pad 2 uses PWM2 for touchkeys backlight control */
+	ENTRY("80862289", "2", X86_MATCH(ATOM_AIRMONT), {
+		DMI_MATCH(DMI_SYS_VENDOR, "Xiaomi Inc"),
+		DMI_MATCH(DMI_PRODUCT_NAME, "Mipad2"),
+	      }),
 	/*
 	 * The INT0002 device is necessary to clear wakeup interrupt sources
 	 * on Cherry Trail devices, without it we get nobody cared IRQ msgs.
