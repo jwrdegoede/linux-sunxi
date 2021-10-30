@@ -990,14 +990,10 @@ static int bq25890_probe(struct i2c_client *client,
 		return ret;
 	}
 
-	if (!dev->platform_data) {
-		ret = bq25890_fw_probe(bq);
-		if (ret < 0) {
-			dev_err(dev, "Cannot read device properties.\n");
-			return ret;
-		}
-	} else {
-		return -ENODEV;
+	ret = bq25890_fw_probe(bq);
+	if (ret < 0) {
+		dev_err(dev, "Cannot read device properties.\n");
+		return ret;
 	}
 
 	ret = bq25890_hw_init(bq);
