@@ -1444,6 +1444,17 @@ static int cio2_notifier_complete(struct v4l2_async_notifier *notifier)
 		}
 	}
 
+	/*
+	 * This is done here because, on systems where the VCMs are described
+	 * in the SSDB, the regulator connections are not described in firmware.
+	 * This is taken care of by platform code, but this causes probe-order
+	 * challenges. This also applies to the sensors and the platform code
+	 * takes care of delaying the probing of the sensors until the
+	 * regulator connection info is in place. So the sensors all being
+	 * in place means it is now also ok to probe VCMs.
+	 */
+	cio2_bridge_instantiate_vcm_devices(cio2->bridge);
+
 	return v4l2_device_register_subdev_nodes(&cio2->v4l2_dev);
 }
 

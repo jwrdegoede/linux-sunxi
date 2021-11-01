@@ -463,11 +463,13 @@ static inline struct cio2_queue *vb2q_to_cio2_queue(struct vb2_queue *vq)
 
 #if IS_ENABLED(CONFIG_CIO2_BRIDGE)
 struct cio2_bridge *cio2_bridge_init(struct pci_dev *cio2);
+void cio2_bridge_instantiate_vcm_devices(struct cio2_bridge *bridge);
 #else
 static inline struct cio2_bridge *cio2_bridge_init(struct pci_dev *cio2)
 {
 	return NULL;
 }
+static inline void cio2_bridge_instantiate_vcm_devices(struct cio2_bridge *b) {}
 #endif
 
 #endif

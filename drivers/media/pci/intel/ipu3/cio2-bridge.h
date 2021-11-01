@@ -8,6 +8,8 @@
 
 #include "ipu3-cio2.h"
 
+struct i2c_client;
+
 #define CIO2_HID				"INT343E"
 #define CIO2_MAX_LANES				4
 #define MAX_NUM_LINK_FREQS			3
@@ -106,6 +108,7 @@ struct cio2_sensor_config {
 struct cio2_sensor {
 	char name[ACPI_ID_LEN];
 	struct acpi_device *adev;
+	struct i2c_client *vcm_i2c_client;
 
 	struct software_node swnodes[6];
 	struct cio2_node_names node_names;

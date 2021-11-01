@@ -3,6 +3,7 @@
 
 #include <linux/acpi.h>
 #include <linux/device.h>
+#include <linux/i2c.h>
 #include <linux/pci.h>
 #include <linux/property.h>
 #include <media/v4l2-fwnode.h>
@@ -207,6 +208,7 @@ static void cio2_bridge_unregister_sensors(struct cio2_bridge *bridge)
 		software_node_unregister_nodes(sensor->swnodes);
 		ACPI_FREE(sensor->pld);
 		acpi_dev_put(sensor->adev);
+		i2c_unregister_device(sensor->vcm_i2c_client);
 	}
 }
 
@@ -365,4 +367,53 @@ err_free_bridge:
 	kfree(bridge);
 
 	return ERR_PTR(ret);
+}
+
+static void cio2_bridge_instantiate_vcm_i2c_client(struct cio2_sensor *sensor)
+{
+	static const char * const vcm_types[] = {
+		"ad5823",
+		"dw9714",
+		"ad5816",
+		"dw9719",
+		"dw9718",
+		"dw9806b",
+		"wv517s",
+		"lc898122xa",
+		"lc898212axb",
+	};
+	struct i2c_board_info board_info = { };
+	char name[16];
+
+	if (!sensor->ssdb.vcmtype)
+		return;
+
+	if (sensor->ssdb.vcmtype > ARRAY_SIZE(vcm_types)) {
+		dev_warn(&sensor->adev->dev, "Unknown VCM type %d\n",
+			 sensor->ssdb.vcmtype);
+		return;
+	}
+
+	snprintf(name, sizeof(name), "%s-VCM", acpi_dev_name(sensor->adev));
+	board_info.dev_name = name;
+	strscpy(board_info.type, vcm_types[sensor->ssdb.vcmtype - 1],
+		ARRAY_SIZE(board_info.type));
+
+	sensor->vcm_i2c_client = i2c_acpi_new_device(sensor->adev, 1, &board_info);
+	if (IS_ERR(sensor->vcm_i2c_client)) {
+		dev_warn(&sensor->adev->dev, "Error instantiation VCM i2c-client: %ld\n",
+			 PTR_ERR(sensor->vcm_i2c_client));
+		sensor->vcm_i2c_client = NULL;
+	}
+}
+
+void cio2_bridge_instantiate_vcm_devices(struct cio2_bridge *bridge)
+{
+	unsigned int i;
+
+	if (!bridge)
+		return;
+
+	for (i = 0; i < bridge->n_sensors; i++)
+		cio2_bridge_instantiate_vcm_i2c_client(&bridge->sensors[i]);
 }
