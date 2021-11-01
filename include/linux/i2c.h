@@ -1012,7 +1012,7 @@ bool i2c_acpi_get_i2c_resource(struct acpi_resource *ares,
 			       struct acpi_resource_i2c_serialbus **i2c);
 int i2c_acpi_client_count(struct acpi_device *adev);
 u32 i2c_acpi_find_bus_speed(struct device *dev);
-struct i2c_client *i2c_acpi_new_device(struct device *dev, int index,
+struct i2c_client *i2c_acpi_new_device(struct acpi_device *adev, int index,
 				       struct i2c_board_info *info);
 struct i2c_adapter *i2c_acpi_find_adapter_by_handle(acpi_handle handle);
 #else
@@ -1029,7 +1029,7 @@ static inline u32 i2c_acpi_find_bus_speed(struct device *dev)
 {
 	return 0;
 }
-static inline struct i2c_client *i2c_acpi_new_device(struct device *dev,
+static inline struct i2c_client *i2c_acpi_new_device(struct acpi_device *adev,
 					int index, struct i2c_board_info *info)
 {
 	return ERR_PTR(-ENODEV);

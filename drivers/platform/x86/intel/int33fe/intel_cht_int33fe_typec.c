@@ -267,7 +267,7 @@ cht_int33fe_register_max17047(struct device *dev, struct cht_int33fe_data *data)
 	strlcpy(board_info.type, "max17047", I2C_NAME_SIZE);
 	board_info.dev_name = "max17047";
 	board_info.fwnode = fwnode;
-	data->battery_fg = i2c_acpi_new_device(dev, 1, &board_info);
+	data->battery_fg = i2c_acpi_new_device(ACPI_COMPANION(dev), 1, &board_info);
 
 	return PTR_ERR_OR_ZERO(data->battery_fg);
 }
@@ -331,7 +331,7 @@ int cht_int33fe_typec_probe(struct cht_int33fe_data *data)
 	board_info.fwnode = fwnode;
 	board_info.irq = fusb302_irq;
 
-	data->fusb302 = i2c_acpi_new_device(dev, 2, &board_info);
+	data->fusb302 = i2c_acpi_new_device(ACPI_COMPANION(dev), 2, &board_info);
 	if (IS_ERR(data->fusb302)) {
 		ret = PTR_ERR(data->fusb302);
 		goto out_unregister_max17047;
@@ -348,7 +348,7 @@ int cht_int33fe_typec_probe(struct cht_int33fe_data *data)
 	board_info.fwnode = fwnode;
 	strlcpy(board_info.type, "pi3usb30532", I2C_NAME_SIZE);
 
-	data->pi3usb30532 = i2c_acpi_new_device(dev, 3, &board_info);
+	data->pi3usb30532 = i2c_acpi_new_device(ACPI_COMPANION(dev), 3, &board_info);
 	if (IS_ERR(data->pi3usb30532)) {
 		ret = PTR_ERR(data->pi3usb30532);
 		goto out_unregister_fusb302;

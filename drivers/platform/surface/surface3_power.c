@@ -514,7 +514,7 @@ static int mshw0011_probe(struct i2c_client *client)
 	memset(&board_info, 0, sizeof(board_info));
 	strlcpy(board_info.type, "MSHW0011-bat0", I2C_NAME_SIZE);
 
-	bat0 = i2c_acpi_new_device(dev, 1, &board_info);
+	bat0 = i2c_acpi_new_device(ACPI_COMPANION(dev), 1, &board_info);
 	if (IS_ERR(bat0))
 		return PTR_ERR(bat0);
 

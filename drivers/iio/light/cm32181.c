@@ -455,7 +455,7 @@ static int cm32181_probe(struct i2c_client *client)
 
 		i2c_smbus_read_byte(client);
 
-		client = i2c_acpi_new_device(dev, 1, &board_info);
+		client = i2c_acpi_new_device(ACPI_COMPANION(dev), 1, &board_info);
 		if (IS_ERR(client))
 			return PTR_ERR(client);
 	}

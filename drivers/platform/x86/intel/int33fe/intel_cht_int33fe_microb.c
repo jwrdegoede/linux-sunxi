@@ -48,7 +48,7 @@ int cht_int33fe_microb_probe(struct cht_int33fe_data *data)
 	strscpy(board_info.type, "bq27542", ARRAY_SIZE(board_info.type));
 	board_info.dev_name = "bq27542";
 	board_info.swnode = &bq27xxx_node;
-	data->battery_fg = i2c_acpi_new_device(dev, 1, &board_info);
+	data->battery_fg = i2c_acpi_new_device(ACPI_COMPANION(dev), 1, &board_info);
 
 	return PTR_ERR_OR_ZERO(data->battery_fg);
 }

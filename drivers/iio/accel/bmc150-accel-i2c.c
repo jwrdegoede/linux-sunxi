@@ -149,7 +149,7 @@ static void bmc150_acpi_dual_accel_probe(struct i2c_client *client)
 
 	board_info.irq = acpi_dev_gpio_irq_get(adev, 1);
 
-	data->second_device = i2c_acpi_new_device(&client->dev, 1, &board_info);
+	data->second_device = i2c_acpi_new_device(adev, 1, &board_info);
 
 	if (!IS_ERR(data->second_device) && bmc150_acpi_enable_keyboard(data->second_device)) {
 		INIT_DELAYED_WORK(&data->resume_work, bmc150_acpi_resume_work);
