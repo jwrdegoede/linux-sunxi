@@ -1730,9 +1730,9 @@ static int cio2_pci_probe(struct pci_dev *pci_dev,
 			return -EINVAL;
 		}
 
-		r = cio2_bridge_init(pci_dev);
-		if (r)
-			return r;
+		cio2->bridge = cio2_bridge_init(pci_dev);
+		if (IS_ERR(cio2->bridge))
+			return PTR_ERR(cio2->bridge);
 	}
 
 	r = pcim_enable_device(pci_dev);

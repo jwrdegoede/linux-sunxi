@@ -22,6 +22,7 @@
 #include <media/videobuf2-v4l2.h>
 
 struct cio2_fbpt_entry;		/* defined here, after the first usage */
+struct cio2_bridge;
 struct pci_dev;
 
 #define CIO2_NAME					"ipu3-cio2"
@@ -381,6 +382,7 @@ struct cio2_device {
 	struct v4l2_device v4l2_dev;
 	struct cio2_queue queue[CIO2_QUEUES];
 	struct cio2_queue *cur_queue;
+	struct cio2_bridge *bridge;
 	/* mutex to be used by video_device */
 	struct mutex lock;
 
@@ -460,9 +462,12 @@ static inline struct cio2_queue *vb2q_to_cio2_queue(struct vb2_queue *vq)
 }
 
 #if IS_ENABLED(CONFIG_CIO2_BRIDGE)
-int cio2_bridge_init(struct pci_dev *cio2);
+struct cio2_bridge *cio2_bridge_init(struct pci_dev *cio2);
 #else
-static inline int cio2_bridge_init(struct pci_dev *cio2) { return 0; }
+static inline struct cio2_bridge *cio2_bridge_init(struct pci_dev *cio2)
+{
+	return NULL;
+}
 #endif
 
 #endif

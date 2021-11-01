@@ -308,7 +308,7 @@ err_unregister_sensors:
 	return ret;
 }
 
-int cio2_bridge_init(struct pci_dev *cio2)
+struct cio2_bridge *cio2_bridge_init(struct pci_dev *cio2)
 {
 	struct device *dev = &cio2->dev;
 	struct fwnode_handle *fwnode;
@@ -318,7 +318,7 @@ int cio2_bridge_init(struct pci_dev *cio2)
 
 	bridge = kzalloc(sizeof(*bridge), GFP_KERNEL);
 	if (!bridge)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 
 	strscpy(bridge->cio2_node_name, CIO2_HID,
 		sizeof(bridge->cio2_node_name));
@@ -355,7 +355,7 @@ int cio2_bridge_init(struct pci_dev *cio2)
 
 	set_secondary_fwnode(dev, fwnode);
 
-	return 0;
+	return bridge;
 
 err_unregister_sensors:
 	cio2_bridge_unregister_sensors(bridge);
@@ -364,5 +364,5 @@ err_unregister_cio2:
 err_free_bridge:
 	kfree(bridge);
 
-	return ret;
+	return ERR_PTR(ret);
 }
