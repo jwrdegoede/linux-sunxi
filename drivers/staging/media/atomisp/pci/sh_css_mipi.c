@@ -374,17 +374,17 @@ static bool buffers_needed(struct ia_css_pipe *pipe)
 {
 	if (!IS_ISP2401) {
 		if (pipe->stream->config.mode == IA_CSS_INPUT_MODE_BUFFERED_SENSOR)
-			return false;
-		else
 			return true;
+		else
+			return false;
 	}
 
 	if (pipe->stream->config.mode == IA_CSS_INPUT_MODE_BUFFERED_SENSOR ||
 	    pipe->stream->config.mode == IA_CSS_INPUT_MODE_TPG ||
 	    pipe->stream->config.mode == IA_CSS_INPUT_MODE_PRBS)
-		return false;
+		return true;
 
-	return true;
+	return false;
 }
 
 int
@@ -423,17 +423,19 @@ allocate_mipi_frames(struct ia_css_pipe *pipe,
 		return 0; /* AM TODO: Check  */
 	}
 
-	if (!IS_ISP2401)
+	if (!IS_ISP2401) {
 		port = (unsigned int)pipe->stream->config.source.port.port;
-	else
-		err = ia_css_mipi_is_source_port_valid(pipe, &port);
+	} else {
+		/* Returns true if port is valid. So, invert it */
+		err = !ia_css_mipi_is_source_port_valid(pipe, &port);
+	}
 
 	assert(port < N_CSI_PORTS);
 
-	if (port >= N_CSI_PORTS || err) {
-		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE,
-				    "allocate_mipi_frames(%p) exit: error: port is not correct (port=%d).\n",
-				    pipe, port);
+	if ((!IS_ISP2401 && port >= N_CSI_PORTS) ||
+	    (IS_ISP2401 && err)) {
+		IA_CSS_ERROR("allocate_mipi_frames(%p) exit: port is not correct (port=%d).",
+			     pipe, port);
 		return -EINVAL;
 	}
 
@@ -494,9 +496,8 @@ allocate_mipi_frames(struct ia_css_pipe *pipe,
 							my_css.mipi_frames[port][j] = NULL;
 						}
 					}
-					ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE,
-							    "allocate_mipi_frames(%p, %d) exit: error: allocation failed.\n",
-							    pipe, port);
+					IA_CSS_ERROR("allocate_mipi_frames(%p, %d) exit: allocation failed.",
+						     pipe, port);
 					return err;
 				}
 			}
@@ -539,30 +540,30 @@ free_mipi_frames(struct ia_css_pipe *pipe)
 	if (pipe) {
 		assert(pipe->stream);
 		if ((!pipe) || (!pipe->stream)) {
-			ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE,
-					    "free_mipi_frames(%p) exit: error: pipe or stream is null.\n",
-					    pipe);
+			IA_CSS_ERROR("free_mipi_frames(%p) exit: pipe or stream is null.",
+				     pipe);
 			return -EINVAL;
 		}
 
 		if (!buffers_needed(pipe)) {
-			ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE,
-					    "free_mipi_frames(%p) exit: error: wrong mode.\n",
-					    pipe);
+			IA_CSS_ERROR("free_mipi_frames(%p) exit: wrong mode.",
+				     pipe);
 			return err;
 		}
 
-		if (!IS_ISP2401)
+		if (!IS_ISP2401) {
 			port = (unsigned int)pipe->stream->config.source.port.port;
-		else
-			err = ia_css_mipi_is_source_port_valid(pipe, &port);
+		} else {
+			/* Returns true if port is valid. So, invert it */
+			err = !ia_css_mipi_is_source_port_valid(pipe, &port);
+		}
 
 		assert(port < N_CSI_PORTS);
 
-		if (port >= N_CSI_PORTS || err) {
-			ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE,
-					    "free_mipi_frames(%p, %d) exit: error: pipe port is not correct.\n",
-					    pipe, port);
+		if ((!IS_ISP2401 && port >= N_CSI_PORTS) ||
+		    (IS_ISP2401 && err)) {
+			IA_CSS_ERROR("free_mipi_frames(%p, %d) exit: pipe port is not correct.",
+				     pipe, port);
 			return err;
 		}
 
@@ -570,9 +571,8 @@ free_mipi_frames(struct ia_css_pipe *pipe)
 #if !defined(ISP2401)
 			assert(ref_count_mipi_allocation[port] == 1);
 			if (ref_count_mipi_allocation[port] != 1) {
-				ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE,
-						    "free_mipi_frames(%p) exit: error: wrong ref_count (ref_count=%d).\n",
-						    pipe, ref_count_mipi_allocation[port]);
+				IA_CSS_ERROR("free_mipi_frames(%p) exit: wrong ref_count (ref_count=%d).",
+					     pipe, ref_count_mipi_allocation[port]);
 				return err;
 			}
 #endif
@@ -663,15 +663,18 @@ send_mipi_frames(struct ia_css_pipe *pipe)
 		/* TODO: AM: maybe this should be returning an error. */
 	}
 
-	if (!IS_ISP2401)
+	if (!IS_ISP2401) {
 		port = (unsigned int)pipe->stream->config.source.port.port;
-	else
-		err = ia_css_mipi_is_source_port_valid(pipe, &port);
+	} else {
+		/* Returns true if port is valid. So, invert it */
+		err = !ia_css_mipi_is_source_port_valid(pipe, &port);
+	}
 
 	assert(port < N_CSI_PORTS);
 
-	if (port >= N_CSI_PORTS || err) {
-		IA_CSS_ERROR("send_mipi_frames(%p) exit: invalid port specified (port=%d).\n",
+	if ((!IS_ISP2401 && port >= N_CSI_PORTS) ||
+	    (IS_ISP2401 && err)) {
+		IA_CSS_ERROR("send_mipi_frames(%p) exit: invalid port specified (port=%d).",
 			     pipe, port);
 		return err;
 	}

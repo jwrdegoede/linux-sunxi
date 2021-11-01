@@ -34,11 +34,17 @@
  * struct ipu3_uapi_grid_config - Grid plane config
  *
  * @width:	Grid horizontal dimensions, in number of grid blocks(cells).
+ *		For AWB, the range is (16, 80).
+ *		For AF/AE, the range is (16, 32).
  * @height:	Grid vertical dimensions, in number of grid cells.
+ *		For AWB, the range is (16, 60).
+ *		For AF/AE, the range is (16, 24).
  * @block_width_log2:	Log2 of the width of each cell in pixels.
- *			for (2^3, 2^4, 2^5, 2^6, 2^7), values [3, 7].
+ *			For AWB, the range is [3, 6].
+ *			For AF/AE, the range is [3, 7].
  * @block_height_log2:	Log2 of the height of each cell in pixels.
- *			for (2^3, 2^4, 2^5, 2^6, 2^7), values [3, 7].
+ *			For AWB, the range is [3, 6].
+ *			For AF/AE, the range is [3, 7].
  * @height_per_slice:	The number of blocks in vertical axis per slice.
  *			Default 2.
  * @x_start: X value of top left corner of Region of Interest(ROI).
@@ -234,7 +240,9 @@ struct ipu3_uapi_ae_ccm {
  * struct ipu3_uapi_ae_config - AE config
  *
  * @grid_cfg:	config for auto exposure statistics grid. See struct
- *		&ipu3_uapi_ae_grid_config
+ *		&ipu3_uapi_ae_grid_config, as Imgu did not support output
+ *		auto exposure statistics, so user can ignore this configuration
+ *		and use the RGB table in auto-whitebalance statistics instead.
  * @weights:	&IPU3_UAPI_AE_WEIGHTS is based on 32x24 blocks in the grid.
  *		Each grid cell has a corresponding value in weights LUT called
  *		grid value, global histogram is updated based on grid value and
@@ -534,6 +542,9 @@ struct ipu3_uapi_ff_status {
  *
  * @awb_raw_buffer: auto white balance meta data &ipu3_uapi_awb_raw_buffer
  * @ae_raw_buffer: auto exposure raw data &ipu3_uapi_ae_raw_buffer_aligned
+ *                 current Imgu does not output the auto exposure statistics
+ *                 to ae_raw_buffer, the user such as 3A algorithm can use the
+ *                 RGB table in &ipu3_uapi_awb_raw_buffer to do auto-exposure.
  * @af_raw_buffer: &ipu3_uapi_af_raw_buffer for auto focus meta data
  * @awb_fr_raw_buffer: value as specified by &ipu3_uapi_awb_fr_raw_buffer
  * @stats_4a_config: 4a statistics config as defined by &ipu3_uapi_4a_config.

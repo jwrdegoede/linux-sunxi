@@ -772,6 +772,22 @@ static int atomisp_open(struct file *file)
 
 	dev_dbg(isp->dev, "open device %s\n", vdev->name);
 
+	/*
+	 * Ensure that if we are still loading we block. Once the loading
+	 * is over we can proceed. We can't blindly hold the lock until
+	 * that occurs as if the load fails we'll deadlock the unload
+	 */
+	rt_mutex_lock(&isp->loading);
+	/*
+	 * FIXME: revisit this with a better check once the code structure
+	 * is cleaned up a bit more
+	 */
+	if (!isp->ready) {
+		rt_mutex_unlock(&isp->loading);
+		return -ENXIO;
+	}
+	rt_mutex_unlock(&isp->loading);
+
 	rt_mutex_lock(&isp->mutex);
 
 	acc_node = !strcmp(vdev->name, "ATOMISP ISP ACC");
@@ -877,6 +893,11 @@ done:
 	else
 		pipe->users++;
 	rt_mutex_unlock(&isp->mutex);
+
+	/* Ensure that a mode is set */
+	if (asd)
+		v4l2_ctrl_s_ctrl(asd->run_mode, ATOMISP_RUN_MODE_PREVIEW);
+
 	return 0;
 
 css_error:
@@ -1170,6 +1191,12 @@ static int atomisp_mmap(struct file *file, struct vm_area_struct *vma)
 	u32 size = end - start;
 	u32 origin_size, new_size;
 	int ret;
+
+	if (!asd) {
+		dev_err(isp->dev, "%s(): asd is NULL, device is %s\n",
+			__func__, vdev->name);
+		return -EINVAL;
+	}
 
 	if (!(vma->vm_flags & (VM_WRITE | VM_READ)))
 		return -EACCES;
