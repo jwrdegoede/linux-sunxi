@@ -958,6 +958,19 @@ config TOPSTAR_LAPTOP
 
 	  If you have a Topstar laptop, say Y or M here.
 
+config XIAOMI_MIPAD2
+	tristate "Xiaomi Mi Pad 2 support"
+	depends on I2C && ACPI
+	help
+	  The ACPI tables on the Xiaomi Mi Pad 2 hide a number of devices
+	  from Linux, such as the fuel-gauge IC used for battery monitoring.
+
+	  Say Y or M here to enable building a xiaomi-mipad2 board-file which
+	  manually instantiates device-objects for the missing devices.
+
+	  If you have a Xiaomi Mi Pad 2 say Y or M here, for a generic X86
+	  distro config say M here.
+
 config I2C_MULTI_INSTANTIATE
 	tristate "I2C multi instantiate pseudo device driver"
 	depends on I2C && ACPI

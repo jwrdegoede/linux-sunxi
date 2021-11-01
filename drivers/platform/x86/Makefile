@@ -105,6 +105,7 @@ obj-$(CONFIG_PANASONIC_LAPTOP)	+= panasonic-laptop.o
 obj-$(CONFIG_SONY_LAPTOP)	+= sony-laptop.o
 obj-$(CONFIG_SYSTEM76_ACPI)	+= system76_acpi.o
 obj-$(CONFIG_TOPSTAR_LAPTOP)	+= topstar-laptop.o
+obj-$(CONFIG_XIAOMI_MIPAD2)	+= xiaomi-mipad2.o
 
 # Platform drivers
 obj-$(CONFIG_DMI_DEVICE_PROPERTIES)	+= dmi_device_properties.o
