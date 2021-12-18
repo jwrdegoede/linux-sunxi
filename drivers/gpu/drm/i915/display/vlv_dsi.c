@@ -23,6 +23,7 @@
  * Author: Jani Nikula <jani.nikula@intel.com>
  */
 
+#include <linux/dmi.h>
 #include <linux/slab.h>
 
 #include <drm/drm_atomic_helper.h>
@@ -1824,6 +1825,30 @@ static void vlv_dphy_param_init(struct intel_dsi *intel_dsi)
 	intel_dsi_log_params(intel_dsi);
 }
 
+typedef void (*vlv_dsi_mode_fixup_func)(struct drm_display_mode *fixed_mode);
+
+/*
+ * Vtotal is wrong on the Asus TF103C leading to the last line of the display
+ * being shown as the first line. The factory installed Android has a hardcoded
+ * modeline, causing it to not suffer from this BIOS bug.
+ */
+static void vlv_dsi_asus_tf103c_mode_fixup(struct drm_display_mode *fixed_mode)
+{
+	fixed_mode->vtotal = 816;
+	fixed_mode->crtc_vtotal = 816;
+}
+
+static const struct dmi_system_id dmi_mode_fixup_table[] = {
+	{
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "ASUSTeK COMPUTER INC."),
+			DMI_MATCH(DMI_PRODUCT_NAME, "TF103C"),
+		},
+		.driver_data = (void *)vlv_dsi_asus_tf103c_mode_fixup,
+	},
+	{ }
+};
+
 void vlv_dsi_init(struct drm_i915_private *dev_priv)
 {
 	struct drm_device *dev = &dev_priv->drm;
@@ -1833,6 +1858,8 @@ void vlv_dsi_init(struct drm_i915_private *dev_priv)
 	struct intel_connector *intel_connector;
 	struct drm_connector *connector;
 	struct drm_display_mode *current_mode, *fixed_mode;
+	const struct dmi_system_id *dmi_id;
+	vlv_dsi_mode_fixup_func mode_fixup;
 	enum port port;
 	enum pipe pipe;
 
@@ -1959,6 +1986,12 @@ void vlv_dsi_init(struct drm_i915_private *dev_priv)
 	if (!fixed_mode) {
 		drm_dbg_kms(&dev_priv->drm, "no fixed mode\n");
 		goto err_cleanup_connector;
+	}
+
+	dmi_id = dmi_first_match(dmi_mode_fixup_table);
+	if (dmi_id) {
+		mode_fixup = (vlv_dsi_mode_fixup_func)dmi_id->driver_data;
+		mode_fixup(fixed_mode);
 	}
 
 	intel_panel_init(&intel_connector->panel, fixed_mode, NULL);
