@@ -1412,15 +1412,15 @@ static int __maybe_unused elan_resume(struct device *dev)
 	struct elan_tp_data *data = i2c_get_clientdata(client);
 	int error;
 
-	if (device_may_wakeup(dev) && data->irq_wake) {
+	if (!device_may_wakeup(dev)) {
+		error = elan_enable_power(data);
+		if (error) {
+			dev_err(dev, "power up when resuming failed: %d\n", error);
+			goto err;
+		}
+	} else if (data->irq_wake) {
 		disable_irq_wake(client->irq);
 		data->irq_wake = false;
-	}
-
-	error = elan_enable_power(data);
-	if (error) {
-		dev_err(dev, "power up when resuming failed: %d\n", error);
-		goto err;
 	}
 
 	error = elan_initialize(data, data->quirks & ETP_QUIRK_QUICK_WAKEUP);
