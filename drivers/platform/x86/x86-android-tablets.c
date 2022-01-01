@@ -158,7 +158,7 @@ struct x86_dev_info {
 };
 
 /* Generic / shared bq24190 settings */
-static const char * const bq24190_suppliers[] = { "tusb1210-psy" };
+static const char * const bq24190_suppliers[] = { "tusb1211-charger-detect" };
 
 static const struct property_entry bq24190_props[] = {
 	PROPERTY_ENTRY_STRING_ARRAY("supplied-from", bq24190_suppliers),
@@ -196,6 +196,8 @@ static const char * const bq24190_modules[] __initconst = {
 	NULL
 };
 
+static const char * const ug3105_suppliers[] = { "bq24190-charger" };
+
 /* Generic pdevs array and gpio-lookups for micro USB ID pin handling */
 static const struct platform_device_info int3496_pdevs[] __initconst = {
 	{
@@ -229,6 +231,18 @@ static const struct software_node asus_me176c_accel_node = {
 	.properties = asus_me176c_accel_props,
 };
 
+static const struct property_entry asus_me176c_ug3105_props[] = {
+	PROPERTY_ENTRY_STRING_ARRAY("supplied-from", ug3105_suppliers),
+	PROPERTY_ENTRY_U32("upi,rsns-microohm", 10000),
+	PROPERTY_ENTRY_U32("factory-internal-resistance-micro-ohms", 150000),
+	PROPERTY_ENTRY_U32("voltage-max-design-microvolt", 4350000),
+	{ }
+};
+
+static const struct software_node asus_me176c_ug3105_node = {
+	.properties = asus_me176c_ug3105_props,
+};
+
 static const struct x86_i2c_client_info asus_me176c_i2c_clients[] __initconst = {
 	{
 		/* bq24190 battery charger */
@@ -252,6 +266,7 @@ static const struct x86_i2c_client_info asus_me176c_i2c_clients[] __initconst = 
 			.type = "ug3105",
 			.addr = 0x70,
 			.dev_name = "ug3105",
+			.swnode = &asus_me176c_ug3105_node,
 		},
 		.adapter_path = "\\_SB_.I2C1",
 	}, {
@@ -349,6 +364,18 @@ static const struct software_node asus_tf103c_touchscreen_node = {
 	.properties = asus_tf103c_touchscreen_props,
 };
 
+static const struct property_entry asus_tf103c_ug3105_props[] = {
+	PROPERTY_ENTRY_STRING_ARRAY("supplied-from", ug3105_suppliers),
+	PROPERTY_ENTRY_U32("upi,rsns-microohm", 5000),
+	PROPERTY_ENTRY_U32("factory-internal-resistance-micro-ohms", 150000),
+	PROPERTY_ENTRY_U32("voltage-max-design-microvolt", 4200000),
+	{ }
+};
+
+static const struct software_node asus_tf103c_ug3105_node = {
+	.properties = asus_tf103c_ug3105_props,
+};
+
 static const struct x86_i2c_client_info asus_tf103c_i2c_clients[] __initconst = {
 	{
 		/* bq24190 battery charger */
@@ -372,6 +399,7 @@ static const struct x86_i2c_client_info asus_tf103c_i2c_clients[] __initconst = 
 			.type = "ug3105",
 			.addr = 0x70,
 			.dev_name = "ug3105",
+			.swnode = &asus_tf103c_ug3105_node,
 		},
 		.adapter_path = "\\_SB_.I2C1",
 	}, {
