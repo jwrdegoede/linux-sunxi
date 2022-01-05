@@ -557,6 +557,28 @@ static const struct x86_dev_info czc_p10t __initconst = {
 	.init = czc_p10t_init,
 };
 
+/* Lenovo Yoga Tablet 2 1050F/L's Android factory img has everything hardcoded */
+static struct gpiod_lookup_table lenovo_yoga_tab2_1050_int3496_gpios = {
+	.dev_id = "intel-int3496",
+	.table = {
+		GPIO_LOOKUP("INT33FC:02", 1, "mux", GPIO_ACTIVE_LOW),
+		GPIO_LOOKUP("INT33FC:02", 24, "id", GPIO_ACTIVE_HIGH),
+		{ }
+	},
+};
+
+static struct gpiod_lookup_table * const lenovo_yoga_tab2_1050_gpios[] = {
+	&lenovo_yoga_tab2_1050_int3496_gpios,
+	NULL
+};
+
+static const struct x86_dev_info lenovo_yoga_tab2_1050_info __initconst = {
+	.pdev_info = int3496_pdevs,
+	.pdev_count = ARRAY_SIZE(int3496_pdevs),
+	.gpiod_lookup_tables = lenovo_yoga_tab2_1050_gpios,
+	.invalid_aei_gpiochip = "INT33FC:02",
+};
+
 /* Nextbook Ares 8 tablets have an Android factory img with everything hardcoded */
 static const char * const nextbook_ares8_accel_mount_matrix[] = {
 	"0", "-1", "0",
@@ -803,6 +825,17 @@ static const struct dmi_system_id x86_android_tablet_ids[] __initconst = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "VPAD10"),
 		},
 		.driver_data = (void *)&czc_p10t,
+	},
+	{
+		/* Lenovo Yoga Tablet 1050F/L */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Intel Corp."),
+			DMI_MATCH(DMI_PRODUCT_NAME, "VALLEYVIEW C0 PLATFORM"),
+			DMI_MATCH(DMI_BOARD_NAME, "BYT-T FFD8"),
+			/* Partial match on beginning of BIOS version */
+			DMI_MATCH(DMI_BIOS_VERSION, "BLADE_21"),
+		},
+		.driver_data = (void *)&lenovo_yoga_tab2_1050_info,
 	},
 	{
 		/* Nextbook Ares 8 */
