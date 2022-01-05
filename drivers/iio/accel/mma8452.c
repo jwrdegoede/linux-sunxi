@@ -1523,12 +1523,7 @@ static int mma8452_probe(struct i2c_client *client,
 	struct iio_dev *indio_dev;
 	int ret;
 	const struct of_device_id *match;
-
-	match = of_match_device(mma8452_dt_ids, &client->dev);
-	if (!match) {
-		dev_err(&client->dev, "unknown device model\n");
-		return -ENODEV;
-	}
+	const char *compatible;
 
 	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
 	if (!indio_dev)
@@ -1537,7 +1532,19 @@ static int mma8452_probe(struct i2c_client *client,
 	data = iio_priv(indio_dev);
 	data->client = client;
 	mutex_init(&data->lock);
-	data->chip_info = match->data;
+
+	if (id) {
+		compatible = id->name;
+		data->chip_info = &mma_chip_info_table[id->driver_data];
+	} else {
+		match = of_match_device(mma8452_dt_ids, &client->dev);
+		if (!match) {
+			dev_err(&client->dev, "unknown device model\n");
+			return -ENODEV;
+		}
+		compatible = match->compatible;
+		data->chip_info = match->data;
+	}
 
 	data->vdd_reg = devm_regulator_get(&client->dev, "vdd");
 	if (IS_ERR(data->vdd_reg))
@@ -1581,7 +1588,7 @@ static int mma8452_probe(struct i2c_client *client,
 	}
 
 	dev_info(&client->dev, "registering %s accelerometer; ID 0x%x\n",
-		 match->compatible, data->chip_info->chip_id);
+		 compatible, data->chip_info->chip_id);
 
 	i2c_set_clientdata(client, indio_dev);
 	indio_dev->info = &mma8452_info;
