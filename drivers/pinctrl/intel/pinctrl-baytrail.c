@@ -1388,8 +1388,8 @@ static bool byt_direct_irq_sanity_check(struct intel_pinctrl *vg, int pin, u32 c
 	direct_irq = match - direct_irq_mux;
 	/* Base IO-APIC pin numbers come from atom-e3800-family-datasheet.pdf */
 	ioapic_direct_irq_base = (vg->communities->npins == BYT_NGPIO_SCORE) ? 51 : 67;
-	dev_dbg(vg->dev, "Pin %i: uses direct IRQ %d (IO-APIC %d)\n", pin,
-		direct_irq, direct_irq + ioapic_direct_irq_base);
+	dev_info(vg->dev, "Pin %i: uses direct IRQ %d (IO-APIC %d)\n", pin,
+		 direct_irq, direct_irq + ioapic_direct_irq_base);
 
 	/*
 	 * Testing has shown that the way direct IRQs work is that the combination of the
