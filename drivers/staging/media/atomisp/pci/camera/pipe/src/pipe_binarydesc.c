@@ -58,7 +58,6 @@ static void pipe_binarydesc_get_offline(
 	descr->enable_dz = true;
 	descr->enable_xnr = false;
 	descr->enable_dpc = false;
-	descr->enable_luma_only = false;
 	descr->enable_tnr = false;
 	descr->enable_capture_pp_bli = false;
 	descr->enable_fractional_ds = false;
@@ -390,8 +389,6 @@ int ia_css_pipe_get_video_binarydesc(
 		    pipe->extra_config.enable_fractional_ds;
 		video_descr->enable_dpc =
 		    pipe->config.enable_dpc;
-		video_descr->enable_luma_only =
-		    pipe->config.enable_luma_only;
 		video_descr->enable_tnr =
 		    pipe->config.enable_tnr;
 
@@ -574,11 +571,9 @@ void ia_css_pipe_get_primary_binarydesc(
 	in_info->res = pipe->config.input_effective_res;
 	in_info->padded_width = in_info->res.width;
 
-#if !defined(HAS_NO_PACKED_RAW_PIXELS)
 	if (pipe->stream->config.pack_raw_pixels)
 		in_info->format = IA_CSS_FRAME_FORMAT_RAW_PACKED;
 	else
-#endif
 		in_info->format = IA_CSS_FRAME_FORMAT_RAW;
 
 	in_info->raw_bit_depth = ia_css_pipe_util_pipe_input_format_bpp(pipe);
@@ -600,8 +595,6 @@ void ia_css_pipe_get_primary_binarydesc(
 		prim_descr->isp_pipe_version = pipe->config.isp_pipe_version;
 		prim_descr->enable_fractional_ds =
 		    pipe->extra_config.enable_fractional_ds;
-		prim_descr->enable_luma_only =
-		    pipe->config.enable_luma_only;
 		/* We have both striped and non-striped primary binaries,
 		 * if continuous viewfinder is required, then we must select
 		 * a striped one. Otherwise we prefer to use a non-striped

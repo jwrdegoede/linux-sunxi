@@ -96,9 +96,6 @@
 
 #include "xnr/xnr_3.0/ia_css_xnr3.host.h"
 
-#if defined(HAS_OUTPUT_SYSTEM)
-#include <components/output_system/sc_output_system_1.0/host/output_system.host.h>
-#endif
 
 #include "sh_css_frac.h"
 #include "ia_css_bufq.h"
@@ -734,13 +731,11 @@ sh_css_set_global_isp_config_on_pipe(
     const struct ia_css_isp_config *config,
     struct ia_css_pipe *pipe);
 
-#if defined(SH_CSS_ENABLE_PER_FRAME_PARAMS)
 static int
 sh_css_set_per_frame_isp_config_on_pipe(
     struct ia_css_stream *stream,
     const struct ia_css_isp_config *config,
     struct ia_css_pipe *pipe);
-#endif
 
 static int
 sh_css_update_uds_and_crop_info_based_on_zoom_region(
@@ -1908,11 +1903,9 @@ ia_css_stream_set_isp_config_on_pipe(
 
 	IA_CSS_ENTER("stream=%p, config=%p, pipe=%p", stream, config, pipe);
 
-#if defined(SH_CSS_ENABLE_PER_FRAME_PARAMS)
 	if (config->output_frame)
 		err = sh_css_set_per_frame_isp_config_on_pipe(stream, config, pipe);
 	else
-#endif
 		err = sh_css_set_global_isp_config_on_pipe(stream->pipes[0], config, pipe);
 
 	IA_CSS_LEAVE_ERR(err);
@@ -1933,11 +1926,9 @@ ia_css_pipe_set_isp_config(struct ia_css_pipe *pipe,
 
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "config=%p\n", config);
 
-#if defined(SH_CSS_ENABLE_PER_FRAME_PARAMS)
 	if (config->output_frame)
 		err = sh_css_set_per_frame_isp_config_on_pipe(pipe->stream, config, pipe);
 	else
-#endif
 		err = sh_css_set_global_isp_config_on_pipe(pipe, config, pipe_in);
 	IA_CSS_LEAVE_ERR(err);
 	return err;
@@ -1972,7 +1963,6 @@ sh_css_set_global_isp_config_on_pipe(
 	return err;
 }
 
-#if defined(SH_CSS_ENABLE_PER_FRAME_PARAMS)
 static int
 sh_css_set_per_frame_isp_config_on_pipe(
     struct ia_css_stream *stream,
@@ -2042,7 +2032,6 @@ exit:
 	IA_CSS_LEAVE_ERR_PRIVATE(err);
 	return err;
 }
-#endif
 
 static int
 sh_css_init_isp_params_from_config(struct ia_css_pipe *pipe,
@@ -2431,7 +2420,7 @@ sh_css_create_isp_params(struct ia_css_stream *stream,
 	unsigned int i;
 	struct sh_css_ddr_address_map *ddr_ptrs;
 	struct sh_css_ddr_address_map_size *ddr_ptrs_size;
-	int err = 0;
+	int err;
 	size_t params_size;
 	struct ia_css_isp_parameters *params =
 	kvmalloc(sizeof(struct ia_css_isp_parameters), GFP_KERNEL);
@@ -2473,7 +2462,11 @@ sh_css_create_isp_params(struct ia_css_stream *stream,
 	succ &= (ddr_ptrs->macc_tbl != mmgr_NULL);
 
 	*isp_params_out = params;
-	return err;
+
+	if (!succ)
+		return -ENOMEM;
+
+	return 0;
 }
 
 static bool
@@ -3252,15 +3245,10 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 		isp_pipe_version = ia_css_pipe_get_isp_pipe_version(pipe);
 		ia_css_pipeline_get_sp_thread_id(pipe_num, &thread_id);
 
-#if defined(SH_CSS_ENABLE_PER_FRAME_PARAMS)
 		ia_css_query_internal_queue_id(params->output_frame
 					       ? IA_CSS_BUFFER_TYPE_PER_FRAME_PARAMETER_SET
 					       : IA_CSS_BUFFER_TYPE_PARAMETER_SET,
 					       thread_id, &queue_id);
-#else
-		ia_css_query_internal_queue_id(IA_CSS_BUFFER_TYPE_PARAMETER_SET, thread_id,
-					       &queue_id);
-#endif
 		if (!sh_css_sp_is_running()) {
 			/* SP is not running. The queues are not valid */
 			err = -EBUSY;
@@ -3356,12 +3344,10 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 		err = ia_css_bufq_enqueue_buffer(thread_id, queue_id, (uint32_t)cpy);
 		if (err) {
 			free_ia_css_isp_parameter_set_info(cpy);
-#if defined(SH_CSS_ENABLE_PER_FRAME_PARAMS)
 			IA_CSS_LOG("pfp: FAILED to add config id %d for OF %d to q %d on thread %d",
 				   isp_params_info.isp_parameters_id,
 				   isp_params_info.output_frame_ptr,
 				   queue_id, thread_id);
-#endif
 			break;
 		} else {
 			/* TMP: check discrepancy between nr of enqueued
@@ -3383,12 +3369,10 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 			    (uint8_t)thread_id,
 			    (uint8_t)queue_id,
 			    0);
-#if defined(SH_CSS_ENABLE_PER_FRAME_PARAMS)
 			IA_CSS_LOG("pfp: added config id %d for OF %d to q %d on thread %d",
 				   isp_params_info.isp_parameters_id,
 				   isp_params_info.output_frame_ptr,
 				   queue_id, thread_id);
-#endif
 		}
 		/* clean-up old copy */
 		ia_css_dequeue_param_buffers(/*pipe_num*/);

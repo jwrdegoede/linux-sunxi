@@ -168,25 +168,23 @@ int ia_css_frame_map(struct ia_css_frame **frame,
 	if (err)
 		return err;
 
-	if (!err) {
-		if (pgnr < ((PAGE_ALIGN(me->data_bytes)) >> PAGE_SHIFT)) {
-			dev_err(atomisp_dev,
-				"user space memory size is less than the expected size..\n");
-			err = -ENOMEM;
-			goto error;
-		} else if (pgnr > ((PAGE_ALIGN(me->data_bytes)) >> PAGE_SHIFT)) {
-			dev_err(atomisp_dev,
-				"user space memory size is large than the expected size..\n");
-			err = -ENOMEM;
-			goto error;
-		}
-
-		me->data = hmm_alloc(me->data_bytes, HMM_BO_USER, 0, data,
-				     attribute & ATOMISP_MAP_FLAG_CACHED);
-
-		if (me->data == mmgr_NULL)
-			err = -EINVAL;
+	if (pgnr < ((PAGE_ALIGN(me->data_bytes)) >> PAGE_SHIFT)) {
+		dev_err(atomisp_dev,
+			"user space memory size is less than the expected size..\n");
+		err = -ENOMEM;
+		goto error;
+	} else if (pgnr > ((PAGE_ALIGN(me->data_bytes)) >> PAGE_SHIFT)) {
+		dev_err(atomisp_dev,
+			"user space memory size is large than the expected size..\n");
+		err = -ENOMEM;
+		goto error;
 	}
+
+	me->data = hmm_alloc(me->data_bytes, HMM_BO_USER, 0, data,
+			     attribute & ATOMISP_MAP_FLAG_CACHED);
+
+	if (me->data == mmgr_NULL)
+		err = -EINVAL;
 
 error:
 	if (err) {
@@ -594,10 +592,8 @@ bool ia_css_frame_is_same_type(const struct ia_css_frame *frame_a,
 	return is_equal;
 }
 
-void
-ia_css_dma_configure_from_info(
-    struct dma_port_config *config,
-    const struct ia_css_frame_info *info)
+int ia_css_dma_configure_from_info(struct dma_port_config *config,
+				   const struct ia_css_frame_info *info)
 {
 	unsigned int is_raw_packed = info->format == IA_CSS_FRAME_FORMAT_RAW_PACKED;
 	unsigned int bits_per_pixel = is_raw_packed ? info->raw_bit_depth :
@@ -610,7 +606,13 @@ ia_css_dma_configure_from_info(
 	config->elems  = (uint8_t)elems_b;
 	config->width  = (uint16_t)info->res.width;
 	config->crop   = 0;
-	assert(config->width <= info->padded_width);
+
+	if (config->width > info->padded_width) {
+		dev_err(atomisp_dev, "internal error: padded_width is too small!\n");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 /**************************************************************************
