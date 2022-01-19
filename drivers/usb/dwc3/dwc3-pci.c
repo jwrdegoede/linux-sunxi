@@ -122,6 +122,7 @@ static const struct property_entry dwc3_pci_intel_properties[] = {
 static const struct property_entry dwc3_pci_intel_phy_charger_detect_properties[] = {
 	PROPERTY_ENTRY_STRING("dr_mode", "peripheral"),
 	PROPERTY_ENTRY_BOOL("linux,sysdev_is_parent"),
+	PROPERTY_ENTRY_BOOL("snps,dis_u2_susphy_quirk"),
 	PROPERTY_ENTRY_BOOL("linux,phy_charger_detect"),
 	{}
 };

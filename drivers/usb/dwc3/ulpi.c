@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
+/**
  * ulpi.c - DesignWare USB3 Controller's ULPI PHY interface
  *
  * Copyright (C) 2015 Intel Corporation
@@ -7,8 +7,6 @@
  * Author: Heikki Krogerus <heikki.krogerus@linux.intel.com>
  */
 
-#include <linux/delay.h>
-#include <linux/time64.h>
 #include <linux/ulpi/regs.h>
 
 #include "core.h"
@@ -19,30 +17,18 @@
 		DWC3_GUSB2PHYACC_ADDR(ULPI_ACCESS_EXTENDED) | \
 		DWC3_GUSB2PHYACC_EXTEND_ADDR(a) : DWC3_GUSB2PHYACC_ADDR(a))
 
-#define DWC3_ULPI_BASE_DELAY	DIV_ROUND_UP(NSEC_PER_SEC, 60000000L)
-
-static int dwc3_ulpi_busyloop(struct dwc3 *dwc, u8 addr, bool read)
+static int dwc3_ulpi_busyloop(struct dwc3 *dwc)
 {
-	unsigned long ns = 5L * DWC3_ULPI_BASE_DELAY;
-	unsigned int count = 10000;
+	unsigned count = 10000;
 	u32 reg;
 
-	if (addr >= ULPI_EXT_VENDOR_SPECIFIC)
-		ns += DWC3_ULPI_BASE_DELAY;
-
-	if (read)
-		ns += DWC3_ULPI_BASE_DELAY;
-
-	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
-	if (reg & DWC3_GUSB2PHYCFG_SUSPHY)
-		usleep_range(1000, 1200);
-
 	while (count--) {
-		ndelay(ns);
 		reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYACC(0));
-		if (reg & DWC3_GUSB2PHYACC_DONE)
+		if (reg & DWC3_GUSB2PHYACC_DONE) {
+//			dwc3_writel(dwc->regs, DWC3_GUSB2PHYACC(0), reg & ~0x003f0000);
 			return 0;
-		cpu_relax();
+		}
+		usleep_range(100, 200);
 	}
 
 	return -ETIMEDOUT;
@@ -54,10 +40,22 @@ static int dwc3_ulpi_read(struct device *dev, u8 addr)
 	u32 reg;
 	int ret;
 
-	reg = DWC3_GUSB2PHYACC_NEWREGREQ | DWC3_ULPI_ADDR(addr);
-	dwc3_writel(dwc->regs, DWC3_GUSB2PHYACC(0), reg);
+	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
+	if (reg & DWC3_GUSB2PHYCFG_SUSPHY) {
+		pr_err("dwc3 clearing SUSPHY\n");
+		reg &= ~DWC3_GUSB2PHYCFG_SUSPHY;
+		dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
+	}
 
-	ret = dwc3_ulpi_busyloop(dwc, addr, true);
+	reg = DWC3_ULPI_ADDR(addr);
+	reg |= DWC3_GUSB2PHYACC_NEWREGREQ;
+	dwc3_writel(dwc->regs, DWC3_GUSB2PHYACC(0), reg);
+/*
+	dwc3_readl(dwc->regs, DWC3_GUSB2PHYACC(0));
+	reg |= DWC3_GUSB2PHYACC_NEWREGREQ;
+	dwc3_writel(dwc->regs, DWC3_GUSB2PHYACC(0), reg); */
+
+	ret = dwc3_ulpi_busyloop(dwc);
 	if (ret)
 		return ret;
 
@@ -71,11 +69,22 @@ static int dwc3_ulpi_write(struct device *dev, u8 addr, u8 val)
 	struct dwc3 *dwc = dev_get_drvdata(dev);
 	u32 reg;
 
-	reg = DWC3_GUSB2PHYACC_NEWREGREQ | DWC3_ULPI_ADDR(addr);
-	reg |= DWC3_GUSB2PHYACC_WRITE | val;
-	dwc3_writel(dwc->regs, DWC3_GUSB2PHYACC(0), reg);
+	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
+	if (reg & DWC3_GUSB2PHYCFG_SUSPHY) {
+		pr_err("dwc3 clearing SUSPHY\n");
+		reg &= ~DWC3_GUSB2PHYCFG_SUSPHY;
+		dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
+	}
 
-	return dwc3_ulpi_busyloop(dwc, addr, false);
+	reg = DWC3_GUSB2PHYACC_WRITE | DWC3_ULPI_ADDR(addr) | val;
+	reg |= DWC3_GUSB2PHYACC_NEWREGREQ;
+	dwc3_writel(dwc->regs, DWC3_GUSB2PHYACC(0), reg);
+/*
+	dwc3_readl(dwc->regs, DWC3_GUSB2PHYACC(0));
+	reg |= DWC3_GUSB2PHYACC_NEWREGREQ;
+	dwc3_writel(dwc->regs, DWC3_GUSB2PHYACC(0), reg); */
+
+	return dwc3_ulpi_busyloop(dwc);
 }
 
 static const struct ulpi_ops dwc3_ulpi_ops = {
