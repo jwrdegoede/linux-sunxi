@@ -51,6 +51,7 @@ static const struct acpi_device_id dw_i2c_acpi_match[] = {
 	{ "AMD0010", ACCESS_INTR_MASK },
 	{ "AMDI0010", ACCESS_INTR_MASK },
 	{ "AMDI0510", 0 },
+	{ "AMDI0019", ACCESS_INTR_MASK | ARBITRATION_SEMAPHORE },
 	{ "APMC0D0F", 0 },
 	{ "HISI02A1", 0 },
 	{ "HISI02A2", 0 },
@@ -204,6 +205,64 @@ static const struct dmi_system_id dw_i2c_hwmon_class_dmi[] = {
 	{ } /* terminate list */
 };
 
+static const struct i2c_dw_semaphore_callbacks i2c_dw_semaphore_cb_table[] = {
+#ifdef CONFIG_I2C_DESIGNWARE_BAYTRAIL
+	{
+		.probe = i2c_dw_baytrail_probe_lock_support,
+		.remove = NULL,
+	},
+#endif
+#ifdef CONFIG_I2C_DESIGNWARE_AMDPSP
+	{
+		.probe = i2c_dw_amdpsp_probe_lock_support,
+		.remove = i2c_dw_amdpsp_remove_lock_support,
+	},
+#endif
+	{
+		.probe = NULL,
+		.remove = NULL,
+	},
+};
+
+static int i2c_dw_probe_lock_support(struct dw_i2c_dev *dev)
+{
+	int ret;
+	int i;
+
+	dev->semaphore_idx = -1;
+
+	for (i = 0; i < ARRAY_SIZE(i2c_dw_semaphore_cb_table); i++) {
+		if (!i2c_dw_semaphore_cb_table[i].probe)
+			continue;
+
+		ret = i2c_dw_semaphore_cb_table[i].probe(dev);
+		if (!ret) {
+			dev->semaphore_idx = i;
+			break;
+		} else if (ret == -ENODEV) {
+			/*
+			 * If there is no semaphore device attached to this
+			 * controller, we shouldn't abort general i2c_controller
+			 * probe.
+			 */
+			continue;
+		} else {
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static void i2c_dw_remove_lock_support(struct dw_i2c_dev *dev)
+{
+	if (dev->semaphore_idx < 0)
+		return;
+
+	if (i2c_dw_semaphore_cb_table[dev->semaphore_idx].remove)
+		i2c_dw_semaphore_cb_table[dev->semaphore_idx].remove(dev);
+}
+
 static int dw_i2c_plat_probe(struct platform_device *pdev)
 {
 	struct i2c_adapter *adap;
@@ -331,6 +390,8 @@ static int dw_i2c_plat_remove(struct platform_device *pdev)
 	pm_runtime_dont_use_autosuspend(&pdev->dev);
 	pm_runtime_put_sync(&pdev->dev);
 	dw_i2c_plat_pm_cleanup(dev);
+
+	i2c_dw_remove_lock_support(dev);
 
 	reset_control_assert(dev->rst);
 
