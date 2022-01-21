@@ -54,7 +54,7 @@ static struct firmware_header *firmware_header;
  * which will be replaced with the actual RELEASE_VERSION
  * during package generation. Please do not modify  */
 #ifndef ISP2401
-static const char *release_version = STR(irci_stable_candrpv_0415_20150521_0458);
+static const char *release_version = STR(irci_stable_candrpv_0415_20150423_1753);
 #else
 static const char *release_version = STR(irci_ecr-master_20150911_0724);
 #endif
