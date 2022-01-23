@@ -139,12 +139,14 @@ ia_css_isp_param_allocate_isp_parameters(
 			if (size) {
 				mem_params->params[pclass][mem].address = sh_css_calloc(1, size);
 				if (!mem_params->params[pclass][mem].address) {
+					pr_err("sh_css_calloc(1, %d) failed\n", size);
 					err = IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
 					goto cleanup;
 				}
 				if (pclass != IA_CSS_PARAM_CLASS_PARAM) {
 					css_params->params[pclass][mem].address = mmgr_malloc(size);
 					if (!css_params->params[pclass][mem].address) {
+						pr_err("mmgr_malloc(%d) failed\n", size);
 						err = IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
 						goto cleanup;
 					}
