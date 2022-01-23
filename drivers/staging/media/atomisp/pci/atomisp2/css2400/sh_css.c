@@ -7532,6 +7532,8 @@ sh_css_pipe_load_binaries(struct ia_css_pipe *pipe)
 	if (pipe->config.mode == IA_CSS_PIPE_MODE_COPY)
 		return err;
 
+	pr_info("sh_css_pipe_load_binaries(mode=%d\n", pipe->config.mode);
+
 	switch (pipe->mode) {
 	case IA_CSS_PIPE_ID_PREVIEW:
 		err = load_preview_binaries(pipe);
@@ -9369,6 +9371,7 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 		pipes == NULL) {
 		err = IA_CSS_ERR_INVALID_ARGUMENTS;
 		IA_CSS_LEAVE_ERR(err);
+		pr_err("ia_css_stream_create initial params check failed\n"); 
 		return err;
 	}
 
@@ -9378,6 +9381,7 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 	    stream_config->metadata_config.resolution.height > 0) {
 		err = IA_CSS_ERR_INVALID_ARGUMENTS;
 		IA_CSS_LEAVE_ERR(err);
+		pr_err("ia_css_stream_create jpg params check failed\n"); 
 		return err;
 	}
 #endif
@@ -9387,6 +9391,7 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 		IA_CSS_LOG("online and pack raw is invalid on input system 2401");
 		err = IA_CSS_ERR_INVALID_ARGUMENTS;
 		IA_CSS_LEAVE_ERR(err);
+		pr_err("ia_css_stream_create online and pack raw is invalid on input system 2401\n"); 
 		return err;
 	}
 #endif
@@ -9404,6 +9409,7 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 		if (port >= N_MIPI_PORT_ID) {
 			err = IA_CSS_ERR_INVALID_ARGUMENTS;
 			IA_CSS_LEAVE_ERR(err);
+			pr_err("ia_css_stream_create error port >= N_MIPI_PORT_ID\n"); 
 			return err;
 		}
 
@@ -9417,6 +9423,7 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 			assert(stream_config->mipi_buffer_config.size_mem_words != 0);
 			err = IA_CSS_ERR_INTERNAL_ERROR;
 			IA_CSS_LEAVE_ERR(err);
+			pr_err("ia_css_stream_create error need to set mipi frame size\n"); 
 			return err;
 		}
 
@@ -9430,6 +9437,7 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 			assert(stream_config->mipi_buffer_config.nof_mipi_buffers != 0);
 			err = IA_CSS_ERR_INTERNAL_ERROR;
 			IA_CSS_LEAVE_ERR(err);
+			pr_err("ia_css_stream_create error need to set number of mipi frames\n"); 
 			return err;
 		}
 
@@ -9440,6 +9448,7 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 	err = metadata_info_init(&stream_config->metadata_config, &md_info);
 	if (err != IA_CSS_SUCCESS) {
 		IA_CSS_LEAVE_ERR(err);
+		pr_err("ia_css_stream_create metadata_info_init() failed\n"); 
 		return err;
 	}
 
@@ -9542,6 +9551,7 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 				&aspect_ratio_crop_enabled);
 	if (err != IA_CSS_SUCCESS) {
 		IA_CSS_LEAVE_ERR(err);
+		pr_err("ia_css_stream_create aspect_ratio_crop_init() failed\n"); 
 		return err;
 	}
 #endif
@@ -9592,6 +9602,7 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 			pipes[i]->config.mode != IA_CSS_PIPE_MODE_COPY) {
 			err = check_pipe_resolutions(pipes[i]);
 			if (err != IA_CSS_SUCCESS) {
+				pr_err("ia_css_stream_create check_pipe_resolutions() failed\n"); 
 				goto ERR;
 			}
 		}
@@ -9599,13 +9610,17 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 
 #endif
 	err = ia_css_stream_isp_parameters_init(curr_stream);
-	if (err != IA_CSS_SUCCESS)
+	if (err != IA_CSS_SUCCESS) {
+		pr_err("ia_css_stream_create ia_css_stream_isp_parameters_init() failed\n"); 
 		goto ERR;
+	}
 	IA_CSS_LOG("isp_params_configs: %p", curr_stream->isp_params_configs);
 
 	if (num_pipes == 1 && pipes[0]->config.mode == IA_CSS_PIPE_MODE_ACC) {
 		*stream = curr_stream;
 		err = ia_css_acc_stream_create(curr_stream);
+		if (err != IA_CSS_SUCCESS)
+			pr_err("ia_css_stream_create ia_css_acc_stream_create() failed\n"); 
 		goto ERR;
 	}
 	/* sensor binning */
@@ -9652,20 +9667,24 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 			capture_pipe = find_pipe(pipes, num_pipes,
 						IA_CSS_PIPE_MODE_CAPTURE, false);
 			if (capture_pipe == NULL) {
+				pr_err("ia_css_stream_create find_pipe() failed\n"); 
 				err = IA_CSS_ERR_INTERNAL_ERROR;
 				goto ERR;
 			}
 		}
 		/* We do not support preview and video pipe at the same time */
 		if (preview_pipe && video_pipe) {
+			pr_err("ia_css_stream_create error do not support preview and video pipe at the same time\n"); 
 			err = IA_CSS_ERR_INVALID_ARGUMENTS;
 			goto ERR;
 		}
 
 		if (preview_pipe && !preview_pipe->pipe_settings.preview.copy_pipe) {
 			err = create_pipe(IA_CSS_PIPE_MODE_CAPTURE, &copy_pipe, true);
-			if (err != IA_CSS_SUCCESS)
+			if (err != IA_CSS_SUCCESS) {
+				pr_err("ia_css_stream_create create_pipe(IA_CSS_PIPE_MODE_CAPTURE) failed\n"); 
 				goto ERR;
+			}
 			ia_css_pipe_config_defaults(&copy_pipe->config);
 			preview_pipe->pipe_settings.preview.copy_pipe = copy_pipe;
 			copy_pipe->stream = curr_stream;
@@ -9675,8 +9694,10 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 		}
 		if (video_pipe && !video_pipe->pipe_settings.video.copy_pipe) {
 			err = create_pipe(IA_CSS_PIPE_MODE_CAPTURE, &copy_pipe, true);
-			if (err != IA_CSS_SUCCESS)
+			if (err != IA_CSS_SUCCESS) {
+				pr_err("ia_css_stream_create 2nd create_pipe(IA_CSS_PIPE_MODE_CAPTURE) failed\n"); 
 				goto ERR;
+			}
 			ia_css_pipe_config_defaults(&copy_pipe->config);
 			video_pipe->pipe_settings.video.copy_pipe = copy_pipe;
 			copy_pipe->stream = curr_stream;
@@ -9699,8 +9720,10 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 		err = ia_css_util_check_res(
 					effective_res.width,
 					effective_res.height);
-		if (err != IA_CSS_SUCCESS)
+		if (err != IA_CSS_SUCCESS) {
+			pr_err("ia_css_stream_create ia_css_util_check_res() failed\n"); 
 			goto ERR;
+		}
 #endif
 		/* sensor binning per pipe */
 		if (sensor_binning_changed)
@@ -9713,16 +9736,20 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 		curr_pipe = pipes[i];
 
 		err = sh_css_pipe_load_binaries(curr_pipe);
-		if (err != IA_CSS_SUCCESS)
+		if (err != IA_CSS_SUCCESS) {
+			pr_err("ia_css_stream_create sh_css_pipe_load_binaries() failed\n"); 
 			goto ERR;
+		}
 
 		/* handle each pipe */
 		pipe_info = &curr_pipe->info;
 		for (j = 0; j < IA_CSS_PIPE_MAX_OUTPUT_STAGE; j++) {
 			err = sh_css_pipe_get_output_frame_info(curr_pipe,
 					&pipe_info->output_info[j], j);
-			if (err != IA_CSS_SUCCESS)
+			if (err != IA_CSS_SUCCESS) {
+				pr_err("ia_css_stream_create sh_css_pipe_get_output_frame_info() failed\n"); 
 				goto ERR;
+			}
 		}
 #ifdef ISP2401
 		pipe_info->output_system_in_res_info = curr_pipe->config.output_system_in_res;
@@ -9734,17 +9761,23 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 #else
 					&pipe_info->shading_info, &curr_pipe->config);
 #endif
-			if (err != IA_CSS_SUCCESS)
+			if (err != IA_CSS_SUCCESS) {
+				pr_err("ia_css_stream_create sh_css_pipe_get_shading_info() failed\n"); 
 				goto ERR;
+			}
 			err = sh_css_pipe_get_grid_info(curr_pipe,
 						&pipe_info->grid_info);
-			if (err != IA_CSS_SUCCESS)
+			if (err != IA_CSS_SUCCESS) {
+				pr_err("ia_css_stream_create sh_css_pipe_get_grid_info() failed\n"); 
 				goto ERR;
+			}
 			for (j = 0; j < IA_CSS_PIPE_MAX_OUTPUT_STAGE; j++) {
 				sh_css_pipe_get_viewfinder_frame_info(curr_pipe,
 						&pipe_info->vf_output_info[j], j);
-				if (err != IA_CSS_SUCCESS)
+				if (err != IA_CSS_SUCCESS) {
+					pr_err("ia_css_stream_create sh_css_pipe_get_viewfinder_frame_info() failed\n"); 
 					goto ERR;
+				}
 			}
 		}
 
@@ -9756,6 +9789,7 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 	/* Map SP threads before doing anything. */
 	err = map_sp_threads(curr_stream, true);
 	if (err != IA_CSS_SUCCESS) {
+		pr_err("ia_css_stream_create map_sp_threads() failed\n"); 
 		IA_CSS_LOG("map_sp_threads: return_err=%d", err);
 		goto ERR;
 	}
@@ -9769,6 +9803,7 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 	err = create_host_pipeline_structure(curr_stream);
 	if (err != IA_CSS_SUCCESS) {
 		IA_CSS_LOG("create_host_pipeline_structure: return_err=%d", err);
+		pr_err("ia_css_stream_create create_host_pipeline_structure() failed\n"); 
 		goto ERR;
 	}
 
