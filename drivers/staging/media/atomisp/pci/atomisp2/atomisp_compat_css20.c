@@ -536,12 +536,15 @@ static int __create_stream(struct atomisp_sub_device *asd,
 
 	__dump_stream_config(asd, stream_env);
 	if (ia_css_stream_create(&stream_env->stream_config,
-	    pipe_index, multi_pipes, &stream_env->stream) != IA_CSS_SUCCESS)
+	    pipe_index, multi_pipes, &stream_env->stream) != IA_CSS_SUCCESS) {
+	    	pr_err("ia_css_stream_create() failed\n");
 		return -EINVAL;
+	}
 	if (ia_css_stream_get_info(stream_env->stream,
 				&stream_env->stream_info) != IA_CSS_SUCCESS) {
 		ia_css_stream_destroy(stream_env->stream);
 		stream_env->stream = NULL;
+	    	pr_err("ia_css_stream_get_info() failed\n");
 		return -EINVAL;
 	}
 
@@ -2843,11 +2846,15 @@ static int __get_frame_info(struct atomisp_sub_device *asd,
 	if (__destroy_pipes(asd, true))
 		dev_warn(isp->dev, "destroy pipe failed.\n");
 
-	if (__create_pipes(asd))
+	if (__create_pipes(asd)) {
+		dev_err(isp->dev, "create pipes failed.\n");
 		return -EINVAL;
+	}
 
-	if (__create_streams(asd))
+	if (__create_streams(asd)) {
+		dev_err(isp->dev, "create streams failed.\n");
 		goto stream_err;
+	}
 
 	ret = ia_css_pipe_get_info(
 		asd->stream_env[stream_index]
@@ -2878,6 +2885,9 @@ static int __get_frame_info(struct atomisp_sub_device *asd,
 			info->res.width, info->res.height, p_info.num_invalid_frames);
 		return 0;
 	}
+
+	dev_err(isp->dev, "ia_css_pipe_get_info(stream_index=%d pipe_id=%d) failed\n",
+		stream_index, pipe_id);
 
 stream_err:
 	__destroy_pipes(asd, true);
@@ -3228,6 +3238,8 @@ int atomisp_css_preview_get_output_frame_info(
 		pipe_id = IA_CSS_PIPE_ID_PREVIEW;
 	}
 
+	pr_info("atomisp_css_preview_get_output_frame_info frame_type 0x%x, pipe_id 0x%x\n",
+		frame_type, pipe_id);
 	return __get_frame_info(asd, ATOMISP_INPUT_STREAM_GENERAL, info,
 					frame_type, pipe_id);
 }
