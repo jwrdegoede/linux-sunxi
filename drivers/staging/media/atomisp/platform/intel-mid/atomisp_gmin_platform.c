@@ -258,13 +258,13 @@ static struct gmin_cfg_var ecs7_vars[] = {
 	{},
 };
 
-static struct gmin_cfg_var i8880_vars[] = {
-	{"XXOV2680:00_CsiPort", "1"},
-	{"XXOV2680:00_CsiLanes", "1"},
-	{"XXOV2680:00_CamClk", "0"},
-	{"XXGC0310:00_CsiPort", "0"},
-	{"XXGC0310:00_CsiLanes", "1"},
-	{"XXGC0310:00_CamClk", "1"},
+static const struct gmin_cfg_var i8880_vars[] = {
+	{"OVTI2680:00_CsiPort", "1"},
+	{"OVTI2680:00_CsiLanes","1"},
+	{"OVTI2680:00_CamClk","0"},
+	{"INT0310:00_CsiPort", "0"},
+	{"INT0310:00_CsiLanes", "1"},
+	{"INT0310:00_CamClk", "1"},
 	{},
 };
 
@@ -299,9 +299,9 @@ static const struct dmi_system_id gmin_vars[] = {
 		.driver_data = ecs7_vars,
 	},
 	{
-		.ident = "VTA0803",
+		.ident = "Chuwi Hi8",
 		.matches = {
-			DMI_MATCH(DMI_BOARD_NAME, "VTA0803"),
+			DMI_MATCH(DMI_BOARD_NAME, "BYT-PA03C"),
 		},
 		.driver_data = i8880_vars,
 	},
@@ -324,7 +324,7 @@ static struct gmin_subdev *gmin_subdev_add(struct v4l2_subdev *subdev)
 	struct i2c_client *client = v4l2_get_subdevdata(subdev);
 
 	if (!pmic_id)
-		pmic_id = PMIC_REGULATOR;
+		pmic_id = PMIC_AXP;
 
 	if (!client)
 		return NULL;
@@ -454,7 +454,7 @@ static int gmin_v1p2_ctrl(struct v4l2_subdev *subdev, int on)
 
 	/*TODO:v1p2 needs to extend to other PMICs*/
 
-	return -EINVAL;
+	return 0;
 }
 
 static int gmin_v1p8_ctrl(struct v4l2_subdev *subdev, int on)
@@ -490,7 +490,7 @@ static int gmin_v1p8_ctrl(struct v4l2_subdev *subdev, int on)
 			return regulator_disable(gs->v1p8_reg);
 	}
 
-	return -EINVAL;
+	return 0;
 }
 
 static int gmin_v2p8_ctrl(struct v4l2_subdev *subdev, int on)
@@ -526,7 +526,7 @@ static int gmin_v2p8_ctrl(struct v4l2_subdev *subdev, int on)
 			return regulator_disable(gs->v2p8_reg);
 	}
 
-	return -EINVAL;
+	return 0;
 }
 
 static int gmin_flisclk_ctrl(struct v4l2_subdev *subdev, int on)
