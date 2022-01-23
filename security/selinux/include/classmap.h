@@ -233,7 +233,3 @@ struct security_class_mapping secclass_map[] = {
 	  { COMMON_SOCK_PERMS, NULL } },
 	{ NULL }
   };
-
-#if PF_MAX > 44
-#error New address family defined, please update secclass_map.
-#endif
