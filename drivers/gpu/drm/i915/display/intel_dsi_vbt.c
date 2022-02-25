@@ -480,10 +480,16 @@ static const u8 *mipi_exec_i2c(struct intel_dsi *intel_dsi, const u8 *data)
 		    __func__, vbt_i2c_bus_num, slave_addr, reg_offset,
 		    payload_size, data + 7);
 
-	if (intel_dsi->i2c_bus_num < 0) {
-		intel_dsi->i2c_bus_num = vbt_i2c_bus_num;
+	if (intel_dsi->i2c_bus_num == INTEL_DSI_I2C_BUS_UNINITIALIZED) {
+		intel_dsi->i2c_bus_num = INTEL_DSI_I2C_BUS_INVALID;
 		i2c_acpi_find_adapter(intel_dsi, slave_addr);
+		if (intel_dsi->i2c_bus_num < 0)
+			drm_warn(&i915->drm, "Cannot find I2C bus %d client-addr 0x%02x, skipping MIPI I2C sequences\n",
+				 vbt_i2c_bus_num, slave_addr);
 	}
+
+	if (intel_dsi->i2c_bus_num < 0)
+		goto err_bus;
 
 	adapter = i2c_get_adapter(intel_dsi->i2c_bus_num);
 	if (!adapter) {
