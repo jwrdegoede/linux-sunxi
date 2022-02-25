@@ -1891,6 +1891,16 @@ static void vlv_dsi_lenovo_yoga_tab2_size_fixup(struct intel_dsi *intel_dsi,
 	}
 }
 
+/*
+ * The VBT DSI MIPI sequences on the MS Surface 3 contain I2C writes to
+ * a non existing TI LP855x backlight controller which time out.
+ */
+static void vlv_dsi_ms_surface3_disable_mipi_i2c(struct intel_dsi *intel_dsi,
+						 struct drm_display_mode *fixed_mode)
+{
+	intel_dsi->i2c_bus_num = INTEL_DSI_I2C_BUS_INVALID;
+}
+
 static const struct dmi_system_id vlv_dsi_dmi_quirk_table[] = {
 	{
 		/* Asus Transformer Pad TF103C */
@@ -1913,6 +1923,14 @@ static const struct dmi_system_id vlv_dsi_dmi_quirk_table[] = {
 			DMI_MATCH(DMI_BIOS_VERSION, "BLADE_21"),
 		},
 		.driver_data = (void *)vlv_dsi_lenovo_yoga_tab2_size_fixup,
+	},
+	{
+		/* Microsoft Surface 3 */
+		.matches = {
+			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface 3"),
+		},
+		.driver_data = (void *)vlv_dsi_ms_surface3_disable_mipi_i2c,
 	},
 	{ }
 };
