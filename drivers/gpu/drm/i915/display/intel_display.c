@@ -9035,7 +9035,11 @@ void intel_modeset_driver_remove_nogem(struct drm_i915_private *i915)
 
 bool intel_modeset_probe_defer(struct pci_dev *pdev)
 {
+	static const char * const internal_panel_connector_names[] = {
+		"eDP-1",
+	};
 	struct drm_privacy_screen *privacy_screen;
+	int i;
 
 	/*
 	 * apple-gmux is needed on dual GPU MacBook Pro
@@ -9045,11 +9049,14 @@ bool intel_modeset_probe_defer(struct pci_dev *pdev)
 		return true;
 
 	/* If the LCD panel has a privacy-screen, wait for it */
-	privacy_screen = drm_privacy_screen_get(&pdev->dev, NULL);
-	if (IS_ERR(privacy_screen) && PTR_ERR(privacy_screen) == -EPROBE_DEFER)
-		return true;
+	for (i = 0; i < ARRAY_SIZE(internal_panel_connector_names); i++) {
+		privacy_screen = drm_privacy_screen_get(&pdev->dev,
+							internal_panel_connector_names[i]);
+		if (IS_ERR(privacy_screen) && PTR_ERR(privacy_screen) == -EPROBE_DEFER)
+			return true;
 
-	drm_privacy_screen_put(privacy_screen);
+		drm_privacy_screen_put(privacy_screen);
+	}
 
 	return false;
 }
