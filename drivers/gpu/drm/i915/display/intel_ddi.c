@@ -4426,7 +4426,7 @@ intel_ddi_init_dp_connector(struct intel_digital_port *dig_port)
 		struct drm_device *dev = dig_port->base.base.dev;
 		struct drm_privacy_screen *privacy_screen;
 
-		privacy_screen = drm_privacy_screen_get(dev->dev, NULL);
+		privacy_screen = drm_privacy_screen_get(dev->dev, connector->base.name);
 		if (!IS_ERR(privacy_screen)) {
 			drm_connector_attach_privacy_screen_provider(&connector->base,
 								     privacy_screen);
