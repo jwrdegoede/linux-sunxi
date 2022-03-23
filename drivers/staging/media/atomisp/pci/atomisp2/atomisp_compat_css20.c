@@ -777,15 +777,21 @@ static int __create_pipe(struct atomisp_sub_device *asd,
 		return -EINVAL;
 
 	if (pipe_id != CSS_PIPE_ID_ACC &&
-	    !stream_env->pipe_configs[pipe_id].output_info[0].res.width)
+	    !stream_env->pipe_configs[pipe_id].output_info[0].res.width) {
+		pr_info("!stream_env->pipe_configs[pipe_id].output_info[0].res.width\n");
 		return 0;
+	}
 
 	if (pipe_id == CSS_PIPE_ID_ACC &&
-	    !stream_env->pipe_configs[pipe_id].acc_extension)
+	    !stream_env->pipe_configs[pipe_id].acc_extension) {
+		pr_info("!!stream_env->pipe_configs[pipe_id].acc_extension\n");
 		return 0;
+	}
 
-	if (!is_pipe_valid_to_current_run_mode(asd, pipe_id))
+	if (!is_pipe_valid_to_current_run_mode(asd, pipe_id)) {
+		pr_info("is_pipe_valid_to_current_run_mode(asd, pipe_id)\n");
 		return 0;
+	}
 
 	ia_css_pipe_extra_config_defaults(&extra_config);
 
@@ -814,6 +820,8 @@ static int __create_pipes(struct atomisp_sub_device *asd)
 	for (i = 0; i < ATOMISP_INPUT_STREAM_NUM; i++) {
 		for (j = 0; j < IA_CSS_PIPE_ID_NUM; j++) {
 			ret = __create_pipe(asd, &asd->stream_env[i], j);
+			pr_info("create_pipe ret %d stream_env[%d].pipes[%d] = %lx\n",
+				ret, i, j, (long)asd->stream_env[i].pipes[j]);
 			if (ret != IA_CSS_SUCCESS)
 				break;
 		}
