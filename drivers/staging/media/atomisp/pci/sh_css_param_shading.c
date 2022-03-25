@@ -247,9 +247,15 @@ prepare_shading_table(const struct ia_css_shading_table *in_table,
 	assert(binary);
 
 	if (!in_table) {
+#ifdef ISP2401
 		sh_css_params_shading_id_table_generate(target_table,
 							binary->sctbl_legacy_width_per_color,
 							binary->sctbl_legacy_height);
+#else
+		sh_css_params_shading_id_table_generate(target_table,
+							binary->sctbl_width_per_color,
+							binary->sctbl_height);
+#endif
 		return;
 	}
 
