@@ -52,7 +52,7 @@ static struct firmware_header *firmware_header;
 /* The string STR is a place holder
  * which will be replaced with the actual RELEASE_VERSION
  * during package generation. Please do not modify  */
-static const char *isp2400_release_version = STR(irci_stable_candrpv_0415_20150521_0458);
+static const char *isp2400_release_version = STR(irci_stable_candrpv_0415_20150423_1753);
 static const char *isp2401_release_version = STR(irci_ecr - master_20150911_0724);
 
 #define MAX_FW_REL_VER_NAME	300
