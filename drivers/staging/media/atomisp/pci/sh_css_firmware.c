@@ -144,10 +144,12 @@ sh_css_load_blob_info(const char *fw, const struct ia_css_fw_info *bi,
 		size_t paramstruct_size = sizeof(struct ia_css_memory_offsets);
 		size_t configstruct_size = sizeof(struct ia_css_config_memory_offsets);
 		size_t statestruct_size = sizeof(struct ia_css_state_memory_offsets);
+		char *dest, *parambuf;
+		const char *src;
+		size_t len;
 
-		char *parambuf = kmalloc(paramstruct_size + configstruct_size +
-					 statestruct_size,
-					 GFP_KERNEL);
+		parambuf = kzalloc(paramstruct_size + configstruct_size + statestruct_size,
+				   GFP_KERNEL);
 		if (!parambuf)
 			return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
 
@@ -157,16 +159,54 @@ sh_css_load_blob_info(const char *fw, const struct ia_css_fw_info *bi,
 
 		fw_minibuffer[index].buffer = parambuf;
 
-		/* copy ia_css_memory_offsets */
-		memcpy(parambuf, (void *)(fw +
-					  bi->blob.memory_offsets.offsets[IA_CSS_PARAM_CLASS_PARAM]),
-		       paramstruct_size);
+		/*
+		 * The ia_css_memory_offsets.vmem.xnr3 field is only present on the ISP2401.
+		 * To avoid needing to have 2 different ia_css_memory_offsets struct
+		 * types for the 2 ISP revisions, we skip the non present field here.
+		 */
+		if (atomisp_hw_is_isp2401) {
+			memcpy(parambuf,
+			       fw + bi->blob.memory_offsets.offsets[IA_CSS_PARAM_CLASS_PARAM],
+			       paramstruct_size);
+		} else {
+			/* Copy everything up to the missing vmem.xnr3 field */
+			src = fw + bi->blob.memory_offsets.offsets[IA_CSS_PARAM_CLASS_PARAM];
+			dest = parambuf;
+			len = offsetof(struct ia_css_memory_offsets, vmem.xnr3);
+			memcpy(dest, src, len);
+			/*
+			 * Copy the rest, starting at the hmem0.bh field,
+			 * which is the first field after the missing vmem.xnr3 field.
+			 */
+			src += len;
+			dest += offsetof(struct ia_css_memory_offsets, hmem0.bh);
+			len = paramstruct_size -
+			      offsetof(struct ia_css_memory_offsets, hmem0.bh);
+			memcpy(dest, src, len);
+		}
 		bd->mem_offsets.array[IA_CSS_PARAM_CLASS_PARAM].ptr = parambuf;
 
-		/* copy ia_css_config_memory_offsets */
-		memcpy(parambuf + paramstruct_size,
-		       (void *)(fw + bi->blob.memory_offsets.offsets[IA_CSS_PARAM_CLASS_CONFIG]),
-		       configstruct_size);
+		/* ia_css_config_memory_offsets.dmem.sc field is only present on the ISP2401 */
+		if (atomisp_hw_is_isp2401) {
+			memcpy(parambuf + paramstruct_size,
+			       fw + bi->blob.memory_offsets.offsets[IA_CSS_PARAM_CLASS_CONFIG],
+			       configstruct_size);
+		} else {
+			/* Copy everything up to the missing sc field */
+			src = fw + bi->blob.memory_offsets.offsets[IA_CSS_PARAM_CLASS_CONFIG];
+			dest = parambuf + paramstruct_size;
+			len = offsetof(struct ia_css_config_memory_offsets, dmem.sc);
+			memcpy(dest, src, len);
+			/*
+			 * Copy the rest, starting at the dmem.raw field,
+			 * which is the first field after the missing dmem.sc field.
+			 */
+			src += len;
+			dest += offsetof(struct ia_css_config_memory_offsets, dmem.raw);
+			len = configstruct_size -
+			      offsetof(struct ia_css_config_memory_offsets, dmem.raw);
+			memcpy(dest, src, len);
+		}
 		bd->mem_offsets.array[IA_CSS_PARAM_CLASS_CONFIG].ptr = parambuf +
 		paramstruct_size;
 
