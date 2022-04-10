@@ -951,7 +951,7 @@ static int gmin_get_hardcoded_var(struct device *dev,
 	return -EINVAL;
 }
 
-
+#if 0
 static int gmin_get_config_dsm_var(struct device *dev,
 				   const char *var,
 				   char *out, size_t *out_len)
@@ -1019,6 +1019,7 @@ static int gmin_get_config_dsm_var(struct device *dev,
 	ACPI_FREE(obj);
 	return 0;
 }
+#endif
 
 /* Retrieves a device-specific configuration variable.  The dev
  * argument should be a device with an ACPI companion, as all
@@ -1036,12 +1037,14 @@ static int gmin_get_config_var(struct device *maindev,
 	struct efivar_entry *ev;
 	int i, ret;
 
+#if 0
 	/* For sensors, try first to use the _DSM table */
 	if (!is_gmin) {
 		ret = gmin_get_config_dsm_var(maindev, var, out, out_len);
 		if (!ret)
 			return 0;
 	}
+#endif
 
 	/* Fall-back to other approaches */
 
