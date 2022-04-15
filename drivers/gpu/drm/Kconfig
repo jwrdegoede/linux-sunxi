@@ -280,6 +280,12 @@ config DRM_AMDGPU
 	select HWMON
 	select BACKLIGHT_CLASS_DEVICE
 	select INTERVAL_TREE
+	# amdgpu depends on ACPI_VIDEO when X86 and ACPI are both enabled
+	# for select to work, ACPI_VIDEO's dependencies must also be selected
+	select INPUT if ACPI && X86
+	select X86_PLATFORM_DEVICES if ACPI && X86
+	select ACPI_WMI if ACPI && X86
+	select ACPI_VIDEO if ACPI && X86
 	help
 	  Choose this option if you have a recent AMD Radeon graphics card.
 
