@@ -85,6 +85,8 @@
 #include <drm/drm_vblank.h>
 #include <drm/drm_audio_component.h>
 
+#include <acpi/video.h>
+
 #include "ivsrcid/dcn/irqsrcs_dcn_1_0.h"
 
 #include "dcn/dcn_1_0_offset.h"
@@ -4121,6 +4123,11 @@ amdgpu_dm_register_backlight_device(struct amdgpu_display_manager *dm)
 
 	amdgpu_dm_update_backlight_caps(dm, dm->num_of_edps);
 	dm->brightness[dm->num_of_edps] = AMDGPU_MAX_BL_LEVEL;
+
+	if (!acpi_video_backlight_use_native()) {
+		DRM_INFO("Skipping amdgpu DM backlight registration\n");
+		return;
+	}
 
 	props.max_brightness = AMDGPU_MAX_BL_LEVEL;
 	props.brightness = AMDGPU_MAX_BL_LEVEL;
