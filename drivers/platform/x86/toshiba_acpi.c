@@ -2889,7 +2889,7 @@ static int toshiba_acpi_setup_backlight(struct toshiba_acpi_dev *dev)
 	    dmi_check_system(toshiba_vendor_backlight_dmi))
 		acpi_video_set_dmi_backlight_type(acpi_backlight_vendor);
 
-	if (acpi_video_get_backlight_type() != acpi_backlight_vendor)
+	if (acpi_video_get_backlight_type(false) != acpi_backlight_vendor)
 		return 0;
 
 	memset(&props, 0, sizeof(props));

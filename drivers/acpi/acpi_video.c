@@ -1864,7 +1864,7 @@ static int acpi_video_bus_register_backlight(struct acpi_video_bus *video)
 
 	acpi_video_run_bcl_for_osi(video);
 
-	if (acpi_video_get_backlight_type() != acpi_backlight_video)
+	if (acpi_video_get_backlight_type(false) != acpi_backlight_video)
 		return 0;
 
 	mutex_lock(&video->device_list_lock);

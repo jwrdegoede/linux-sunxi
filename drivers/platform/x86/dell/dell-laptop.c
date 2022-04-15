@@ -2230,7 +2230,7 @@ static int __init dell_init(void)
 		micmute_led_registered = true;
 	}
 
-	if (acpi_video_get_backlight_type() != acpi_backlight_vendor)
+	if (acpi_video_get_backlight_type(false) != acpi_backlight_vendor)
 		return 0;
 
 	token = dell_smbios_find_token(BRIGHTNESS_TOKEN);

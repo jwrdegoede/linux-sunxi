@@ -330,7 +330,7 @@ static int __init oaktrail_init(void)
 		goto err_device_add;
 	}
 
-	if (acpi_video_get_backlight_type() == acpi_backlight_vendor) {
+	if (acpi_video_get_backlight_type(false) == acpi_backlight_vendor) {
 		ret = oaktrail_backlight_init();
 		if (ret)
 			goto err_backlight;

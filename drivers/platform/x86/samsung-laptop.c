@@ -1660,7 +1660,7 @@ static int __init samsung_init(void)
 	if (samsung->quirks->use_native_backlight)
 		acpi_video_set_dmi_backlight_type(acpi_backlight_native);
 
-	if (acpi_video_get_backlight_type() != acpi_backlight_vendor)
+	if (acpi_video_get_backlight_type(false) != acpi_backlight_vendor)
 		samsung->handle_backlight = false;
 #endif
 

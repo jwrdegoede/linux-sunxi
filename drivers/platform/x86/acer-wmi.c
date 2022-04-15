@@ -2485,7 +2485,7 @@ static int __init acer_wmi_init(void)
 	if (dmi_check_system(video_vendor_dmi_table))
 		acpi_video_set_dmi_backlight_type(acpi_backlight_vendor);
 
-	if (acpi_video_get_backlight_type() != acpi_backlight_vendor)
+	if (acpi_video_get_backlight_type(false) != acpi_backlight_vendor)
 		interface->capability &= ~ACER_CAP_BRIGHTNESS;
 
 	if (wmi_has_guid(WMID_GUID3))
