@@ -34,6 +34,8 @@
 #include <linux/backlight.h>
 #include <linux/idr.h>
 
+#include <acpi/video.h>
+
 #include "nouveau_drv.h"
 #include "nouveau_reg.h"
 #include "nouveau_encoder.h"
@@ -402,6 +404,11 @@ nouveau_backlight_init(struct drm_connector *connector)
 	if (ret) {
 		if (ret == -ENODEV)
 			ret = 0;
+		goto fail_alloc;
+	}
+
+	if (acpi_video_get_backlight_type(true) != acpi_backlight_native) {
+		NV_INFO(drm, "Skipping nv_backlight registration\n");
 		goto fail_alloc;
 	}
 
