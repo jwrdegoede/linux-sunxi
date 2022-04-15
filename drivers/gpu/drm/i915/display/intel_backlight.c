@@ -7,6 +7,8 @@
 #include <linux/pwm.h>
 #include <linux/string_helpers.h>
 
+#include <acpi/video.h>
+
 #include "intel_backlight.h"
 #include "intel_connector.h"
 #include "intel_de.h"
@@ -948,6 +950,11 @@ int intel_backlight_device_register(struct intel_connector *connector)
 		return 0;
 
 	WARN_ON(panel->backlight.max == 0);
+
+	if (!acpi_video_backlight_use_native()) {
+		DRM_INFO("Skipping intel_backlight registration\n");
+		return 0;
+	}
 
 	memset(&props, 0, sizeof(props));
 	props.type = BACKLIGHT_RAW;
