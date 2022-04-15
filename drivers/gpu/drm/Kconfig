@@ -258,6 +258,12 @@ config DRM_RADEON
 	select HWMON
 	select BACKLIGHT_CLASS_DEVICE
 	select INTERVAL_TREE
+	# radeon depends on ACPI_VIDEO when X86 and ACPI are both enabled
+	# for select to work, ACPI_VIDEO's dependencies must also be selected
+	select INPUT if ACPI && X86
+	select X86_PLATFORM_DEVICES if ACPI && X86
+	select ACPI_WMI if ACPI && X86
+	select ACPI_VIDEO if ACPI && X86
 	help
 	  Choose this option if you have an ATI Radeon graphics card.  There
 	  are both PCI and AGP versions.  You don't need to choose this to
