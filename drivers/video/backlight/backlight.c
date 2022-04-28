@@ -409,7 +409,7 @@ struct backlight_device *backlight_device_register(const char *name,
 	struct backlight_device *new_bd;
 	int rc;
 
-	pr_debug("backlight_device_register: name=%s\n", name);
+	pr_info("backlight_device_register: name=%s\n", name);
 
 	new_bd = kzalloc(sizeof(struct backlight_device), GFP_KERNEL);
 	if (!new_bd)
@@ -521,6 +521,8 @@ void backlight_device_unregister(struct backlight_device *bd)
 {
 	if (!bd)
 		return;
+
+	pr_info("backlight_device_unregister: name=%s\n", dev_name(&bd->dev));
 
 	mutex_lock(&backlight_dev_list_mutex);
 	list_del(&bd->entry);
