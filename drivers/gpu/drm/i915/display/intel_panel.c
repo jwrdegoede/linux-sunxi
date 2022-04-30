@@ -620,7 +620,10 @@ intel_panel_mode_valid(struct intel_connector *connector,
 
 int intel_panel_init(struct intel_connector *connector)
 {
+	struct drm_i915_private *dev_priv = to_i915(connector->base.dev);
 	struct intel_panel *panel = &connector->panel;
+
+	dev_priv->have_panel = true;
 
 	intel_backlight_init_funcs(panel);
 
