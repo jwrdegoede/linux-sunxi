@@ -4080,6 +4080,8 @@ amdgpu_dm_register_backlight_device(struct amdgpu_display_manager *dm)
 
 	if (acpi_video_get_backlight_type(true) != acpi_backlight_native) {
 		DRM_INFO("Skipping amdgpu DM backlight registration\n");
+		/* Try registering an ACPI video backlight device instead. */
+		acpi_video_register_backlight();
 		return;
 	}
 
