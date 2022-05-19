@@ -234,6 +234,24 @@ void __init pci_acpi_crs_quirks(void)
 	if (year >= 0 && year < 2008 && iomem_resource.end <= 0xffffffff)
 		pci_use_crs = false;
 
+	/*
+	 * Some BIOS-es contain bugs where they add addresses which are already
+	 * used in some other manner to the PCI host bridge window returned by
+	 * the ACPI _CRS method. To avoid this Linux by default excludes
+	 * E820 reservations when allocating addresses since 2010.
+	 * In 2019 some systems have shown-up with E820 reservations which cover
+	 * the entire _CRS returned PCI host bridge window, causing all attempts
+	 * to assign memory to PCI BARs to fail if Linux uses E820 reservations.
+	 *
+	 * Ideally Linux would fully stop using E820 reservations, but then
+	 * various old systems will regress. Instead stop using E820 reservations
+	 * for new systems with a DMI BIOS year >= 2023;
+	 * and use DMI quirks for existing systems on which excluding E820
+	 * reservations is known to cause issues.
+	 */
+	if (year >= 2023)
+		pci_use_e820 = false;
+
 	dmi_check_system(pci_crs_quirks);
 
 	/*
