@@ -43,6 +43,13 @@ static int __init set_ignore_seg(const struct dmi_system_id *id)
 	return 0;
 }
 
+static int __init set_no_e820(const struct dmi_system_id *id)
+{
+	printk(KERN_INFO "PCI: %s detected: ignoring e820 regions\n", id->ident);
+	pci_use_e820 = false;
+	return 0;
+}
+
 static const struct dmi_system_id pci_crs_quirks[] __initconst = {
 	/* http://bugzilla.kernel.org/show_bug.cgi?id=14183 */
 	{
@@ -135,6 +142,86 @@ static const struct dmi_system_id pci_crs_quirks[] __initconst = {
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Hewlett-Packard"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "HP xw9300 Workstation"),
+		},
+	},
+
+	/*
+	 * Most Lenovo models with "IIL" in their DMI_PRODUCT_VERSION have
+	 * an E820 reservation which covers the entire _CRS returned 32 bit
+	 * PCI bridge memory window, causing all attempts to assign memory to
+	 * 32 bit PCI bars which have not been setup by the BIOS to fail.
+	 * Specifically this often causes some of the I2C controllers to not
+	 * work breaking touchpad support and/or this may cause issues when
+	 * hotplugging thunderbolt connected devices.
+	 *
+	 * This DMI match entry covers the following DMI_PRODUCT_VERSION-s with
+	 * an E820 reservation which covers the entire 32 bit bridge window:
+	 * "IdeaPad 3 14IIL05", "IdeaPad 3 15IIL05", "IdeaPad 3 17IIL05",
+	 * "IdeaPad 5 14IIL05", "IdeaPad 5 15IIL05",
+	 * "IdeaPad Slim 7 14IIL05", "IdeaPad Slim 7 15IIL05",
+	 * "Lenovo BS145-15IIL",
+	 * "Lenovo IdeaPad S145-15IIL", "Lenovo IdeaPad S340-14IIL",
+	 * "Lenovo IdeaPad S340-15IIL", "Lenovo IdeaPad C340-15IIL",
+	 * "Lenovo V14-IIL", "Lenovo V15-IIL", "Lenovo V17-IIL",
+	 * "Lenovo Yoga S740-14IIL", "Lenovo Yoga C940-14IIL",
+	 * "Yoga Slim 7 14IIL05", "Yoga Slim 7 15IIL05"
+	 *
+	 * On some of these the bridge's _CRS method *sometimes* (under unknown
+	 * conditions) has a 64 bit [mem 0x4000000000-0x7fffffffff window].
+	 * This avoids some of the issues, but even then there are still issues
+	 * with assigning some 32 bit only BARs such as some Thunderbolt devs,
+	 * the 00:1f.5 BIOS SPI controller and BAR6 of some nvidia gfx.
+	 *
+	 * This entry also covers the following DMI_PRODUCT_VERSION-s which do
+	 * not need pci_use_e820=false. This quirk is a no-op for these models,
+	 * because there is no overlap between E820 regions and _CRS windows:
+	 * "IdeaPad Flex 5 14IIL05", "IdeaPad Flex 5 15IIL05",
+	 * "Lenovo ThinkBook 14-IIL", "Lenovo ThinkBook 15-IIL",
+	 * "Lenovo Yoga S940-14IIL"
+	 *
+	 * This entry fixes issues reported in the following bugs:
+	 * https://bugzilla.kernel.org/show_bug.cgi?id=206459
+	 * https://bugzilla.redhat.com/show_bug.cgi?id=1871793
+	 * https://bugzilla.redhat.com/show_bug.cgi?id=1868899
+	 * https://bugs.launchpad.net/bugs/1878279
+	 * https://bugs.launchpad.net/bugs/1880172
+	 * https://bugs.launchpad.net/bugs/1921649
+	 * https://bugs.launchpad.net/bugs/1931715
+	 * https://bugs.launchpad.net/bugs/1932069
+	 */
+	{
+		.callback = set_no_e820,
+		.ident = "Lenovo *IIL* product version",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
+			DMI_MATCH(DMI_PRODUCT_VERSION, "IIL"),
+		},
+	},
+
+	/*
+	 * The Acer Spin 5 (SP513-54N) has the same E820 reservation covering
+	 * the entire _CRS 32 bit window issue as the Lenovo *IIL* models.
+	 * https://bugs.launchpad.net/bugs/1884232
+	 */
+	{
+		.callback = set_no_e820,
+		.ident = "Acer Spin 5 (SP513-54N)",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Spin SP513-54N"),
+		},
+	},
+
+	/*
+	 * Clevo X170KM-G barebones have the same E820 reservation covering
+	 * the entire _CRS 32 bit window issue as the Lenovo *IIL* models.
+	 * https://bugzilla.kernel.org/show_bug.cgi?id=214259
+	 */
+	{
+		.callback = set_no_e820,
+		.ident = "Clevo X170KM-G Barebone",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_NAME, "X170KM-G"),
 		},
 	},
 	{}
