@@ -269,6 +269,7 @@ void ia_css_rmgr_acq_vbuf(struct ia_css_rmgr_vbuf_pool *pool,
 		if ((*handle)->count > 1) {
 			/* store current values */
 			h.vptr = 0x0;
+			h.count = 0;
 			h.size = (*handle)->size;
 			/* release ref to current buffer */
 			ia_css_rmgr_refcount_release_vbuf(handle);
