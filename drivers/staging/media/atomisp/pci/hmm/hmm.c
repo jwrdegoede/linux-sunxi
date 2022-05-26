@@ -295,7 +295,7 @@ static int load_and_flush_by_kmap(ia_css_ptr virt, void *data,
 		idx = (virt - bo->start) >> PAGE_SHIFT;
 		offset = (virt - bo->start) - (idx << PAGE_SHIFT);
 
-		src = (char *)kmap_local_page(bo->page_obj[idx].page) + offset;
+		src = (char *)kmap_local_page(bo->pages[idx]) + offset;
 
 		if ((bytes + offset) >= PAGE_SIZE) {
 			len = PAGE_SIZE - offset;
@@ -427,7 +427,7 @@ int hmm_store(ia_css_ptr virt, const void *data, unsigned int bytes)
 		idx = (virt - bo->start) >> PAGE_SHIFT;
 		offset = (virt - bo->start) - (idx << PAGE_SHIFT);
 
-		des = (char *)kmap_local_page(bo->page_obj[idx].page);
+		des = (char *)kmap_local_page(bo->pages[idx]);
 
 		if (!des) {
 			dev_err(atomisp_dev,
@@ -498,7 +498,7 @@ int hmm_set(ia_css_ptr virt, int c, unsigned int bytes)
 		idx = (virt - bo->start) >> PAGE_SHIFT;
 		offset = (virt - bo->start) - (idx << PAGE_SHIFT);
 
-		des = (char *)kmap_local_page(bo->page_obj[idx].page) + offset;
+		des = (char *)kmap_local_page(bo->pages[idx]) + offset;
 
 		if ((bytes + offset) >= PAGE_SIZE) {
 			len = PAGE_SIZE - offset;
@@ -537,7 +537,7 @@ phys_addr_t hmm_virt_to_phys(ia_css_ptr virt)
 	idx = (virt - bo->start) >> PAGE_SHIFT;
 	offset = (virt - bo->start) - (idx << PAGE_SHIFT);
 
-	return page_to_phys(bo->page_obj[idx].page) + offset;
+	return page_to_phys(bo->pages[idx]) + offset;
 }
 
 int hmm_mmap(struct vm_area_struct *vma, ia_css_ptr virt)
