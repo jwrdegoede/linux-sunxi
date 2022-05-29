@@ -98,6 +98,8 @@
 #include "sh_css_frac.h"
 #include "ia_css_bufq.h"
 
+extern struct device *atomisp_dev;
+
 #define FPNTBL_BYTES(binary) \
 	(sizeof(char) * (binary)->in_frame_info.res.height * \
 	 (binary)->in_frame_info.padded_width)
@@ -3303,6 +3305,8 @@ sh_css_params_write_to_ddr_internal(
 
 		enable_conv = params->shading_settings.enable_shading_table_conversion;
 
+		dev_info(atomisp_dev, "doing realloc for sc, binary %p binary->sctbl_height %d\n",
+			 binary, (int)binary->sctbl_height);
 		buff_realloced = reallocate_buffer(&ddr_map->sc_tbl,
 						   &ddr_map_size->sc_tbl,
 						   SCTBL_BYTES(binary),

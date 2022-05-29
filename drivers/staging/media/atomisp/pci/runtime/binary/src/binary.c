@@ -43,6 +43,8 @@
 
 #define IMPLIES(a, b)           (!(a) || (b))   /* A => B */
 
+extern struct device *atomisp_dev;
+
 static struct ia_css_binary_xinfo *all_binaries; /* ISP binaries only (no SP) */
 static struct ia_css_binary_xinfo
 	*binary_infos[IA_CSS_BINARY_NUM_MODES] = { NULL, };
@@ -918,6 +920,8 @@ ia_css_binary_fill_info(const struct ia_css_binary_xinfo *xinfo,
 		binary->sctbl_width_per_color = _ISP_SCTBL_WIDTH_PER_COLOR(sc_3a_dis_padded_width, s3a_log_deci);
 		binary->sctbl_aligned_width_per_color = SH_CSS_MAX_SCTBL_ALIGNED_WIDTH_PER_COLOR;
 		binary->sctbl_height = _ISP_SCTBL_HEIGHT(sc_3a_dis_height, s3a_log_deci);
+		dev_info(atomisp_dev, "ia_css_binary_fill_info() binary %p binary->sctbl_height %d\n",
+			 binary, (int)binary->sctbl_height);
 	} else
 	{
 		binary->sctbl_width_per_color         = 0;
