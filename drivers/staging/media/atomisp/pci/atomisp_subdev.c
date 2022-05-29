@@ -480,7 +480,8 @@ int atomisp_subdev_set_selection(struct v4l2_subdev *sd,
 		atomisp_css_video_set_dis_envelope(isp_sd, dvs_w, dvs_h);
 		atomisp_css_input_set_effective_resolution(isp_sd, stream_id,
 			crop[pad]->width, crop[pad]->height);
-
+		pr_err("%s pad sink atomisp_css_input_set_effective_resolution(%d, %d)\n",
+			__func__, crop[pad]->width, crop[pad]->height);
 		break;
 	}
 	case ATOMISP_SUBDEV_PAD_SOURCE_CAPTURE:
@@ -521,21 +522,33 @@ int atomisp_subdev_set_selection(struct v4l2_subdev *sd,
 		 *
 		 */
 		if (r->width * crop[ATOMISP_SUBDEV_PAD_SINK]->height <
-		    crop[ATOMISP_SUBDEV_PAD_SINK]->width * r->height)
+		    crop[ATOMISP_SUBDEV_PAD_SINK]->width * r->height) {
 			atomisp_css_input_set_effective_resolution(isp_sd,
 				stream_id,
 				rounddown(crop[ATOMISP_SUBDEV_PAD_SINK]->
 					  height * r->width / r->height,
 					  ATOM_ISP_STEP_WIDTH),
 				crop[ATOMISP_SUBDEV_PAD_SINK]->height);
-		else
+			pr_err("%s source cap/vid atomisp_css_input_set_effective_resolution(%d, %d)\n",
+				__func__, 
+				rounddown(crop[ATOMISP_SUBDEV_PAD_SINK]->
+					  height * r->width / r->height,
+					  ATOM_ISP_STEP_WIDTH),
+				crop[ATOMISP_SUBDEV_PAD_SINK]->height);
+		} else {
 			atomisp_css_input_set_effective_resolution(isp_sd,
 				stream_id,
 				crop[ATOMISP_SUBDEV_PAD_SINK]->width,
 				rounddown(crop[ATOMISP_SUBDEV_PAD_SINK]->
 					  width * r->height / r->width,
 					  ATOM_ISP_STEP_WIDTH));
-
+			pr_err("%s source cap/vid atomisp_css_input_set_effective_resolution(%d, %d)\n",
+				__func__, 
+				crop[ATOMISP_SUBDEV_PAD_SINK]->width,
+				rounddown(crop[ATOMISP_SUBDEV_PAD_SINK]->
+					  width * r->height / r->width,
+					  ATOM_ISP_STEP_WIDTH));
+		}
 		break;
 	}
 	case ATOMISP_SUBDEV_PAD_SOURCE_VF:

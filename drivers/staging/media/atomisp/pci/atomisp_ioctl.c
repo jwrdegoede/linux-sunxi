@@ -1915,6 +1915,7 @@ static int atomisp_streamon(struct file *file, void *fh,
 	}
 	asd->params.dvs_6axis = NULL;
 
+	dev_err(asd->isp->dev, "atomisp_streamon() calling atomisp_css_start()\n");
 	ret = atomisp_css_start(asd, css_pipe_id, false);
 	if (ret)
 		goto out;
@@ -2270,6 +2271,7 @@ stopsensor:
 			if (recreate_streams[i]) {
 				int ret2;
 
+				dev_err(isp->dev, "__atomisp_streamoff() calling atomisp_create_pipes_stream() to recreate stream\n");
 				ret2 = atomisp_create_pipes_stream(&isp->asd[i]);
 				if (ret2) {
 					dev_err(isp->dev, "%s error re-creating streams: %d\n",

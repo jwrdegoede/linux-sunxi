@@ -63,6 +63,8 @@
 
 #include "isp/kernels/ipu2_io_ls/bayer_io_ls/ia_css_bayer_io.host.h"
 
+extern struct device *atomisp_dev;
+
 struct sh_css_sp_group		sh_css_sp_group;
 struct sh_css_sp_stage		sh_css_sp_stage;
 struct sh_css_isp_stage		sh_css_isp_stage;
@@ -1126,6 +1128,7 @@ sp_init_stage(struct ia_css_pipeline_stage *stage,
 		if (args->out_frame[0])
 			out_infos[0] = &args->out_frame[0]->info;
 		info = &firmware->info.isp;
+		dev_info(atomisp_dev, "sp_init_stage() calling ia_css_binary_fill_info()\n");
 		ia_css_binary_fill_info(info, false, false,
 					ATOMISP_INPUT_FORMAT_RAW_10,
 					args->in_frame  ? &args->in_frame->info  : NULL,

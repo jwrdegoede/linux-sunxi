@@ -76,6 +76,7 @@
 
 #define SH_CSS_VIDEO_BUFFER_ALIGNMENT 0
 
+extern struct device *atomisp_dev;
 
 #include "ia_css_spctrl.h"
 #include "ia_css_version_data.h"
@@ -2685,9 +2686,16 @@ load_preview_binaries(struct ia_css_pipe *pipe)
 	if (err)
 		return err;
 
+	dev_info(atomisp_dev, "%s found preview bin stored in %p\n", __func__, &mycs->preview_binary);
+
 	/* The vf_pp binary is needed when (further) YUV downscaling is required */
 	need_vf_pp |= mycs->preview_binary.out_frame_info[0].res.width != pipe_out_info->res.width;
 	need_vf_pp |= mycs->preview_binary.out_frame_info[0].res.height != pipe_out_info->res.height;
+
+	dev_info(atomisp_dev, "%s width %d/%d height %d/%d, need_vf_pp %d\n", __func__,
+		 mycs->preview_binary.out_frame_info[0].res.width, pipe_out_info->res.width,
+		 mycs->preview_binary.out_frame_info[0].res.height, pipe_out_info->res.height,
+		 need_vf_pp);
 
 	/*
 	 * When vf_pp is needed, then the output format of the selected
@@ -2718,6 +2726,8 @@ load_preview_binaries(struct ia_css_pipe *pipe)
 					 &mycs->preview_binary);
 		if (err)
 			return err;
+
+		dev_info(atomisp_dev, "%s found preview bin stored in %p\n", __func__, &mycs->preview_binary);
 	}
 
 	if (need_vf_pp) {
@@ -2893,6 +2903,7 @@ static int add_vf_pp_stage(
 
 	last_fw = last_output_firmware(pipe->vf_stage);
 	if (!pipe->extra_config.disable_vf_pp) {
+		dev_info(atomisp_dev, "%s() binary %p\n", __func__, vf_pp_binary);
 		if (last_fw) {
 			ia_css_pipe_util_set_output_frames(out_frames, 0, NULL);
 			ia_css_pipe_get_generic_stage_desc(&stage_desc, vf_pp_binary,
@@ -2943,6 +2954,7 @@ static int add_yuv_scaler_stage(
 
 	last_fw = last_output_firmware(pipe->output_stage);
 
+	dev_info(atomisp_dev, "%s() binary %p\n", __func__, yuv_scaler_binary);
 	if (last_fw) {
 		ia_css_pipe_util_set_output_frames(out_frames, 0, NULL);
 		ia_css_pipe_get_generic_stage_desc(&stage_desc,
@@ -3003,6 +3015,8 @@ static int add_capture_pp_stage(
 					      &capture_pp_binary->vf_frame_info);
 	if (err)
 		return err;
+
+	dev_info(atomisp_dev, "%s() binary %p\n", __func__, capture_pp_binary);
 	if (last_fw)	{
 		ia_css_pipe_util_set_output_frames(out_frames, 0, NULL);
 		ia_css_pipe_get_generic_stage_desc(&stage_desc,
@@ -3365,6 +3379,7 @@ static int create_host_video_pipeline(struct ia_css_pipe *pipe)
 	need_yuv_pp = (yuv_scaler_binary && yuv_scaler_binary->info);
 
 	if (need_copy) {
+		dev_info(atomisp_dev, "%s() copy binary %p\n", __func__, copy_binary);
 		ia_css_pipe_util_set_output_frames(out_frames, 0, NULL);
 		ia_css_pipe_get_generic_stage_desc(&stage_desc, copy_binary,
 						   out_frames, NULL, NULL);
@@ -3399,6 +3414,7 @@ static int create_host_video_pipeline(struct ia_css_pipe *pipe)
 		ia_css_pipe_get_generic_stage_desc(&stage_desc, video_binary,
 						   out_frames, in_frame, vf_frame);
 	}
+	dev_info(atomisp_dev, "%s() video binary %p\n", __func__, video_binary);
 	err = ia_css_pipeline_create_and_add_stage(me, &stage_desc,
 						   &video_stage);
 	if (err)
@@ -3606,6 +3622,7 @@ create_host_preview_pipeline(struct ia_css_pipe *pipe)
 		ia_css_pipe_util_set_output_frames(out_frames, 0, NULL);
 		ia_css_pipe_get_generic_stage_desc(&stage_desc, copy_binary,
 						   out_frames, NULL, NULL);
+		dev_info(atomisp_dev, "%s() copy binary %p\n", __func__, copy_binary);
 		err = ia_css_pipeline_create_and_add_stage(me, &stage_desc,
 							   &copy_stage);
 		if (err)
@@ -3634,6 +3651,7 @@ create_host_preview_pipeline(struct ia_css_pipe *pipe)
 		ia_css_pipe_get_generic_stage_desc(&stage_desc, preview_binary,
 						   out_frames, in_frame, NULL);
 	}
+	dev_info(atomisp_dev, "%s() preview binary %p\n", __func__, preview_binary);
 	err = ia_css_pipeline_create_and_add_stage(me, &stage_desc,
 						   &preview_stage);
 	if (err)
@@ -8394,18 +8412,18 @@ ia_css_pipe_get_info(const struct ia_css_pipe *pipe,
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
 			    "ia_css_pipe_get_info()\n");
 	if (!pipe_info) {
-		ia_css_debug_dtrace(IA_CSS_DEBUG_ERROR,
+		pr_err(
 				    "ia_css_pipe_get_info: pipe_info cannot be NULL\n");
 		return -EINVAL;
 	}
 	if (!pipe || !pipe->stream) {
-		ia_css_debug_dtrace(IA_CSS_DEBUG_ERROR,
-				    "ia_css_pipe_get_info: ia_css_stream_create needs to be called before ia_css_[stream/pipe]_get_info\n");
+		pr_err(
+				    "ia_css_pipe_get_info: ia_css_stream_create needs to be called before ia_css_[stream/pipe]_get_info pipe: %p\n", pipe);
 		return -EINVAL;
 	}
 	/* we succeeded return the info */
 	*pipe_info = pipe->info;
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "ia_css_pipe_get_info() leave\n");
+	pr_err("ia_css_pipe_get_info() leave\n");
 	return 0;
 }
 
@@ -8795,10 +8813,11 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 		effective_res = curr_pipe->config.input_effective_res;
 		if (effective_res.height == 0 || effective_res.width == 0) {
 			effective_res = curr_pipe->stream->config.input_config.effective_res;
+			pr_err("%s pipe %d setting effective res from input_config.effective_res\n", __func__, i);
 
 			curr_pipe->config.input_effective_res = effective_res;
 		}
-		IA_CSS_LOG("effective_res=%dx%d",
+		pr_err("%s pipe %d effective_res=%dx%d", __func__, i,
 			   effective_res.width,
 			   effective_res.height);
 	}

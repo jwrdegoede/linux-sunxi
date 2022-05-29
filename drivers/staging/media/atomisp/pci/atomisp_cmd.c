@@ -1372,6 +1372,7 @@ static void __atomisp_css_recover(struct atomisp_device *isp, bool isp_timeout)
 						   IA_CSS_INPUT_MODE_BUFFERED_SENSOR);
 
 		css_pipe_id = atomisp_get_css_pipe_id(asd);
+		dev_err(isp->dev, "__atomisp_css_recover() calling atomisp_css_start()\n");
 		if (atomisp_css_start(asd, css_pipe_id, true))
 			dev_warn(isp->dev,
 				 "start SP failed, so do not set streaming to be enable!\n");
@@ -4836,9 +4837,11 @@ int atomisp_try_fmt(struct video_device *vdev, struct v4l2_pix_format *f,
 	snr_mbus_fmt->width = f->width;
 	snr_mbus_fmt->height = f->height;
 
+	dev_err(isp->dev, "try_mbus_fmt: calling __atomisp_init_stream_info()\n");
+
 	__atomisp_init_stream_info(stream_index, stream_info);
 
-	dev_dbg(isp->dev, "try_mbus_fmt: asking for %ux%u\n",
+	dev_err(isp->dev, "try_mbus_fmt: asking for %ux%u\n",
 		snr_mbus_fmt->width, snr_mbus_fmt->height);
 
 	ret = v4l2_subdev_call(isp->inputs[asd->input_curr].camera,
@@ -4846,7 +4849,7 @@ int atomisp_try_fmt(struct video_device *vdev, struct v4l2_pix_format *f,
 	if (ret)
 		return ret;
 
-	dev_dbg(isp->dev, "try_mbus_fmt: got %ux%u\n",
+	dev_err(isp->dev, "try_mbus_fmt: got %ux%u\n",
 		snr_mbus_fmt->width, snr_mbus_fmt->height);
 
 	fmt = atomisp_get_format_bridge_from_mbus(snr_mbus_fmt->code);
@@ -5603,7 +5606,7 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 		return -EBUSY;
 	}
 
-	dev_dbg(isp->dev,
+	dev_err(isp->dev,
 		"setting resolution %ux%u on pad %u for asd%d, bytesperline %u\n",
 		f->fmt.pix.width, f->fmt.pix.height, source_pad,
 		asd->index, f->fmt.pix.bytesperline);
@@ -5675,10 +5678,14 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 				r.height = capture_comp->height;
 			}
 
+			pr_err("%s:%d calling atomisp_subdev_set_selection()\n",
+				__func__, __LINE__);
 			atomisp_subdev_set_selection(
 			    &asd->subdev, fh.state,
 			    V4L2_SUBDEV_FORMAT_ACTIVE, source_pad,
 			    V4L2_SEL_TGT_COMPOSE, 0, &r);
+			pr_err("%s:%d calling atomisp_subdev_set_selection() done\n",
+				__func__, __LINE__);
 
 			f->fmt.pix.width = r.width;
 			f->fmt.pix.height = r.height;
@@ -5736,20 +5743,28 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 			atomisp_css_yuvpp_get_viewfinder_frame_info(
 			    asd, video_index, &output_info);
 		} else if (source_pad == ATOMISP_SUBDEV_PAD_SOURCE_PREVIEW) {
+			pr_err("%s:%d calling atomisp_css_video_configure_viewfinder()\n",
+				__func__, __LINE__);
 			atomisp_css_video_configure_viewfinder(asd,
 							       f->fmt.pix.width, f->fmt.pix.height,
 							       format_bridge->planar ? f->fmt.pix.bytesperline
 							       : f->fmt.pix.bytesperline * 8
 							       / format_bridge->depth,	format_bridge->sh_fmt);
+			pr_err("%s:%d calling atomisp_css_video_configure_viewfinder() done\n",
+				__func__, __LINE__);
 			atomisp_css_video_get_viewfinder_frame_info(asd,
 				&output_info);
 			asd->copy_mode = false;
 		} else {
+			pr_err("%s:%d calling atomisp_css_video_configure_viewfinder()\n",
+				__func__, __LINE__);
 			atomisp_css_capture_configure_viewfinder(asd,
 				f->fmt.pix.width, f->fmt.pix.height,
 				format_bridge->planar ? f->fmt.pix.bytesperline
 				: f->fmt.pix.bytesperline * 8
 				/ format_bridge->depth,	format_bridge->sh_fmt);
+			pr_err("%s:%d calling atomisp_css_video_configure_viewfinder() done\n",
+				__func__, __LINE__);
 			atomisp_css_capture_get_viewfinder_frame_info(asd,
 				&output_info);
 			asd->copy_mode = false;
@@ -5757,6 +5772,9 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 
 		goto done;
 	}
+
+	pr_err("%s:%d\n", __func__, __LINE__);
+
 	/*
 	 * Check whether main resolution configured smaller
 	 * than snapshot resolution. If so, force main resolution
@@ -5777,9 +5795,13 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 				 "Main Resolution config smaller then Vf Resolution. Force to be equal with Vf Resolution.");
 	}
 
+	pr_err("%s:%d\n", __func__, __LINE__);
+
 	/* Pipeline configuration done through subdevs. Bail out now. */
 	if (!asd->fmt_auto->val)
 		goto set_fmt_to_isp;
+
+	pr_err("%s:%d\n", __func__, __LINE__);
 
 	/* get sensor resolution and format */
 	ret = atomisp_try_fmt(vdev, &snr_fmt, &res_overflow);
@@ -5790,20 +5812,28 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 	f->fmt.pix.width = snr_fmt.width;
 	f->fmt.pix.height = snr_fmt.height;
 
+	pr_err("%s:%d\n", __func__, __LINE__);
+
 	snr_format_bridge = atomisp_get_format_bridge(snr_fmt.pixelformat);
 	if (!snr_format_bridge) {
 		dev_warn(isp->dev, "Can't find bridge format\n");
 		return -EINVAL;
 	}
 
+	pr_err("%s:%d\n", __func__, __LINE__);
+
 	atomisp_subdev_get_ffmt(&asd->subdev, NULL,
 				V4L2_SUBDEV_FORMAT_ACTIVE,
 				ATOMISP_SUBDEV_PAD_SINK)->code =
 				    snr_format_bridge->mbus_code;
 
+	pr_err("%s:%d\n", __func__, __LINE__);
+
 	isp_sink_fmt = atomisp_subdev_get_ffmt(&asd->subdev, NULL,
 						V4L2_SUBDEV_FORMAT_ACTIVE,
 						ATOMISP_SUBDEV_PAD_SINK);
+
+	pr_err("%s:%d\n", __func__, __LINE__);
 
 	isp_source_fmt.code = format_bridge->mbus_code;
 	atomisp_subdev_set_ffmt(&asd->subdev, fh.state,
@@ -5818,6 +5848,8 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 		padding_h = 12;
 	}
 
+	pr_err("%s:%d\n", __func__, __LINE__);
+
 	/* construct resolution supported by isp */
 	if (res_overflow && !asd->continuous_mode->val) {
 		f->fmt.pix.width = rounddown(
@@ -5830,8 +5862,12 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 						ATOM_ISP_MAX_HEIGHT), ATOM_ISP_STEP_HEIGHT);
 	}
 
+	pr_err("%s:%d\n", __func__, __LINE__);
+
 	atomisp_get_dis_envelop(asd, f->fmt.pix.width, f->fmt.pix.height,
 				&dvs_env_w, &dvs_env_h);
+
+	pr_err("%s:%d\n", __func__, __LINE__);
 
 	if (asd->continuous_mode->val) {
 		struct v4l2_rect *r;
@@ -5852,6 +5888,9 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 	} else {
 		asd->capture_pad = source_pad;
 	}
+
+	pr_err("%s:%d\n", __func__, __LINE__);
+
 	/*
 	 * set format info to sensor
 	 * In continuous mode, resolution is set only if it is higher than
@@ -5890,6 +5929,9 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 		crop_needs_override = true;
 	}
 
+
+	pr_err("%s:%d\n", __func__, __LINE__);
+
 	atomisp_check_copy_mode(asd, source_pad, &backup_fmt);
 	asd->yuvpp_mode = false;			/* Reset variable */
 
@@ -5897,6 +5939,8 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 			V4L2_SUBDEV_FORMAT_ACTIVE,
 			ATOMISP_SUBDEV_PAD_SINK,
 			V4L2_SEL_TGT_CROP);
+
+	pr_err("%s:%d\n", __func__, __LINE__);
 
 	/* Try to enable YUV downscaling if ISP input is 10 % (either
 	 * width or height) bigger than the desired result. */
@@ -5998,6 +6042,9 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 					     &main_compose);
 	}
 
+
+	pr_err("%s:%d\n", __func__, __LINE__);
+
 set_fmt_to_isp:
 	ret = atomisp_set_fmt_to_isp(vdev, &output_info, &raw_output_info,
 				     &f->fmt.pix, source_pad);
@@ -6006,6 +6053,9 @@ set_fmt_to_isp:
 		return -EINVAL;
 	}
 done:
+
+	pr_err("%s:%d\n", __func__, __LINE__);
+
 	pipe->pix.width = f->fmt.pix.width;
 	pipe->pix.height = f->fmt.pix.height;
 	pipe->pix.pixelformat = f->fmt.pix.pixelformat;
@@ -6055,7 +6105,7 @@ done:
 	f->fmt.pix.sizeimage = pipe->pix.sizeimage;
 	f->fmt.pix.bytesperline = pipe->pix.bytesperline;
 
-	dev_dbg(isp->dev, "%s: %dx%d, image size: %d, %d bytes per line\n",
+	dev_err(isp->dev, "%s: %dx%d, image size: %d, %d bytes per line\n",
 		__func__,
 		f->fmt.pix.width, f->fmt.pix.height,
 		f->fmt.pix.sizeimage, f->fmt.pix.bytesperline);

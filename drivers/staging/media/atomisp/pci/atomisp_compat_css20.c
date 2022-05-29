@@ -373,7 +373,7 @@ static void __dump_stream_config(struct atomisp_sub_device *asd,
 		s_config->input_config.input_res.width,
 		s_config->input_config.input_res.height);
 
-	dev_dbg(isp->dev, "stream_config.input_config.effective_res w=%d, h=%d.\n",
+	dev_err(isp->dev, "stream_config.input_config.effective_res w=%d, h=%d.\n",
 		s_config->input_config.effective_res.width,
 		s_config->input_config.effective_res.height);
 
@@ -780,6 +780,8 @@ int atomisp_create_pipes_stream(struct atomisp_sub_device *asd)
 {
 	int ret;
 
+	dev_err(asd->isp->dev, "atomisp_create_pipes_stream()\n");
+
 	ret = __create_pipes(asd);
 	if (ret) {
 		dev_err(asd->isp->dev, "create pipe failed %d.\n", ret);
@@ -1086,6 +1088,7 @@ int atomisp_css_start(struct atomisp_sub_device *asd,
 	int ret = 0, i = 0;
 
 	if (in_reset) {
+		dev_err(asd->isp->dev, "atomisp_css_start() calling atomisp_css_update_stream()\n");
 		ret = atomisp_css_update_stream(asd);
 		if (ret)
 			return ret;
@@ -1106,6 +1109,7 @@ int atomisp_css_start(struct atomisp_sub_device *asd,
 	 * recreated in the next stream on.
 	 */
 	if (!asd->stream_prepared) {
+		dev_err(asd->isp->dev, "atomisp_css_start() calling atomisp_create_pipes_stream()\n");
 		ret = atomisp_create_pipes_stream(asd);
 		if (ret)
 			return ret;
@@ -2194,7 +2198,7 @@ static void __configure_output(struct atomisp_sub_device *asd,
 		s_config->input_config.effective_res.height = height;
 	}
 
-	dev_dbg(isp->dev, "configuring pipe[%d] output info w=%d.h=%d.f=%d.\n",
+	dev_err(isp->dev, "%s configuring pipe[%d] output info w=%d.h=%d.f=%d.\n", __func__,
 		pipe_id, width, height, format);
 }
 
@@ -2239,7 +2243,7 @@ static void __configure_video_preview_output(struct atomisp_sub_device *asd,
 		stream_config->input_config.effective_res.height = height;
 	}
 
-	dev_dbg(isp->dev, "configuring pipe[%d] output info w=%d.h=%d.f=%d.\n",
+	dev_err(isp->dev, "%s configuring pipe[%d] output info w=%d.h=%d.f=%d.\n", __func__,
 		pipe_id, width, height, format);
 }
 
@@ -2593,6 +2597,7 @@ static int __get_frame_info(struct atomisp_sub_device *asd,
 	struct ia_css_pipe_info p_info;
 
 	/* FIXME! No need to destroy/recreate all streams */
+	dev_err(asd->isp->dev, "__get_frame_info() calling atomisp_css_update_stream()\n");
 	ret = atomisp_css_update_stream(asd);
 	if (ret)
 		return ret;
