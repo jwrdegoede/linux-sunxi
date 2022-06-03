@@ -614,12 +614,12 @@ config X86_INTEL_CE
 config X86_INTEL_MID
 	bool "Intel MID platform support"
 	depends on X86_EXTENDED_PLATFORM
-	depends on X86_PLATFORM_DEVICES
 	depends on PCI
 	depends on X86_64 || (PCI_GOANY && X86_32)
 	depends on X86_IO_APIC
 	select I2C
 	select DW_APB_TIMER
+	select X86_PLATFORM_DEVICES
 	select INTEL_SCU_PCI
 	help
 	  Select to build a kernel capable of supporting Intel MID (Mobile
@@ -633,12 +633,12 @@ config X86_INTEL_QUARK
 	bool "Intel Quark platform support"
 	depends on X86_32
 	depends on X86_EXTENDED_PLATFORM
-	depends on X86_PLATFORM_DEVICES
 	depends on X86_TSC
 	depends on PCI
 	depends on PCI_GOANY
 	depends on X86_IO_APIC
 	select IOSF_MBI
+	select X86_PLATFORM_DEVICES
 	select INTEL_IMR
 	select COMMON_CLK
 	help
