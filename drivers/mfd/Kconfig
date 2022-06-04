@@ -685,10 +685,10 @@ config MFD_INTEL_LPSS_PCI
 config MFD_INTEL_PMC_BXT
 	tristate "Intel PMC Driver for Broxton"
 	depends on X86
-	depends on X86_PLATFORM_DEVICES
 	depends on ACPI
 	select INTEL_SCU_IPC
 	select MFD_CORE
+	select X86_PLATFORM_DEVICES
 	help
 	  This driver provides support for the PMC (Power Management
 	  Controller) on Intel Broxton and Apollo Lake. The PMC is a
