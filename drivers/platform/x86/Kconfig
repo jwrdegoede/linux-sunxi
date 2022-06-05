@@ -1152,9 +1152,12 @@ config SIEMENS_SIMATIC_IPC
 	  To compile this driver as a module, choose M here: the module
 	  will be called simatic-ipc.
 
-endif # X86_PLATFORM_DEVICES
+config WINMATE_FM07_KEYS
+	tristate "Winmate FM07/FM07P front-panel keys driver"
+	depends on INPUT
+	help
+	  Winmate FM07 and FM07P in-vehicle computers have a row of five
+	  buttons below the display. This module adds an input device
+	  that delivers key events when these buttons are pressed.
 
-config PMC_ATOM
-       def_bool y
-       depends on PCI
-       select COMMON_CLK
+endif # X86_PLATFORM_DEVICES
