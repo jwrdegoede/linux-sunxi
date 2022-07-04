@@ -643,15 +643,32 @@ ACPI_EXTERNAL_RETURN_STATUS(acpi_status
 							acpi_notify_handler
 							handler))
 ACPI_EXTERNAL_RETURN_STATUS(acpi_status
-			     acpi_install_address_space_handler(acpi_handle
-								device,
-								acpi_adr_space_type
-								space_id,
-								acpi_adr_space_handler
-								handler,
-								acpi_adr_space_setup
-								setup,
-								void *context))
+			    acpi_install_address_space_handler_flags(acpi_handle
+								     device,
+								     acpi_adr_space_type
+								     space_id,
+								     acpi_adr_space_handler
+								     handler,
+								     acpi_adr_space_setup
+								     setup,
+								     void
+								     *context,
+								     u32 flags))
+static ACPI_INLINE acpi_status acpi_install_address_space_handler(acpi_handle
+								  device,
+								  acpi_adr_space_type
+								  space_id,
+								  acpi_adr_space_handler
+								  handler,
+								  acpi_adr_space_setup
+								  setup,
+								  void *context)
+{
+	return acpi_install_address_space_handler_flags(device, space_id,
+							handler, setup, context,
+							ACPI_FULL_INITIALIZATION);
+}
+
 ACPI_EXTERNAL_RETURN_STATUS(acpi_status
 			     acpi_remove_address_space_handler(acpi_handle
 							       device,

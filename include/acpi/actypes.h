@@ -566,6 +566,8 @@ typedef u64 acpi_integer;
 #define ACPI_NO_OBJECT_INIT             0x0020
 #define ACPI_NO_DEVICE_INIT             0x0040
 #define ACPI_NO_ADDRESS_SPACE_INIT      0x0080
+#define ACPI_NO_INSTALL_SPACE_HANDLER   0x0100
+#define ACPI_NO_EXEC__REG               0x0200
 
 /*
  * Initialization state

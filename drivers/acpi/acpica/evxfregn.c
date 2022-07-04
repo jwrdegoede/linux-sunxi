@@ -27,6 +27,7 @@ ACPI_MODULE_NAME("evxfregn")
  *              handler         - Address of the handler
  *              setup           - Address of the setup function
  *              context         - Value passed to the handler on each access
+ *              flags           - Flags
  *
  * RETURN:      Status
  *
@@ -37,13 +38,17 @@ ACPI_MODULE_NAME("evxfregn")
  * are executed here, and these methods can only be safely executed after
  * the default handlers have been installed and the hardware has been
  * initialized (via acpi_enable_subsystem.)
+ * To avoid this problem pass the ACPI_NO_EXEC__REG flag and
+ * later call this function again with ACPI_NO_INSTALL_SPACE_HANDLER to
+ * execute _REG.
  *
  ******************************************************************************/
 acpi_status
-acpi_install_address_space_handler(acpi_handle device,
-				   acpi_adr_space_type space_id,
-				   acpi_adr_space_handler handler,
-				   acpi_adr_space_setup setup, void *context)
+acpi_install_address_space_handler_flags(acpi_handle device,
+					 acpi_adr_space_type space_id,
+					 acpi_adr_space_handler handler,
+					 acpi_adr_space_setup setup,
+					 void *context, u32 flags)
 {
 	struct acpi_namespace_node *node;
 	acpi_status status;
@@ -71,23 +76,26 @@ acpi_install_address_space_handler(acpi_handle device,
 
 	/* Install the handler for all Regions for this Space ID */
 
-	status =
-	    acpi_ev_install_space_handler(node, space_id, handler, setup,
-					  context);
-	if (ACPI_FAILURE(status)) {
-		goto unlock_and_exit;
+	if (!(flags & ACPI_NO_INSTALL_SPACE_HANDLER)) {
+		status =
+		    acpi_ev_install_space_handler(node, space_id, handler,
+						  setup, context);
+		if (ACPI_FAILURE(status)) {
+			goto unlock_and_exit;
+		}
 	}
 
 	/* Run all _REG methods for this address space */
-
-	acpi_ev_execute_reg_methods(node, space_id, ACPI_REG_CONNECT);
+	if (!(flags & ACPI_NO_EXEC__REG)) {
+		acpi_ev_execute_reg_methods(node, space_id, ACPI_REG_CONNECT);
+	}
 
 unlock_and_exit:
 	(void)acpi_ut_release_mutex(ACPI_MTX_NAMESPACE);
 	return_ACPI_STATUS(status);
 }
 
-ACPI_EXPORT_SYMBOL(acpi_install_address_space_handler)
+ACPI_EXPORT_SYMBOL(acpi_install_address_space_handler_flags)
 
 /*******************************************************************************
  *
