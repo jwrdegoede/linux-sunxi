@@ -3996,6 +3996,26 @@ static void hci_cmd_complete_evt(struct hci_dev *hdev, void *data,
 			break;
 		}
 	}
+	if (i == ARRAY_SIZE(hci_cc_table)) {
+		/* Unknown opcode, assume byte 0 contains the status, so
+		 * that e.g. __hci_cmd_sync() properly returns errors
+		 * for vendor specific commands send by HCI drivers.
+		 *
+		 * Note that the specification does not specify that
+		 * byte 0 is the status:
+		 *
+		 * BLUETOOTH CORE SPECIFICATION Version 5.3 | Vol 4, Part E
+		 * page 2189:
+		 *
+		 * Return_Parameters:
+		 * Size: Depends on command
+		 *
+		 * For now using byte 0 seems to work fine, but in the future
+		 * this may need to be updated so that drivers using vendor
+		 * commands can specify their own completion handler.
+		 */
+		*status = skb->data[0];
+	}
 
 	handle_cmd_cnt_and_timer(hdev, ev->ncmd);
 
