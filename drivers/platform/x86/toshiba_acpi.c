@@ -23,6 +23,7 @@
 #define PROC_INTERFACE_VERSION	1
 
 #include <linux/compiler.h>
+#include <linux/dmi.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -100,6 +101,7 @@ MODULE_LICENSE("GPL");
 #define TOS_NOT_INSTALLED		0x8e00
 
 /* Registers */
+#define HCI_PANEL_POWER_ON		0x0002
 #define HCI_FAN				0x0004
 #define HCI_TR_BACKLIGHT		0x0005
 #define HCI_SYSTEM_EVENT		0x0016
@@ -206,6 +208,7 @@ struct toshiba_acpi_dev {
 
 	bool kbd_event_generated;
 	bool killswitch;
+	bool turn_on_panel_on_resume;
 };
 
 static struct toshiba_acpi_dev *toshiba_acpi;
@@ -2999,6 +3002,43 @@ static const char *find_hci_method(acpi_handle handle)
 	return NULL;
 }
 
+/*
+ * Some Toshibas have a broken acpi-video interface for brightness control,
+ * these are quirked in drivers/acpi/video_detect.c to use the GPU native
+ * (/sys/class/backlight/intel_backlight) instead.
+ * But these need a HCI_SET call to actually turn the panel back on at resume,
+ * without this call the screen stays black at resume.
+ * Either HCI_LCD_BRIGHTNESS (used by acpi_video's _BCM) or HCI_PANEL_POWER_ON
+ * works. toshiba_acpi_resume() uses HCI_PANEL_POWER_ON to avoid changing
+ * the configured brightness level.
+ */
+static const struct dmi_system_id turn_on_panel_on_resume_dmi_ids[] = {
+	{
+	 /* Toshiba Portégé R700 */
+	 /* https://bugzilla.kernel.org/show_bug.cgi?id=21012 */
+	 .matches = {
+		DMI_MATCH(DMI_SYS_VENDOR, "TOSHIBA"),
+		DMI_MATCH(DMI_PRODUCT_NAME, "PORTEGE R700"),
+		},
+	},
+	{
+	 /* Toshiba Satellite/Portégé R830 */
+	 /* Portégé: https://bugs.freedesktop.org/show_bug.cgi?id=82634 */
+	 /* Satellite: https://bugzilla.kernel.org/show_bug.cgi?id=21012 */
+	 .matches = {
+		DMI_MATCH(DMI_SYS_VENDOR, "TOSHIBA"),
+		DMI_MATCH(DMI_PRODUCT_NAME, "R830"),
+		},
+	},
+	{
+	 /* Toshiba Satellite/Portégé Z830 */
+	 .matches = {
+		DMI_MATCH(DMI_SYS_VENDOR, "TOSHIBA"),
+		DMI_MATCH(DMI_PRODUCT_NAME, "Z830"),
+		},
+	},
+};
+
 static int toshiba_acpi_add(struct acpi_device *acpi_dev)
 {
 	struct toshiba_acpi_dev *dev;
@@ -3141,6 +3181,9 @@ iio_error:
 	ret = get_fan_status(dev, &dummy);
 	dev->fan_supported = !ret;
 
+	dev->turn_on_panel_on_resume =
+		dmi_check_system(turn_on_panel_on_resume_dmi_ids);
+
 	toshiba_wwan_available(dev);
 	if (dev->wwan_supported)
 		toshiba_acpi_setup_wwan_rfkill(dev);
@@ -3256,6 +3299,9 @@ static int toshiba_acpi_resume(struct device *device)
 		if (!toshiba_wireless_status(dev))
 			rfkill_set_hw_state(dev->wwan_rfk, !dev->killswitch);
 	}
+
+	if (dev->turn_on_panel_on_resume)
+		hci_write(dev, HCI_PANEL_POWER_ON, 1);
 
 	return 0;
 }
