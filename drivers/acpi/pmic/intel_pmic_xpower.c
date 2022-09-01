@@ -257,7 +257,7 @@ static int intel_xpower_pmic_get_raw_temp(struct regmap *regmap, int reg)
 
 	ret = regmap_bulk_read(regmap, AXP288_GP_ADC_H, buf, 2);
 	if (ret == 0)
-		ret = (buf[0] << 4) + ((buf[1] >> 4) & 0x0f);
+		ret = (buf[0] << 4) | (buf[1] & 0x0f);
 
 	if (adc_ts_pin_ctrl & AXP288_ADC_TS_CURRENT_ON_OFF_MASK) {
 		regmap_update_bits(regmap, AXP288_ADC_TS_PIN_CTRL,
