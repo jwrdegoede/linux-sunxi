@@ -175,7 +175,7 @@ static void cdv_init_pm(struct drm_device *dev)
 {
 	struct drm_psb_private *dev_priv = to_drm_psb_private(dev);
 	struct pci_dev *pdev = to_pci_dev(dev->dev);
-	u32 pwr_cnt;
+	u32 pwr_cnt, pwr_sts;
 	int domain = pci_domain_nr(pdev->bus);
 	int i;
 
@@ -184,22 +184,27 @@ static void cdv_init_pm(struct drm_device *dev)
 	dev_priv->ospm_base = CDV_MSG_READ32(domain, PSB_PUNIT_PORT,
 							PSB_OSPMBA) & 0xFFFF;
 
+	dev_err(dev->dev, "apm_base: 0x%08x\n", dev_priv->apm_base);
+
 	/* Power status */
 	pwr_cnt = inl(dev_priv->apm_base + PSB_APM_CMD);
+	dev_err(dev->dev, "GPU: power management initial cmd: 0x%08x\n", pwr_cnt);
+	dev_err(dev->dev, "GPU: power management initial sts: 0x%08x\n", inl(dev_priv->apm_base + PSB_APM_STS));
 
 	/* Enable the GPU */
 	pwr_cnt &= ~PSB_PWRGT_GFX_MASK;
 	pwr_cnt |= PSB_PWRGT_GFX_ON;
 	outl(pwr_cnt, dev_priv->apm_base + PSB_APM_CMD);
+	dev_err(dev->dev, "GPU: power management wrote cmd: 0x%08x\n", pwr_cnt);
 
 	/* Wait for the GPU power */
 	for (i = 0; i < 5; i++) {
-		u32 pwr_sts = inl(dev_priv->apm_base + PSB_APM_STS);
+		pwr_sts = inl(dev_priv->apm_base + PSB_APM_STS);
 		if ((pwr_sts & PSB_PWRGT_GFX_MASK) == 0)
 			return;
 		udelay(10);
 	}
-	dev_err(dev->dev, "GPU: power management timed out.\n");
+	dev_err(dev->dev, "GPU: power management timed out, status: 0x%08x\n", pwr_sts);
 }
 
 static void cdv_errata(struct drm_device *dev)
