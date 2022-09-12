@@ -521,6 +521,9 @@ static void bsp_init_amd(struct cpuinfo_x86 *c)
 		__max_die_per_package = nodes_per_socket = ((value >> 3) & 7) + 1;
 	}
 
+	if (c->x86 >= 0x10 && c->x86 <= 0x18)
+		setup_force_cpu_cap(X86_FEATURE_MSR_LS_CFG);
+
 	if (!boot_cpu_has(X86_FEATURE_AMD_SSBD) &&
 	    !boot_cpu_has(X86_FEATURE_VIRT_SSBD) &&
 	    c->x86 >= 0x15 && c->x86 <= 0x17) {
