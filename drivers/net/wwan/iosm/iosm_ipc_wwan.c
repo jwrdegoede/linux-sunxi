@@ -322,6 +322,7 @@ struct iosm_wwan *ipc_wwan_init(struct iosm_imem *ipc_imem, struct device *dev)
 
 	ipc_wwan->dev = dev;
 	ipc_wwan->ipc_imem = ipc_imem;
+	mutex_init(&ipc_wwan->if_mutex);
 
 	mutex_init(&ipc_wwan->if_mutex);
 
