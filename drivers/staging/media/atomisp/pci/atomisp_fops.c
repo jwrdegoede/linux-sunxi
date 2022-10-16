@@ -50,9 +50,26 @@ static int atomisp_queue_setup(struct vb2_queue *vq,
 	u16 source_pad = atomisp_subdev_source_pad(&pipe->vdev);
 	int ret;
 
+	/*
+	 * When VIDIOC_S_FMT has not been called before VIDIOC_REQBUFS, then
+	 * this will fail. Call atomisp_set_fmt() ourselves and try again.
+	 */
 	ret = atomisp_get_css_frame_info(pipe->asd, source_pad, &pipe->frame_info);
-	if (ret)
-		return ret;
+	if (ret) {
+		struct v4l2_format f = {
+			.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV420,
+			.fmt.pix.width = 10000,
+			.fmt.pix.height = 10000,
+		};
+
+		ret = atomisp_set_fmt(&pipe->vdev, &f);
+		if (ret)
+			return ret;
+
+		ret = atomisp_get_css_frame_info(pipe->asd, source_pad, &pipe->frame_info);
+		if (ret)
+			return ret;
+	}
 
 	atomisp_alloc_css_stat_bufs(pipe->asd, ATOMISP_INPUT_STREAM_GENERAL);
 
