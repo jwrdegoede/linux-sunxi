@@ -95,10 +95,11 @@ static const struct ieee80211_regdomain ath_world_regdom_64 = {
 
 /* Can be used by 0x66 and 0x69 */
 static const struct ieee80211_regdomain ath_world_regdom_66_69 = {
-	.n_reg_rules = 3,
+	.n_reg_rules = 4,
 	.alpha2 =  "99",
 	.reg_rules = {
 		ATH_2GHZ_CH01_11,
+		ATH_2GHZ_CH12_13,
 		ATH_5GHZ_ALL,
 	}
 };
