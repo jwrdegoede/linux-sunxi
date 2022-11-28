@@ -30,7 +30,7 @@ static int tps68470_gpio_get(struct gpio_chip *gc, unsigned int offset)
 {
 	struct tps68470_gpio_data *tps68470_gpio = gpiochip_get_data(gc);
 	struct regmap *regmap = tps68470_gpio->tps68470_regmap;
-	unsigned int reg = TPS68470_REG_GPDO;
+	unsigned int reg = TPS68470_REG_GPDI;
 	int val, ret;
 
 	if (offset >= TPS68470_N_REGULAR_GPIO) {
