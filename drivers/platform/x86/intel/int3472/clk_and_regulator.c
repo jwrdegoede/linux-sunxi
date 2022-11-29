@@ -106,6 +106,9 @@ int skl_int3472_register_clock(struct int3472_discrete_device *int3472,
 		return dev_err_probe(int3472->dev, ret, "getting clk-enable GPIO\n");
 	}
 
+	/* Ensure the pin is in output mode and non-active state */
+	gpiod_direction_output(int3472->clock.ena_gpio, 0);
+
 	init.name = kasprintf(GFP_KERNEL, "%s-clk",
 			      acpi_dev_name(int3472->adev));
 	if (!init.name) {
@@ -197,6 +200,9 @@ int skl_int3472_register_regulator(struct int3472_discrete_device *int3472,
 		dev_err(int3472->dev, "Failed to get regulator GPIO line\n");
 		return PTR_ERR(int3472->regulator.gpio);
 	}
+
+	/* Ensure the pin is in output mode and non-active state */
+	gpiod_direction_output(int3472->regulator.gpio, 0);
 
 	cfg.dev = &int3472->adev->dev;
 	cfg.init_data = &init_data;
