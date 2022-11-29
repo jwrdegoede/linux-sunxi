@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
+snd-soc-es83xx-dsm-common-objs := es83xx-dsm-common.o
 snd-soc-hsw-rt5640-objs := hsw_rt5640.o
 snd-soc-sst-bdw-rt5650-mach-objs := bdw-rt5650.o
 snd-soc-sst-bdw-rt5677-mach-objs := bdw-rt5677.o
@@ -45,6 +46,7 @@ snd-soc-sof-sdw-objs += sof_sdw.o				\
 			sof_sdw_cs42l42.o sof_sdw_cs42l43.o	\
 			sof_sdw_cs_amp.o			\
 			sof_sdw_hdmi.o
+obj-$(CONFIG_SND_SOC_INTEL_ES83XX_DSM_COMMON) += snd-soc-es83xx-dsm-common.o
 obj-$(CONFIG_SND_SOC_INTEL_SOF_RT5682_MACH) += snd-soc-sof_rt5682.o
 obj-$(CONFIG_SND_SOC_INTEL_SOF_CS42L42_MACH) += snd-soc-sof_cs42l42.o
 obj-$(CONFIG_SND_SOC_INTEL_SOF_ES8336_MACH) += snd-soc-sof_es8336.o
