@@ -698,6 +698,9 @@ static int power_up(struct v4l2_subdev *sd)
 		return -ENODEV;
 	}
 
+	if (dev->power_on == 1)
+		return 0; /* Already on */
+
 	/* power control */
 	ret = power_ctrl(sd, 1);
 	if (ret)
@@ -722,6 +725,7 @@ static int power_up(struct v4l2_subdev *sd)
 	/* according to DS, 20ms is needed between PWDN and i2c access */
 	msleep(20);
 
+	dev->power_on = 1;
 	return 0;
 
 fail_clk:
@@ -745,6 +749,9 @@ static int power_down(struct v4l2_subdev *sd)
 		return -ENODEV;
 	}
 
+	if (dev->power_on == 0)
+		return 0; /* Already off */
+
 	ret = dev->platform_data->flisclk_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "flisclk failed\n");
@@ -762,6 +769,7 @@ static int power_down(struct v4l2_subdev *sd)
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
+	dev->power_on = 0;
 	return ret;
 }
 
@@ -838,6 +846,9 @@ static int ov2722_set_fmt(struct v4l2_subdev *sd,
 	}
 
 	mutex_lock(&dev->input_lock);
+
+	/* s_power has not been called yet for std v4l2 clients (camorama) */
+	power_up(sd);
 
 	dev->pixels_per_line = dev->res->pixels_per_line;
 	dev->lines_per_frame = dev->res->lines_per_frame;
@@ -1133,6 +1144,7 @@ static int ov2722_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	mutex_init(&dev->input_lock);
+	dev->power_on = -1;
 
 	dev->res = &ov2722_res_preview[0];
 	v4l2_i2c_subdev_init(&dev->sd, client, &ov2722_ops);
