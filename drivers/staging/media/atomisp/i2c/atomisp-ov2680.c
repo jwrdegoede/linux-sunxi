@@ -69,7 +69,7 @@ static long __ov2680_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov2680_dev *dev = to_ov2680_dev(sd);
 	u16 vts;
-	int ret, exp_val;
+	int ret;
 
 	dev_dbg(&client->dev,
 		"+++++++__ov2680_set_exposure coarse_itg %d, gain %d, digitgain %d++\n",
@@ -96,30 +96,10 @@ static long __ov2680_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 		return ret;
 	}
 
-	/* set exposure */
-
-	/* Lower four bit should be 0*/
-	exp_val = coarse_itg << 4;
-	ret = ovxxxx_write_reg8(client, OV2680_EXPOSURE_L, exp_val & 0xFF);
-	if (ret) {
-		dev_err(&client->dev, "%s: write 0x%02x: error, aborted\n",
-			__func__, OV2680_EXPOSURE_L);
+	/* Set exposure, lower four bits should be 0 */
+	ret = ovxxxx_write_reg24(client, OV2680_EXPOSURE_H, coarse_itg << 4);
+	if (ret)
 		return ret;
-	}
-
-	ret = ovxxxx_write_reg8(client, OV2680_EXPOSURE_M, (exp_val >> 8) & 0xFF);
-	if (ret) {
-		dev_err(&client->dev, "%s: write 0x%02x: error, aborted\n",
-			__func__, OV2680_EXPOSURE_M);
-		return ret;
-	}
-
-	ret = ovxxxx_write_reg8(client, OV2680_EXPOSURE_H, (exp_val >> 16) & 0x0F);
-	if (ret) {
-		dev_err(&client->dev, "%s: write 0x%02x: error, aborted\n",
-			__func__, OV2680_EXPOSURE_H);
-		return ret;
-	}
 
 	/* Analog gain */
 	ret = ovxxxx_write_reg16(client, OV2680_AGC_H, gain);
