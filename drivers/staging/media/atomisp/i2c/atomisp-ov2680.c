@@ -124,7 +124,7 @@ static long __ov2680_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 	u16 vts;
 	int ret, exp_val;
 
@@ -236,7 +236,7 @@ static long __ov2680_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 static int ov2680_set_exposure(struct v4l2_subdev *sd, int exposure,
 			       int gain, int digitgain)
 {
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 	int ret = 0;
 
 	mutex_lock(&dev->input_lock);
@@ -366,21 +366,20 @@ static int ov2680_h_flip(struct v4l2_subdev *sd, s32 value)
 
 static int ov2680_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct ov2680_device *dev =
-	    container_of(ctrl->handler, struct ov2680_device, ctrl_handler);
-	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
+	struct v4l2_subdev *sd = ctrl_to_sd(ctrl);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret = 0;
 
 	switch (ctrl->id) {
 	case V4L2_CID_VFLIP:
 		dev_dbg(&client->dev, "%s: CID_VFLIP:%d.\n",
 			__func__, ctrl->val);
-		ret = ov2680_v_flip(&dev->sd, ctrl->val);
+		ret = ov2680_v_flip(sd, ctrl->val);
 		break;
 	case V4L2_CID_HFLIP:
 		dev_dbg(&client->dev, "%s: CID_HFLIP:%d.\n",
 			__func__, ctrl->val);
-		ret = ov2680_h_flip(&dev->sd, ctrl->val);
+		ret = ov2680_h_flip(sd, ctrl->val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -390,13 +389,12 @@ static int ov2680_s_ctrl(struct v4l2_ctrl *ctrl)
 
 static int ov2680_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct ov2680_device *dev =
-	    container_of(ctrl->handler, struct ov2680_device, ctrl_handler);
+	struct v4l2_subdev *sd = ctrl_to_sd(ctrl);
 	int ret = 0;
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE_ABSOLUTE:
-		ret = ov2680_q_exposure(&dev->sd, &ctrl->val);
+		ret = ov2680_q_exposure(sd, &ctrl->val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -458,7 +456,7 @@ static int ov2680_init_registers(struct v4l2_subdev *sd)
 static int power_ctrl(struct v4l2_subdev *sd, bool flag)
 {
 	int ret = 0;
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
 	if (!dev || !dev->platform_data)
@@ -482,7 +480,7 @@ static int power_ctrl(struct v4l2_subdev *sd, bool flag)
 static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 {
 	int ret;
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 
 	if (!dev || !dev->platform_data)
 		return -ENODEV;
@@ -509,7 +507,7 @@ static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 
 static int power_up(struct v4l2_subdev *sd)
 {
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 
@@ -570,7 +568,7 @@ fail_power:
 
 static int power_down(struct v4l2_subdev *sd)
 {
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret = 0;
 
@@ -610,7 +608,7 @@ static int power_down(struct v4l2_subdev *sd)
 
 static int ov2680_s_power(struct v4l2_subdev *sd, int on)
 {
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 	int ret;
 
 	mutex_lock(&dev->input_lock);
@@ -631,7 +629,7 @@ static int ov2680_set_fmt(struct v4l2_subdev *sd,
 			  struct v4l2_subdev_format *format)
 {
 	struct v4l2_mbus_framefmt *fmt = &format->format;
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct camera_mipi_info *ov2680_info = NULL;
 	struct ov2680_resolution *res;
@@ -713,7 +711,7 @@ static int ov2680_get_fmt(struct v4l2_subdev *sd,
 			  struct v4l2_subdev_format *format)
 {
 	struct v4l2_mbus_framefmt *fmt = &format->format;
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 
 	if (format->pad)
 		return -EINVAL;
@@ -766,7 +764,7 @@ static int ov2680_detect(struct i2c_client *client)
 
 static int ov2680_s_stream(struct v4l2_subdev *sd, int enable)
 {
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 
@@ -792,7 +790,7 @@ static int ov2680_s_stream(struct v4l2_subdev *sd, int enable)
 static int ov2680_s_config(struct v4l2_subdev *sd,
 			   int irq, void *platform_data)
 {
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret = 0;
 
@@ -843,7 +841,7 @@ fail_power_on:
 static int ov2680_g_frame_interval(struct v4l2_subdev *sd,
 				   struct v4l2_subdev_frame_interval *interval)
 {
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 
 	interval->interval.numerator = 1;
 	interval->interval.denominator = dev->res->fps;
@@ -901,7 +899,7 @@ static int ov2680_enum_frame_interval(struct v4l2_subdev *sd,
 
 static int ov2680_g_skip_frames(struct v4l2_subdev *sd, u32 *frames)
 {
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 
 	mutex_lock(&dev->input_lock);
 	*frames = dev->res->skip_frames;
@@ -942,7 +940,7 @@ static const struct v4l2_subdev_ops ov2680_ops = {
 static void ov2680_remove(struct i2c_client *client)
 {
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
+	struct ov2680_dev *dev = to_ov2680_dev(sd);
 
 	dev_dbg(&client->dev, "ov2680_remove...\n");
 
@@ -956,7 +954,7 @@ static void ov2680_remove(struct i2c_client *client)
 
 static int ov2680_probe(struct i2c_client *client)
 {
-	struct ov2680_device *dev;
+	struct ov2680_dev *dev;
 	int ret;
 	void *pdata;
 	unsigned int i;
