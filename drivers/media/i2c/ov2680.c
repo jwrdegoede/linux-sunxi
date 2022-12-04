@@ -21,6 +21,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
 
+#include <media/ovxxxx_16bit_addr_reg_helpers.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-subdev.h>
@@ -46,10 +47,6 @@
 #define OV2680_REG_ISP_CTRL00		0x5080
 
 #define OV2680_FRAME_RATE		30
-
-#define OV2680_REG_VALUE_8BIT		1
-#define OV2680_REG_VALUE_16BIT		2
-#define OV2680_REG_VALUE_24BIT		3
 
 #define OV2680_WIDTH_MAX		1600
 #define OV2680_HEIGHT_MAX		1200
@@ -194,94 +191,6 @@ static inline struct v4l2_subdev *ctrl_to_sd(struct v4l2_ctrl *ctrl)
 			     ctrls.handler)->sd;
 }
 
-static int __ov2680_write_reg(struct ov2680_dev *sensor, u16 reg,
-			      unsigned int len, u32 val)
-{
-	struct i2c_client *client = sensor->i2c_client;
-	u8 buf[6];
-	int ret;
-
-	if (len > 4)
-		return -EINVAL;
-
-	put_unaligned_be16(reg, buf);
-	put_unaligned_be32(val << (8 * (4 - len)), buf + 2);
-	ret = i2c_master_send(client, buf, len + 2);
-	if (ret != len + 2) {
-		dev_err(&client->dev, "write error: reg=0x%4x: %d\n", reg, ret);
-		return -EIO;
-	}
-
-	return 0;
-}
-
-#define ov2680_write_reg(s, r, v) \
-	__ov2680_write_reg(s, r, OV2680_REG_VALUE_8BIT, v)
-
-#define ov2680_write_reg16(s, r, v) \
-	__ov2680_write_reg(s, r, OV2680_REG_VALUE_16BIT, v)
-
-#define ov2680_write_reg24(s, r, v) \
-	__ov2680_write_reg(s, r, OV2680_REG_VALUE_24BIT, v)
-
-static int __ov2680_read_reg(struct ov2680_dev *sensor, u16 reg,
-			     unsigned int len, u32 *val)
-{
-	struct i2c_client *client = sensor->i2c_client;
-	struct i2c_msg msgs[2];
-	u8 addr_buf[2] = { reg >> 8, reg & 0xff };
-	u8 data_buf[4] = { 0, };
-	int ret;
-
-	if (len > 4)
-		return -EINVAL;
-
-	msgs[0].addr = client->addr;
-	msgs[0].flags = 0;
-	msgs[0].len = ARRAY_SIZE(addr_buf);
-	msgs[0].buf = addr_buf;
-
-	msgs[1].addr = client->addr;
-	msgs[1].flags = I2C_M_RD;
-	msgs[1].len = len;
-	msgs[1].buf = &data_buf[4 - len];
-
-	ret = i2c_transfer(client->adapter, msgs, ARRAY_SIZE(msgs));
-	if (ret != ARRAY_SIZE(msgs)) {
-		dev_err(&client->dev, "read error: reg=0x%4x: %d\n", reg, ret);
-		return -EIO;
-	}
-
-	*val = get_unaligned_be32(data_buf);
-
-	return 0;
-}
-
-#define ov2680_read_reg(s, r, v) \
-	__ov2680_read_reg(s, r, OV2680_REG_VALUE_8BIT, v)
-
-#define ov2680_read_reg16(s, r, v) \
-	__ov2680_read_reg(s, r, OV2680_REG_VALUE_16BIT, v)
-
-#define ov2680_read_reg24(s, r, v) \
-	__ov2680_read_reg(s, r, OV2680_REG_VALUE_24BIT, v)
-
-static int ov2680_mod_reg(struct ov2680_dev *sensor, u16 reg, u8 mask, u8 val)
-{
-	u32 readval;
-	int ret;
-
-	ret = ov2680_read_reg(sensor, reg, &readval);
-	if (ret < 0)
-		return ret;
-
-	readval &= ~mask;
-	val &= mask;
-	val |= readval;
-
-	return ov2680_write_reg(sensor, reg, val);
-}
-
 static int ov2680_load_regs(struct ov2680_dev *sensor,
 			    const struct ov2680_mode_info *mode)
 {
@@ -295,7 +204,7 @@ static int ov2680_load_regs(struct ov2680_dev *sensor,
 		reg_addr = regs->reg_addr;
 		val = regs->val;
 
-		ret = ov2680_write_reg(sensor, reg_addr, val);
+		ret = ovxxxx_write_reg8(sensor->i2c_client, reg_addr, val);
 		if (ret)
 			break;
 	}
@@ -328,11 +237,11 @@ static int ov2680_bayer_order(struct ov2680_dev *sensor)
 	u32 hv_flip;
 	int ret;
 
-	ret = ov2680_read_reg(sensor, OV2680_REG_FORMAT1, &format1);
+	ret = ovxxxx_read_reg8(sensor->i2c_client, OV2680_REG_FORMAT1, &format1);
 	if (ret < 0)
 		return ret;
 
-	ret = ov2680_read_reg(sensor, OV2680_REG_FORMAT2, &format2);
+	ret = ovxxxx_read_reg8(sensor->i2c_client, OV2680_REG_FORMAT2, &format2);
 	if (ret < 0)
 		return ret;
 
@@ -347,7 +256,7 @@ static int ov2680_vflip_enable(struct ov2680_dev *sensor)
 {
 	int ret;
 
-	ret = ov2680_mod_reg(sensor, OV2680_REG_FORMAT1, BIT(2), BIT(2));
+	ret = ovxxxx_mod_reg(sensor->i2c_client, OV2680_REG_FORMAT1, BIT(2), BIT(2));
 	if (ret < 0)
 		return ret;
 
@@ -358,7 +267,7 @@ static int ov2680_vflip_disable(struct ov2680_dev *sensor)
 {
 	int ret;
 
-	ret = ov2680_mod_reg(sensor, OV2680_REG_FORMAT1, BIT(2), BIT(0));
+	ret = ovxxxx_mod_reg(sensor->i2c_client, OV2680_REG_FORMAT1, BIT(2), BIT(0));
 	if (ret < 0)
 		return ret;
 
@@ -369,7 +278,7 @@ static int ov2680_hflip_enable(struct ov2680_dev *sensor)
 {
 	int ret;
 
-	ret = ov2680_mod_reg(sensor, OV2680_REG_FORMAT2, BIT(2), BIT(2));
+	ret = ovxxxx_mod_reg(sensor->i2c_client, OV2680_REG_FORMAT2, BIT(2), BIT(2));
 	if (ret < 0)
 		return ret;
 
@@ -380,7 +289,7 @@ static int ov2680_hflip_disable(struct ov2680_dev *sensor)
 {
 	int ret;
 
-	ret = ov2680_mod_reg(sensor, OV2680_REG_FORMAT2, BIT(2), BIT(0));
+	ret = ovxxxx_mod_reg(sensor->i2c_client, OV2680_REG_FORMAT2, BIT(2), BIT(0));
 	if (ret < 0)
 		return ret;
 
@@ -392,13 +301,13 @@ static int ov2680_test_pattern_set(struct ov2680_dev *sensor, int value)
 	int ret;
 
 	if (!value)
-		return ov2680_mod_reg(sensor, OV2680_REG_ISP_CTRL00, BIT(7), 0);
+		return ovxxxx_mod_reg(sensor->i2c_client, OV2680_REG_ISP_CTRL00, BIT(7), 0);
 
-	ret = ov2680_mod_reg(sensor, OV2680_REG_ISP_CTRL00, 0x03, value - 1);
+	ret = ovxxxx_mod_reg(sensor->i2c_client, OV2680_REG_ISP_CTRL00, 0x03, value - 1);
 	if (ret < 0)
 		return ret;
 
-	ret = ov2680_mod_reg(sensor, OV2680_REG_ISP_CTRL00, BIT(7), BIT(7));
+	ret = ovxxxx_mod_reg(sensor->i2c_client, OV2680_REG_ISP_CTRL00, BIT(7), BIT(7));
 	if (ret < 0)
 		return ret;
 
@@ -411,7 +320,7 @@ static int ov2680_gain_set(struct ov2680_dev *sensor, bool auto_gain)
 	u32 gain;
 	int ret;
 
-	ret = ov2680_mod_reg(sensor, OV2680_REG_R_MANUAL, BIT(1),
+	ret = ovxxxx_mod_reg(sensor->i2c_client, OV2680_REG_R_MANUAL, BIT(1),
 			     auto_gain ? 0 : BIT(1));
 	if (ret < 0)
 		return ret;
@@ -421,7 +330,7 @@ static int ov2680_gain_set(struct ov2680_dev *sensor, bool auto_gain)
 
 	gain = ctrls->gain->val;
 
-	ret = ov2680_write_reg16(sensor, OV2680_REG_GAIN_PK, gain);
+	ret = ovxxxx_write_reg16(sensor->i2c_client, OV2680_REG_GAIN_PK, gain);
 
 	return 0;
 }
@@ -431,7 +340,7 @@ static int ov2680_gain_get(struct ov2680_dev *sensor)
 	u32 gain;
 	int ret;
 
-	ret = ov2680_read_reg16(sensor, OV2680_REG_GAIN_PK, &gain);
+	ret = ovxxxx_read_reg16(sensor->i2c_client, OV2680_REG_GAIN_PK, &gain);
 	if (ret)
 		return ret;
 
@@ -444,7 +353,7 @@ static int ov2680_exposure_set(struct ov2680_dev *sensor, bool auto_exp)
 	u32 exp;
 	int ret;
 
-	ret = ov2680_mod_reg(sensor, OV2680_REG_R_MANUAL, BIT(0),
+	ret = ovxxxx_mod_reg(sensor->i2c_client, OV2680_REG_R_MANUAL, BIT(0),
 			     auto_exp ? 0 : BIT(0));
 	if (ret < 0)
 		return ret;
@@ -455,7 +364,7 @@ static int ov2680_exposure_set(struct ov2680_dev *sensor, bool auto_exp)
 	exp = (u32)ctrls->exposure->val;
 	exp <<= 4;
 
-	return ov2680_write_reg24(sensor, OV2680_REG_EXPOSURE_PK_HIGH, exp);
+	return ovxxxx_write_reg24(sensor->i2c_client, OV2680_REG_EXPOSURE_PK_HIGH, exp);
 }
 
 static int ov2680_exposure_get(struct ov2680_dev *sensor)
@@ -463,7 +372,7 @@ static int ov2680_exposure_get(struct ov2680_dev *sensor)
 	int ret;
 	u32 exp;
 
-	ret = ov2680_read_reg24(sensor, OV2680_REG_EXPOSURE_PK_HIGH, &exp);
+	ret = ovxxxx_read_reg24(sensor->i2c_client, OV2680_REG_EXPOSURE_PK_HIGH, &exp);
 	if (ret)
 		return ret;
 
@@ -472,12 +381,12 @@ static int ov2680_exposure_get(struct ov2680_dev *sensor)
 
 static int ov2680_stream_enable(struct ov2680_dev *sensor)
 {
-	return ov2680_write_reg(sensor, OV2680_REG_STREAM_CTRL, 1);
+	return ovxxxx_write_reg8(sensor->i2c_client, OV2680_REG_STREAM_CTRL, 1);
 }
 
 static int ov2680_stream_disable(struct ov2680_dev *sensor)
 {
-	return ov2680_write_reg(sensor, OV2680_REG_STREAM_CTRL, 0);
+	return ovxxxx_write_reg8(sensor->i2c_client, OV2680_REG_STREAM_CTRL, 0);
 }
 
 static int ov2680_mode_set(struct ov2680_dev *sensor)
@@ -553,7 +462,7 @@ static int ov2680_power_on(struct ov2680_dev *sensor)
 	}
 
 	if (!sensor->reset_gpio) {
-		ret = ov2680_write_reg(sensor, OV2680_REG_SOFT_RESET, 0x01);
+		ret = ovxxxx_write_reg8(sensor->i2c_client, OV2680_REG_SOFT_RESET, 0x01);
 		if (ret != 0) {
 			dev_err(dev, "sensor soft reset failed\n");
 			return ret;
@@ -1008,7 +917,7 @@ static int ov2680_check_id(struct ov2680_dev *sensor)
 
 	ov2680_power_on(sensor);
 
-	ret = ov2680_read_reg16(sensor, OV2680_REG_CHIP_ID_HIGH, &chip_id);
+	ret = ovxxxx_read_reg16(sensor->i2c_client, OV2680_REG_CHIP_ID_HIGH, &chip_id);
 	if (ret < 0) {
 		dev_err(dev, "failed to read chip id high\n");
 		return -ENODEV;
