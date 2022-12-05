@@ -742,8 +742,25 @@ int goodix_reset_no_int_sync(struct goodix_ts_data *ts)
 {
 	int error;
 
-	/* begin select I2C slave addr */
-	error = gpiod_direction_output(ts->gpiod_rst, 0);
+	/*
+	 * begin select I2C slave addr by activating/asserting RESET.
+	 *
+	 * The value passed to gpiod_direction_output is decorrelated from the
+	 * actual physical state of the line. The 1 value here is just to
+	 * specify the *assertion* of the line, its meaning being dependent on
+	 * the HW design of the system.
+	 *
+	 * DT-based systems need to specify the GPIO level in which the reset is
+	 * active. Since the touchscreen controller is in reset when its RESET
+	 * line is low, it is the level of the GPIO that results in the RESET
+	 * pin on the touchscreen controller side being low. In a HW design in
+	 * which the GPIO is directly connected to the touchscreen controller
+	 * RESET pin, this would be GPIO_ACTIVE_LOW.
+	 *
+	 * ACPI systems do not have the ability to specify the level of the GPIO
+	 * and they are therefore all assumed active low.
+	 */
+	error = gpiod_direction_output(ts->gpiod_rst, 1);
 	if (error)
 		goto error;
 
@@ -756,7 +773,8 @@ int goodix_reset_no_int_sync(struct goodix_ts_data *ts)
 
 	usleep_range(100, 2000);		/* T3: > 100us */
 
-	error = gpiod_direction_output(ts->gpiod_rst, 1);
+	/* Disable/de-assert RESET */
+	error = gpiod_direction_output(ts->gpiod_rst, 0);
 	if (error)
 		goto error;
 
@@ -806,23 +824,30 @@ static int goodix_reset(struct goodix_ts_data *ts)
 		.quirks = ACPI_GPIO_QUIRK_NO_IO_RESTRICTION, \
 	}
 
-static const struct acpi_gpio_params first_gpio = { 0, 0, false };
-static const struct acpi_gpio_params second_gpio = { 1, 0, false };
+static const struct acpi_gpio_params int_first_gpio = { 0, 0, false };
+static const struct acpi_gpio_params int_second_gpio = { 1, 0, false };
+
+/*
+ * The controller is in reset when the RESET GPIO is output low, so
+ * set acpi_gpio_params.active_low appropriately.
+ */
+static const struct acpi_gpio_params rst_first_gpio = { 0, 0, true };
+static const struct acpi_gpio_params rst_second_gpio = { 1, 0, true };
 
 static const struct acpi_gpio_mapping acpi_goodix_int_first_gpios[] = {
-	GOODIX_GPIO_MAPPING(GOODIX_GPIO_INT_NAME "-gpios", &first_gpio, 1),
-	GOODIX_GPIO_MAPPING(GOODIX_GPIO_RST_NAME "-gpios", &second_gpio, 1),
+	GOODIX_GPIO_MAPPING(GOODIX_GPIO_INT_NAME "-gpios", &int_first_gpio, 1),
+	GOODIX_GPIO_MAPPING(GOODIX_GPIO_RST_NAME "-gpios", &rst_second_gpio, 1),
 	{ },
 };
 
 static const struct acpi_gpio_mapping acpi_goodix_int_last_gpios[] = {
-	GOODIX_GPIO_MAPPING(GOODIX_GPIO_RST_NAME "-gpios", &first_gpio, 1),
-	GOODIX_GPIO_MAPPING(GOODIX_GPIO_INT_NAME "-gpios", &second_gpio, 1),
+	GOODIX_GPIO_MAPPING(GOODIX_GPIO_RST_NAME "-gpios", &rst_first_gpio, 1),
+	GOODIX_GPIO_MAPPING(GOODIX_GPIO_INT_NAME "-gpios", &int_second_gpio, 1),
 	{ },
 };
 
 static const struct acpi_gpio_mapping acpi_goodix_reset_only_gpios[] = {
-	GOODIX_GPIO_MAPPING(GOODIX_GPIO_RST_NAME "-gpios", &first_gpio, 1),
+	GOODIX_GPIO_MAPPING(GOODIX_GPIO_RST_NAME "-gpios", &rst_first_gpio, 1),
 	{ },
 };
 
