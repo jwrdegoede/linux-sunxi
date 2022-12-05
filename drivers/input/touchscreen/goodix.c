@@ -803,6 +803,7 @@ static int goodix_reset(struct goodix_ts_data *ts)
 		.name = _name, \
 		.data = _params, \
 		.size = _size, \
+		.quirks = ACPI_GPIO_QUIRK_NO_IO_RESTRICTION, \
 	}
 
 static const struct acpi_gpio_params first_gpio = { 0, 0, false };
