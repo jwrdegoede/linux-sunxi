@@ -42,8 +42,12 @@ static void remove_e820_regions(struct resource *avail)
 
 		resource_clip(avail, e820_start, e820_end);
 		if (orig.start != avail->start || orig.end != avail->end) {
-			pr_info("clipped %pR to %pR for e820 entry [mem %#010Lx-%#010Lx]\n",
-				 &orig, avail, e820_start, e820_end);
+			pr_info("resource: avoiding allocation from e820 entry [mem %#010Lx-%#010Lx]\n",
+				e820_start, e820_end);
+			if (avail->end > avail->start)
+				pr_info("resource: remaining [mem %#010llx-%#010llx] available\n",
+					(unsigned long long) avail->start,
+					(unsigned long long) avail->end);
 			orig = *avail;
 		}
 	}
