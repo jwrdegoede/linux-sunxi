@@ -127,13 +127,6 @@ static const char * const test_pattern_menu[] = {
 	"Black Image",
 };
 
-static const int ov2680_hv_flip_bayer_order[] = {
-	MEDIA_BUS_FMT_SBGGR10_1X10,
-	MEDIA_BUS_FMT_SGRBG10_1X10,
-	MEDIA_BUS_FMT_SGBRG10_1X10,
-	MEDIA_BUS_FMT_SRGGB10_1X10,
-};
-
 static const struct reg_value ov2680_setting_30fps_QUXGA_800_600[] = {
 	{0x3086, 0x01}, {0x370a, 0x23}, {0x3808, 0x03}, {0x3809, 0x20},
 	{0x380a, 0x02}, {0x380b, 0x58}, {0x380c, 0x06}, {0x380d, 0xac},
@@ -230,50 +223,16 @@ static void ov2680_power_down(struct ov2680_dev *sensor)
 	usleep_range(5000, 10000);
 }
 
-static int ov2680_bayer_order(struct ov2680_dev *sensor)
-{
-	u32 format1;
-	u32 format2;
-	u32 hv_flip;
-	int ret;
-
-	ret = ovxxxx_read_reg8(sensor->i2c_client, OV2680_REG_FORMAT1, &format1);
-	if (ret < 0)
-		return ret;
-
-	ret = ovxxxx_read_reg8(sensor->i2c_client, OV2680_REG_FORMAT2, &format2);
-	if (ret < 0)
-		return ret;
-
-	hv_flip = (format2 & BIT(2)  << 1) | (format1 & BIT(2));
-
-	sensor->fmt.code = ov2680_hv_flip_bayer_order[hv_flip];
-
-	return 0;
-}
-
 static int ov2680_set_vflip(struct ov2680_dev *sensor, s32 val)
 {
-	int ret;
-
-	ret = ovxxxx_mod_reg(sensor->i2c_client, OV2680_REG_FORMAT1, BIT(2),
-			     val ? BIT(2) : 0);
-	if (ret < 0)
-		return ret;
-
-	return ov2680_bayer_order(sensor);
+	return ovxxxx_mod_reg(sensor->i2c_client, OV2680_REG_FORMAT1, BIT(2),
+			      val ? BIT(2) : 0);
 }
 
 static int ov2680_set_hflip(struct ov2680_dev *sensor, s32 val)
 {
-	int ret;
-
-	ret = ovxxxx_mod_reg(sensor->i2c_client, OV2680_REG_FORMAT2, BIT(2),
-			     val ? BIT(2) : 0);
-	if (ret < 0)
-		return ret;
-
-	return ov2680_bayer_order(sensor);
+	return ovxxxx_mod_reg(sensor->i2c_client, OV2680_REG_FORMAT2, BIT(2),
+			      val ? BIT(2) : 0);
 }
 
 static int ov2680_test_pattern_set(struct ov2680_dev *sensor, int value)
