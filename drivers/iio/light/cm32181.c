@@ -491,9 +491,20 @@ static int cm32181_probe(struct i2c_client *client)
 static int cm32181_suspend(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
+	int ret;
 
-	return i2c_smbus_write_word_data(client, CM32181_REG_ADDR_CMD,
-					 CM32181_CMD_ALS_DISABLE);
+	/*
+	 * On some devices such as the Lenovo ThinkPad X1 Carbon gen 2,
+	 * the cm32181 might already be powered-down (together with the
+	 * LCD-panel?) when this suspend callback runs. Log a warning
+	 * on I2C communication errors, but allow the suspend to continue.
+	 */
+	ret = i2c_smbus_write_word_data(client, CM32181_REG_ADDR_CMD,
+					CM32181_CMD_ALS_DISABLE);
+	if (ret)
+		dev_warn(dev, "Warning could not disable the ALS, error: %d\n", ret);
+
+	return 0;
 }
 
 static int cm32181_resume(struct device *dev)
