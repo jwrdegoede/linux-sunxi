@@ -286,6 +286,22 @@ static void devm_led_release(struct device *dev, void *res)
 	led_put(*p);
 }
 
+static struct led_classdev *__devm_led_get(struct device *dev, struct led_classdev *led)
+{
+	struct led_classdev **dr;
+
+	dr = devres_alloc(devm_led_release, sizeof(struct led_classdev *), GFP_KERNEL);
+	if (!dr) {
+		led_put(led);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	*dr = led;
+	devres_add(dev, dr);
+
+	return led;
+}
+
 /**
  * devm_of_led_get - Resource-managed request of a LED device
  * @dev:	LED consumer
@@ -301,7 +317,6 @@ struct led_classdev *__must_check devm_of_led_get(struct device *dev,
 						  int index)
 {
 	struct led_classdev *led;
-	struct led_classdev **dr;
 
 	if (!dev)
 		return ERR_PTR(-EINVAL);
@@ -310,17 +325,7 @@ struct led_classdev *__must_check devm_of_led_get(struct device *dev,
 	if (IS_ERR(led))
 		return led;
 
-	dr = devres_alloc(devm_led_release, sizeof(struct led_classdev *),
-			  GFP_KERNEL);
-	if (!dr) {
-		led_put(led);
-		return ERR_PTR(-ENOMEM);
-	}
-
-	*dr = led;
-	devres_add(dev, dr);
-
-	return led;
+	return __devm_led_get(dev, led);
 }
 EXPORT_SYMBOL_GPL(devm_of_led_get);
 
