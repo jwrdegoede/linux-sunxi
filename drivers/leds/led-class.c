@@ -23,6 +23,8 @@
 #include "leds.h"
 
 static struct class *leds_class;
+static DEFINE_MUTEX(leds_lookup_lock);
+static LIST_HEAD(leds_lookup_list);
 
 static ssize_t brightness_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -328,6 +330,95 @@ struct led_classdev *__must_check devm_of_led_get(struct device *dev,
 	return __devm_led_get(dev, led);
 }
 EXPORT_SYMBOL_GPL(devm_of_led_get);
+
+/**
+ * led_get() - request a LED device via the LED framework
+ * @dev: device for which to get the LED device
+ * @function: string describing the function of the LED device
+ *
+ * @return a pointer to a LED device or ERR_PTR(errno) on failure.
+ */
+struct led_classdev *led_get(struct device *dev, char *function)
+{
+	struct led_lookup_data *lookup;
+	struct led_classdev *led_cdev;
+	const char *led_name = NULL;
+	struct device *led_dev;
+
+	if (dev->of_node) {
+		led_cdev = __of_led_get(dev->of_node, -1, function);
+		if (!IS_ERR(led_cdev) || PTR_ERR(led_cdev) != -ENOENT)
+			return led_cdev;
+	}
+
+	mutex_lock(&leds_lookup_lock);
+	list_for_each_entry(lookup, &leds_lookup_list, list) {
+		if (!strcmp(lookup->consumer_dev_name, dev_name(dev)) &&
+		    !strcmp(lookup->consumer_function, function)) {
+			led_name = kstrdup(lookup->led_name, GFP_KERNEL);
+			break;
+		}
+	}
+	mutex_unlock(&leds_lookup_lock);
+
+	if (!led_name)
+		return ERR_PTR(-ENOENT);
+
+	led_dev = class_find_device_by_name(leds_class, led_name);
+	kfree(led_name);
+
+	return __led_get(led_dev);
+}
+EXPORT_SYMBOL_GPL(led_get);
+
+/**
+ * devm_led_get() - request a LED device via the LED framework
+ * @dev: device for which to get the LED device
+ * @function: string describing the function of the LED device
+ *
+ * The LED device returned from this function is automatically released
+ * on driver detach.
+ *
+ * @return a pointer to a LED device or ERR_PTR(errno) on failure.
+ */
+struct led_classdev *devm_led_get(struct device *dev, char *function)
+{
+	struct led_classdev *led;
+
+	led = led_get(dev, function);
+	if (IS_ERR(led))
+		return led;
+
+	return __devm_led_get(dev, led);
+}
+EXPORT_SYMBOL_GPL(devm_led_get);
+
+/**
+ * led_add_lookup() - Add a LED lookup table entry
+ * @led_lookup: the lookup table entry to add
+ *
+ * Add a LED lookup table entry. On systems without devicetree the lookup table
+ * is used by led_get() to find LEDs.
+ */
+void led_add_lookup(struct led_lookup_data *led_lookup)
+{
+	mutex_lock(&leds_lookup_lock);
+	list_add_tail(&led_lookup->list, &leds_lookup_list);
+	mutex_unlock(&leds_lookup_lock);
+}
+EXPORT_SYMBOL_GPL(led_add_lookup);
+
+/**
+ * led_remove_lookup() - Remove a LED lookup table entry
+ * @led_lookup: the lookup table entry to remove
+ */
+void led_remove_lookup(struct led_lookup_data *led_lookup)
+{
+	mutex_lock(&leds_lookup_lock);
+	list_del(&led_lookup->list);
+	mutex_unlock(&leds_lookup_lock);
+}
+EXPORT_SYMBOL_GPL(led_remove_lookup);
 
 static int led_classdev_next_name(const char *init_name, char *name,
 				  size_t len)

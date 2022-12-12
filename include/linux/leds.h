@@ -39,6 +39,18 @@ enum led_default_state {
 	LEDS_DEFSTATE_KEEP	= 2,
 };
 
+/*
+ * This is used to tell led_get() device which led_classdev to return for
+ * a specific consumer device-name, function pair on non devicetree platforms.
+ * Note all strings must be set.
+ */
+struct led_lookup_data {
+	struct list_head list;
+	const char *led_name;
+	const char *consumer_dev_name;
+	const char *consumer_function;
+};
+
 struct led_init_data {
 	/* device fwnode handle */
 	struct fwnode_handle *fwnode;
@@ -210,6 +222,12 @@ void devm_led_classdev_unregister(struct device *parent,
 				  struct led_classdev *led_cdev);
 void led_classdev_suspend(struct led_classdev *led_cdev);
 void led_classdev_resume(struct led_classdev *led_cdev);
+
+void led_add_lookup(struct led_lookup_data *led_lookup);
+void led_remove_lookup(struct led_lookup_data *led_lookup);
+
+struct led_classdev *__must_check led_get(struct device *dev, char *function);
+struct led_classdev *__must_check devm_led_get(struct device *dev, char *function);
 
 extern struct led_classdev *of_led_get(struct device_node *np, int index);
 extern void led_put(struct led_classdev *led_cdev);
