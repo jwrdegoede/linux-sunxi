@@ -318,9 +318,43 @@ static int call_get_mbus_config(struct v4l2_subdev *sd, unsigned int pad,
 	       sd->ops->pad->get_mbus_config(sd, pad, config);
 }
 
+#if IS_REACHABLE(CONFIG_LEDS_CLASS)
+#include <linux/leds.h>
+
+static void call_s_stream_update_pled(struct v4l2_subdev *sd, int enable)
+{
+	if (!sd->dev)
+		return;
+
+	/* Try to get privacy-led once, at first s_stream() */
+	if (!sd->privacy_led)
+		sd->privacy_led = led_get(sd->dev, "privacy-led");
+
+	if (IS_ERR(sd->privacy_led))
+		return;
+
+	mutex_lock(&sd->privacy_led->led_access);
+
+	if (enable) {
+		led_sysfs_disable(sd->privacy_led);
+		led_trigger_remove(sd->privacy_led);
+		led_set_brightness(sd->privacy_led, sd->privacy_led->max_brightness);
+	} else {
+		led_set_brightness(sd->privacy_led, 0);
+		led_sysfs_enable(sd->privacy_led);
+	}
+
+	mutex_unlock(&sd->privacy_led->led_access);
+}
+#else
+static void call_s_stream_update_pled(struct v4l2_subdev *sd, int enable) {}
+#endif
+
 static int call_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	int ret;
+
+	call_s_stream_update_pled(sd, enable);
 
 	ret = sd->ops->video->s_stream(sd, enable);
 
@@ -1050,6 +1084,11 @@ EXPORT_SYMBOL_GPL(__v4l2_subdev_init_finalize);
 
 void v4l2_subdev_cleanup(struct v4l2_subdev *sd)
 {
+#if IS_REACHABLE(CONFIG_LEDS_CLASS)
+	if (!IS_ERR_OR_NULL(sd->privacy_led))
+		led_put(sd->privacy_led);
+#endif
+
 	__v4l2_subdev_state_free(sd->active_state);
 	sd->active_state = NULL;
 }
@@ -1090,6 +1129,7 @@ void v4l2_subdev_init(struct v4l2_subdev *sd, const struct v4l2_subdev_ops *ops)
 	sd->grp_id = 0;
 	sd->dev_priv = NULL;
 	sd->host_priv = NULL;
+	sd->privacy_led = NULL;
 #if defined(CONFIG_MEDIA_CONTROLLER)
 	sd->entity.name = sd->name;
 	sd->entity.obj_type = MEDIA_ENTITY_TYPE_V4L2_SUBDEV;
