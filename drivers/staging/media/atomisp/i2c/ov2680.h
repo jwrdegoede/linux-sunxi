@@ -116,11 +116,8 @@
 #define OV2680_FRAME_OFF_NUM						0x4202
 
 /*Flip/Mirror*/
-#define OV2680_FLIP_REG				0x3820
-#define OV2680_MIRROR_REG			0x3821
-#define OV2680_FLIP_BIT				1
-#define OV2680_MIRROR_BIT			2
-#define OV2680_FLIP_MIRROR_BIT_ENABLE		4
+#define OV2680_REG_FORMAT1			0x3820
+#define OV2680_REG_FORMAT2			0x3821
 
 #define OV2680_MWB_RED_GAIN_H			0x5004/*0x3400*/
 #define OV2680_MWB_GREEN_GAIN_H			0x5006/*0x3402*/
@@ -155,6 +152,16 @@ struct ov2680_format {
 	struct ov2680_reg *regs;
 };
 
+struct ov2680_ctrls {
+	struct v4l2_ctrl_handler handler;
+	struct {
+		struct v4l2_ctrl *auto_exp;
+		struct v4l2_ctrl *exposure;
+	};
+	struct v4l2_ctrl *hflip;
+	struct v4l2_ctrl *vflip;
+};
+
 /*
  * ov2680 device structure.
  */
@@ -162,13 +169,18 @@ struct ov2680_dev {
 	struct v4l2_subdev sd;
 	struct media_pad pad;
 	struct mutex input_lock;
-	struct v4l2_ctrl_handler ctrl_handler;
+	struct i2c_client *i2c_client;
 	struct ov2680_resolution *res;
 	struct camera_sensor_platform_data *platform_data;
 	bool is_enabled;
 	u16 exposure;
 	u16 gain;
 	u16 digitgain;
+
+	bool				is_streaming;
+
+	struct ov2680_ctrls		ctrls;
+	struct v4l2_mbus_framefmt	fmt;
 };
 
 /**
@@ -192,7 +204,7 @@ static struct ov2680_dev *to_ov2680_dev(struct v4l2_subdev *sd)
 static inline struct v4l2_subdev *ctrl_to_sd(struct v4l2_ctrl *ctrl)
 {
 	return &container_of(ctrl->handler, struct ov2680_dev,
-			     ctrl_handler)->sd;
+			     ctrls.handler)->sd;
 }
 
 #define OV2680_MAX_WRITE_BUF_SIZE	30
