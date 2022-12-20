@@ -1172,7 +1172,13 @@ static int platform_profile_omen_set(struct platform_profile_handler *pprof,
 
 static int thermal_profile_get(void)
 {
-	return hp_wmi_read_int(HPWMI_THERMAL_PROFILE_QUERY);
+	int ret = hp_wmi_read_int(HPWMI_THERMAL_PROFILE_QUERY);
+
+	if (ret < 0)
+		return ret;
+
+	/* Some models have unknown non 0 bits in the high bits, mask these out */
+	return ret & 0xff;
 }
 
 static int thermal_profile_set(int thermal_profile)
