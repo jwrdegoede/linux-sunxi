@@ -159,7 +159,7 @@ static int ov2680_set_exposure(struct v4l2_subdev *sd, int exposure,
 	dev->gain = gain;
 	dev->digitgain = digitgain;
 
-	if (dev->power_on)
+	if (dev->is_enabled)
 		ret = __ov2680_set_exposure(sd, exposure, gain, digitgain);
 
 	mutex_unlock(&dev->input_lock);
@@ -429,7 +429,7 @@ static int power_up(struct v4l2_subdev *sd)
 		return -ENODEV;
 	}
 
-	if (dev->power_on)
+	if (dev->is_enabled)
 		return 0; /* Already on */
 
 	/* power control */
@@ -464,7 +464,7 @@ static int power_up(struct v4l2_subdev *sd)
 	if (ret)
 		goto fail_init_registers;
 
-	dev->power_on = true;
+	dev->is_enabled = true;
 	return 0;
 
 fail_init_registers:
@@ -492,7 +492,7 @@ static int power_down(struct v4l2_subdev *sd)
 		return -ENODEV;
 	}
 
-	if (!dev->power_on)
+	if (!dev->is_enabled)
 		return 0; /* Already off */
 
 	ret = dev->platform_data->flisclk_ctrl(sd, 0);
@@ -514,7 +514,7 @@ static int power_down(struct v4l2_subdev *sd)
 		return ret;
 	}
 
-	dev->power_on = false;
+	dev->is_enabled = false;
 	return 0;
 }
 

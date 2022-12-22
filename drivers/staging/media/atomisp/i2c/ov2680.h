@@ -165,7 +165,7 @@ struct ov2680_dev {
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct ov2680_resolution *res;
 	struct camera_sensor_platform_data *platform_data;
-	bool power_on;
+	bool is_enabled;
 	u16 exposure;
 	u16 gain;
 	u16 digitgain;
