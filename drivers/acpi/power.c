@@ -196,7 +196,7 @@ static int __get_state(acpi_handle handle, u8 *state)
 
 	cur_state = sta & ACPI_POWER_RESOURCE_STATE_ON;
 
-	acpi_handle_debug(handle, "Power resource is %s\n",
+	acpi_handle_info(handle, "Power resource is %s\n",
 			  cur_state ? "on" : "off");
 
 	*state = cur_state;
@@ -373,7 +373,7 @@ static int __acpi_power_on(struct acpi_power_resource *resource)
 
 	resource->state = ACPI_POWER_RESOURCE_STATE_ON;
 
-	acpi_handle_debug(handle, "Power resource turned on\n");
+	acpi_handle_info(handle, "Power resource turned on\n");
 
 	/*
 	 * If there are other dependents on this power resource we need to
@@ -398,7 +398,7 @@ static int acpi_power_on_unlocked(struct acpi_power_resource *resource)
 	int result = 0;
 
 	if (resource->ref_count++) {
-		acpi_handle_debug(resource->device.handle,
+		acpi_handle_info(resource->device.handle,
 				  "Power resource already on\n");
 	} else {
 		result = __acpi_power_on(resource);
@@ -431,7 +431,7 @@ static int __acpi_power_off(struct acpi_power_resource *resource)
 
 	resource->state = ACPI_POWER_RESOURCE_STATE_OFF;
 
-	acpi_handle_debug(handle, "Power resource turned off\n");
+	acpi_handle_info(handle, "Power resource turned off\n");
 
 	return 0;
 }
@@ -441,13 +441,13 @@ static int acpi_power_off_unlocked(struct acpi_power_resource *resource)
 	int result = 0;
 
 	if (!resource->ref_count) {
-		acpi_handle_debug(resource->device.handle,
+		acpi_handle_info(resource->device.handle,
 				  "Power resource already off\n");
 		return 0;
 	}
 
 	if (--resource->ref_count) {
-		acpi_handle_debug(resource->device.handle,
+		acpi_handle_info(resource->device.handle,
 				  "Power resource still in use\n");
 	} else {
 		result = __acpi_power_off(resource);
@@ -1012,7 +1012,7 @@ void acpi_resume_power_resources(void)
 
 		if (state == ACPI_POWER_RESOURCE_STATE_OFF
 		    && resource->ref_count) {
-			acpi_handle_debug(resource->device.handle, "Turning ON\n");
+			acpi_handle_info(resource->device.handle, "Turning ON\n");
 			__acpi_power_on(resource);
 		}
 
@@ -1055,7 +1055,7 @@ void acpi_turn_off_unused_power_resources(void)
 
 		if (!resource->ref_count &&
 		    resource->state == ACPI_POWER_RESOURCE_STATE_ON) {
-			acpi_handle_debug(resource->device.handle, "Turning OFF\n");
+			acpi_handle_info(resource->device.handle, "Turning OFF\n");
 			__acpi_power_off(resource);
 		}
 
