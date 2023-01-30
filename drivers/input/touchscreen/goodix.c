@@ -48,7 +48,7 @@
 #define MAX_CONTACTS_LOC		5
 #define TRIGGER_LOC			6
 
-#define GOODIX_POLL_INTERVAL_MS		17	/* 17ms = 60fps */
+#define POLL_INTERVAL_MS		17	/* 17ms = 60fps */
 
 /* Our special handling for GPIO accesses through ACPI is x86 specific */
 #if defined CONFIG_X86 && defined CONFIG_ACPI
@@ -499,14 +499,6 @@ sync:
 	input_sync(ts->input_dev);
 }
 
-static void goodix_ts_work_i2c_poll(struct input_dev *input)
-{
-	struct goodix_ts_data *ts = input_get_drvdata(input);
-
-	goodix_process_events(ts);
-	goodix_i2c_write_u8(ts->client, GOODIX_READ_COOR_ADDR, 0);
-}
-
 /**
  * goodix_ts_irq_handler - The IRQ handler
  *
@@ -523,32 +515,67 @@ static irqreturn_t goodix_ts_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void goodix_ts_irq_poll_timer(struct timer_list *t)
+{
+	struct goodix_ts_data *ts = timer_container_of(ts, t, timer);
+
+	schedule_work(&ts->work_i2c_poll);
+	mod_timer(&ts->timer, jiffies + msecs_to_jiffies(POLL_INTERVAL_MS));
+}
+
+static void goodix_ts_work_i2c_poll(struct work_struct *work)
+{
+	struct goodix_ts_data *ts = container_of(work,
+			struct goodix_ts_data, work_i2c_poll);
+
+	goodix_process_events(ts);
+	goodix_i2c_write_u8(ts->client, GOODIX_READ_COOR_ADDR, 0);
+}
+
 static void goodix_enable_irq(struct goodix_ts_data *ts)
 {
-	if (ts->client->irq)
+	if (ts->client->irq) {
 		enable_irq(ts->client->irq);
+	} else {
+		ts->timer.expires = jiffies + msecs_to_jiffies(POLL_INTERVAL_MS);
+		add_timer(&ts->timer);
+	}
 }
 
 static void goodix_disable_irq(struct goodix_ts_data *ts)
 {
-	if (ts->client->irq)
+	if (ts->client->irq) {
 		disable_irq(ts->client->irq);
+	} else {
+		timer_delete(&ts->timer);
+		cancel_work_sync(&ts->work_i2c_poll);
+	}
 }
 
 static void goodix_free_irq(struct goodix_ts_data *ts)
 {
-	if (ts->client->irq)
+	if (ts->client->irq) {
 		devm_free_irq(&ts->client->dev, ts->client->irq, ts);
+	} else {
+		timer_delete(&ts->timer);
+		cancel_work_sync(&ts->work_i2c_poll);
+	}
 }
 
 static int goodix_request_irq(struct goodix_ts_data *ts)
 {
-	if (!ts->client->irq)
+	if (ts->client->irq) {
+		return devm_request_threaded_irq(&ts->client->dev, ts->client->irq,
+						 NULL, goodix_ts_irq_handler,
+						 ts->irq_flags, ts->client->name, ts);
+	} else {
+		INIT_WORK(&ts->work_i2c_poll,
+			  goodix_ts_work_i2c_poll);
+		timer_setup(&ts->timer, goodix_ts_irq_poll_timer, 0);
+		if (ts->irq_pin_access_method == IRQ_PIN_ACCESS_NONE)
+			goodix_enable_irq(ts);
 		return 0;
-
-	return devm_request_threaded_irq(&ts->client->dev, ts->client->irq,
-					 NULL, goodix_ts_irq_handler,
-					 ts->irq_flags, ts->client->name, ts);
+	}
 }
 
 static int goodix_check_cfg_8(struct goodix_ts_data *ts, const u8 *cfg, int len)
@@ -796,6 +823,17 @@ int goodix_reset_no_int_sync(struct goodix_ts_data *ts)
 
 	usleep_range(6000, 10000);		/* T4: > 5ms */
 
+	/*
+	 * Put the reset pin back in to input / high-impedance mode to save
+	 * power. Only do this in the non ACPI case since some ACPI boards
+	 * don't have a pull-up, so there the reset pin must stay active-high.
+	 */
+	if (ts->irq_pin_access_method == IRQ_PIN_ACCESS_GPIO) {
+		error = gpiod_direction_input(ts->gpiod_rst);
+		if (error)
+			goto error;
+	}
+
 	return 0;
 
 error:
@@ -946,6 +984,14 @@ static int goodix_add_acpi_gpio_mappings(struct goodix_ts_data *ts)
 		return -EINVAL;
 	}
 
+	/*
+	 * Normally we put the reset pin in input / high-impedance mode to save
+	 * power. But some x86/ACPI boards don't have a pull-up, so for the ACPI
+	 * case, leave the pin as is. This results in the pin not being touched
+	 * at all on x86/ACPI boards, except when needed for error-recover.
+	 */
+	ts->gpiod_rst_flags = GPIOD_ASIS;
+
 	return devm_acpi_dev_add_driver_gpios(dev, gpio_mapping);
 }
 #else
@@ -969,6 +1015,12 @@ static int goodix_get_gpio_config(struct goodix_ts_data *ts)
 	if (!ts->client)
 		return -EINVAL;
 	dev = &ts->client->dev;
+
+	/*
+	 * By default we request the reset pin as input, leaving it in
+	 * high-impedance when not resetting the controller to save power.
+	 */
+	ts->gpiod_rst_flags = GPIOD_IN;
 
 	ts->avdd28 = devm_regulator_get(dev, "AVDD28");
 	if (IS_ERR(ts->avdd28))
@@ -994,7 +1046,7 @@ retry_get_irq_gpio:
 	ts->gpiod_int = gpiod;
 
 	/* Get the reset line GPIO pin number */
-	gpiod = devm_gpiod_get_optional(dev, GOODIX_GPIO_RST_NAME, GPIOD_ASIS);
+	gpiod = devm_gpiod_get_optional(dev, GOODIX_GPIO_RST_NAME, ts->gpiod_rst_flags);
 	if (IS_ERR(gpiod))
 		return dev_err_probe(dev, PTR_ERR(gpiod), "Failed to get %s GPIO\n",
 				     GOODIX_GPIO_RST_NAME);
@@ -1220,18 +1272,6 @@ retry_read_config:
 		return error;
 	}
 
-	input_set_drvdata(ts->input_dev, ts);
-
-	if (!ts->client->irq) {
-		error = input_setup_polling(ts->input_dev, goodix_ts_work_i2c_poll);
-		if (error) {
-			dev_err(&ts->client->dev,
-				 "could not set up polling mode, %d\n", error);
-			return error;
-		}
-		input_set_poll_interval(ts->input_dev, GOODIX_POLL_INTERVAL_MS);
-	}
-
 	error = input_register_device(ts->input_dev);
 	if (error) {
 		dev_err(&ts->client->dev,
@@ -1419,6 +1459,11 @@ reset:
 static void goodix_ts_remove(struct i2c_client *client)
 {
 	struct goodix_ts_data *ts = i2c_get_clientdata(client);
+
+	if (!client->irq) {
+		timer_delete(&ts->timer);
+		cancel_work_sync(&ts->work_i2c_poll);
+	}
 
 	if (ts->load_cfg_from_disk)
 		wait_for_completion(&ts->firmware_loading_complete);
