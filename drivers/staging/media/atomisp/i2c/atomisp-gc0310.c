@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/i2c.h>
 #include <linux/moduleparam.h>
+#include <linux/pm_runtime.h>
 #include <media/v4l2-device.h>
 #include <linux/io.h>
 #include "../include/linux/atomisp_gmin_platform.h"
@@ -100,7 +101,8 @@ static int gc0310_s_ctrl(struct v4l2_ctrl *ctrl)
 		container_of(ctrl->handler, struct gc0310_device, ctrls.handler);
 	int ret;
 
-	if (!dev->power_on)
+	/* Only apply changes to the controls if the device is powered up */
+	if (!pm_runtime_get_if_in_use(dev->sd.dev))
 		return 0;
 
 	switch (ctrl->id) {
@@ -115,6 +117,7 @@ static int gc0310_s_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	}
 
+	pm_runtime_put(dev->sd.dev);
 	return ret;
 }
 
@@ -188,9 +191,6 @@ static int power_up(struct v4l2_subdev *sd)
 		return -ENODEV;
 	}
 
-	if (dev->power_on)
-		return 0; /* Already on */
-
 	/* power control */
 	ret = power_ctrl(sd, 1);
 	if (ret)
@@ -211,7 +211,6 @@ static int power_up(struct v4l2_subdev *sd)
 
 	msleep(100);
 
-	dev->power_on = true;
 	return 0;
 
 fail_gpio:
@@ -236,9 +235,6 @@ static int power_down(struct v4l2_subdev *sd)
 		return -ENODEV;
 	}
 
-	if (!dev->power_on)
-		return 0; /* Already off */
-
 	/* gpio ctrl */
 	ret = gpio_ctrl(sd, 0);
 	if (ret) {
@@ -256,7 +252,6 @@ static int power_down(struct v4l2_subdev *sd)
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
-	dev->power_on = false;
 	return ret;
 }
 
@@ -338,15 +333,20 @@ static int gc0310_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct gc0310_device *dev = to_gc0310_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret;
+	int ret = 0;
 
 	dev_dbg(&client->dev, "%s S enable=%d\n", __func__, enable);
 	mutex_lock(&dev->input_lock);
 
+	if (dev->is_streaming == enable) {
+		dev_warn(&client->dev, "stream already %s\n", enable ? "started" : "stopped");
+		goto error_unlock;
+	}
+
 	if (enable) {
-		ret = power_up(sd);
-		if (ret)
-			goto error_unlock;
+		ret = pm_runtime_get_sync(&client->dev);
+		if (ret < 0)
+			goto error_power_down;
 
 		ret = gc0310_write_reg_array(client, gc0310_reset_register,
 					     ARRAY_SIZE(gc0310_reset_register));
@@ -383,13 +383,15 @@ static int gc0310_s_stream(struct v4l2_subdev *sd, int enable)
 		goto error_power_down;
 
 	if (!enable)
-		power_down(sd);
+		pm_runtime_put(&client->dev);
 
+	dev->is_streaming = enable;
 	mutex_unlock(&dev->input_lock);
 	return 0;
 
 error_power_down:
-	power_down(sd);
+	pm_runtime_put(&client->dev);
+	dev->is_streaming = false;
 error_unlock:
 	mutex_unlock(&dev->input_lock);
 	return ret;
@@ -409,19 +411,9 @@ static int gc0310_s_config(struct v4l2_subdev *sd,
 	    (struct camera_sensor_platform_data *)platform_data;
 
 	mutex_lock(&dev->input_lock);
-	/* power off the module, then power on it in future
-	 * as first power on by board may not fulfill the
-	 * power on sequqence needed by the module
-	 */
-	dev->power_on = true; /* force power_down() to run */
-	ret = power_down(sd);
-	if (ret) {
-		dev_err(&client->dev, "gc0310 power-off err.\n");
-		goto fail_power_off;
-	}
 
-	ret = power_up(sd);
-	if (ret) {
+	ret = pm_runtime_get_sync(&client->dev);
+	if (ret < 0) {
 		dev_err(&client->dev, "gc0310 power-up err.\n");
 		goto fail_power_on;
 	}
@@ -438,11 +430,7 @@ static int gc0310_s_config(struct v4l2_subdev *sd,
 	}
 
 	/* turn off sensor, after probed */
-	ret = power_down(sd);
-	if (ret) {
-		dev_err(&client->dev, "gc0310 power-off err.\n");
-		goto fail_csi_cfg;
-	}
+	pm_runtime_put(&client->dev);
 	mutex_unlock(&dev->input_lock);
 
 	return 0;
@@ -450,9 +438,7 @@ static int gc0310_s_config(struct v4l2_subdev *sd,
 fail_csi_cfg:
 	dev->platform_data->csi_cfg(sd, 0);
 fail_power_on:
-	power_down(sd);
-	dev_err(&client->dev, "sensor power-gating failed\n");
-fail_power_off:
+	pm_runtime_put(&client->dev);
 	mutex_unlock(&dev->input_lock);
 	return ret;
 }
@@ -554,6 +540,7 @@ static void gc0310_remove(struct i2c_client *client)
 	v4l2_device_unregister_subdev(sd);
 	media_entity_cleanup(&dev->sd.entity);
 	v4l2_ctrl_handler_free(&dev->ctrls.handler);
+	pm_runtime_disable(&client->dev);
 	kfree(dev);
 }
 
@@ -579,13 +566,22 @@ static int gc0310_probe(struct i2c_client *client)
 		goto out_free;
 	}
 
+	pm_runtime_set_suspended(&client->dev);
+	pm_runtime_enable(&client->dev);
+	pm_runtime_set_autosuspend_delay(&client->dev, 1000);
+	pm_runtime_use_autosuspend(&client->dev);
+
 	ret = gc0310_s_config(&dev->sd, client->irq, pdata);
-	if (ret)
-		goto out_free;
+	if (ret) {
+		gc0310_remove(client);
+		return ret;
+	}
 
 	ret = atomisp_register_i2c_module(&dev->sd, pdata, RAW_CAMERA);
-	if (ret)
-		goto out_free;
+	if (ret) {
+		gc0310_remove(client);
+		return ret;
+	}
 
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
@@ -608,6 +604,22 @@ out_free:
 	return ret;
 }
 
+static int gc0310_suspend(struct device *dev)
+{
+	struct v4l2_subdev *sd = dev_get_drvdata(dev);
+
+	return power_down(sd);
+}
+
+static int gc0310_resume(struct device *dev)
+{
+	struct v4l2_subdev *sd = dev_get_drvdata(dev);
+
+	return power_up(sd);
+}
+
+static DEFINE_RUNTIME_DEV_PM_OPS(gc0310_pm_ops, gc0310_suspend, gc0310_resume, NULL);
+
 static const struct acpi_device_id gc0310_acpi_match[] = {
 	{"XXGC0310"},
 	{"INT0310"},
@@ -618,6 +630,7 @@ MODULE_DEVICE_TABLE(acpi, gc0310_acpi_match);
 static struct i2c_driver gc0310_driver = {
 	.driver = {
 		.name = "gc0310",
+		.pm = pm_sleep_ptr(&gc0310_pm_ops),
 		.acpi_match_table = gc0310_acpi_match,
 	},
 	.probe_new = gc0310_probe,
