@@ -140,11 +140,17 @@ skl_int3472_fill_clk_pdata(struct device *dev, struct tps68470_clk_platform_data
 	return n_consumers;
 }
 
+static void skl_int3472_tps68470_unregister_led_lookup(void *led_lookup)
+{
+	led_remove_lookup(led_lookup);
+}
+
 static int skl_int3472_tps68470_probe(struct i2c_client *client)
 {
 	struct acpi_device *adev = ACPI_COMPANION(&client->dev);
 	const struct int3472_tps68470_board_data *board_data;
 	struct tps68470_clk_platform_data *clk_pdata;
+	struct led_lookup_data *led_lookup;
 	struct mfd_cell *cells;
 	struct regmap *regmap;
 	int n_consumers;
@@ -176,6 +182,26 @@ static int skl_int3472_tps68470_probe(struct i2c_client *client)
 		board_data = int3472_tps68470_get_board_data(dev_name(&client->dev));
 		if (!board_data)
 			return dev_err_probe(&client->dev, -ENODEV, "No board-data found for this model\n");
+
+		/* Add a LED lookup table entry for the privacy LED */
+		led_lookup = devm_kzalloc(&client->dev, sizeof(*led_lookup), GFP_KERNEL);
+		if (!led_lookup)
+			return -ENOMEM;
+
+		ret = skl_int3472_get_sensor_adev_and_name(&client->dev, NULL,
+							   &led_lookup->dev_id);
+		if (ret)
+			return ret;
+
+		led_lookup->provider = "tps68470-ileda";
+		led_lookup->con_id = "privacy-led";
+		led_add_lookup(led_lookup);
+
+		ret = devm_add_action_or_reset(&client->dev,
+					       skl_int3472_tps68470_unregister_led_lookup,
+					       led_lookup);
+		if (ret)
+			return ret;
 
 		cells = kcalloc(TPS68470_WIN_MFD_CELL_COUNT, sizeof(*cells), GFP_KERNEL);
 		if (!cells)
@@ -259,4 +285,4 @@ module_i2c_driver(int3472_tps68470);
 MODULE_DESCRIPTION("Intel SkyLake INT3472 ACPI TPS68470 Device Driver");
 MODULE_AUTHOR("Daniel Scally <djrscally@gmail.com>");
 MODULE_LICENSE("GPL v2");
-MODULE_SOFTDEP("pre: clk-tps68470 tps68470-regulator");
+MODULE_SOFTDEP("pre: clk-tps68470 tps68470-regulator leds-tps68470");
