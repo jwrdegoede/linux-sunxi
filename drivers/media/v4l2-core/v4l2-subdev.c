@@ -1221,6 +1221,17 @@ int v4l2_subdev_link_validate(struct media_link *link)
 	struct v4l2_subdev_state *source_state, *sink_state;
 	int ret;
 
+	if (!is_media_entity_v4l2_subdev(link->sink->entity)) {
+		pr_debug("entity \"%s\" not a V4L2 sub-device, driver bug!\n",
+			 link->sink->entity->name);
+		return 0;
+	}
+	if (!is_media_entity_v4l2_subdev(link->source->entity)) {
+		pr_debug("entity \"%s\" not a V4L2 sub-device, driver bug!\n",
+			 link->source->entity->name);
+		return 0;
+	}
+
 	sink_sd = media_entity_to_v4l2_subdev(link->sink->entity);
 	source_sd = media_entity_to_v4l2_subdev(link->source->entity);
 
