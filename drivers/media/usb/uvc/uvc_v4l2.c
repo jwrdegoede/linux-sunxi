@@ -713,6 +713,10 @@ static int uvc_ioctl_enum_fmt(struct uvc_streaming *stream,
 	if (format->flags & UVC_FMT_FLAG_COMPRESSED)
 		fmt->flags |= V4L2_FMT_FLAG_COMPRESSED;
 	fmt->pixelformat = format->fcc;
+	if (format->name[0])
+		strscpy(fmt->description, format->name,
+			sizeof(fmt->description));
+
 	return 0;
 }
 
