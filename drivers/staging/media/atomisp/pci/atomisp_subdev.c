@@ -758,7 +758,6 @@ static const char *const ctrl_run_mode_menu[] = {
 	NULL,
 	"Video",
 	"Still capture",
-	"Continuous capture",
 	"Preview",
 };
 
@@ -769,7 +768,7 @@ static const struct v4l2_ctrl_config ctrl_run_mode = {
 	.type = V4L2_CTRL_TYPE_MENU,
 	.min = 1,
 	.def = 1,
-	.max = 4,
+	.max = 3,
 	.qmenu = ctrl_run_mode_menu,
 };
 
@@ -971,7 +970,7 @@ static int isp_subdev_init_entities(struct atomisp_sub_device *asd)
 		return ret;
 
 	ret = atomisp_video_init(&asd->video_out_vf, "VIEWFINDER",
-				 ATOMISP_RUN_MODE_CONTINUOUS_CAPTURE);
+				 ATOMISP_RUN_MODE_STILL_CAPTURE);
 	if (ret < 0)
 		return ret;
 
