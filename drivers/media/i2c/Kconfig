@@ -50,6 +50,16 @@ config VIDEO_AR0521
 	  To compile this driver as a module, choose M here: the
 	  module will be called ar0521.
 
+config VIDEO_GC0310
+	tristate "GalaxyCore GC0310 sensor support"
+	depends on I2C && VIDEO_DEV
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor-level driver for the GalaxyCore
+	  GC0310 0.3MP sensor.
+
 config VIDEO_HI556
 	tristate "Hynix Hi-556 sensor support"
 	help

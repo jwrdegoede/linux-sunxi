@@ -49,14 +49,6 @@ config VIDEO_ATOMISP_MT9M114
 
 	  It currently only works with the atomisp driver.
 
-config VIDEO_ATOMISP_GC0310
-	tristate "GC0310 sensor support"
-	depends on ACPI
-	depends on I2C && VIDEO_DEV
-	help
-	  This is a Video4Linux2 sensor-level driver for the Galaxycore
-	  GC0310 0.3MP sensor.
-
 #
 # Kconfig for flash drivers
 #
