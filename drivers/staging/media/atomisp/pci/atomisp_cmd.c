@@ -4334,14 +4334,15 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 	if (ret)
 		return ret;
 
-	dev_dbg(isp->dev,
-		"setting resolution %ux%u bytesperline %u\n",
-		f->fmt.pix.width, f->fmt.pix.height, f->fmt.pix.bytesperline);
 
 	/* Ensure that the resolution is equal or below the maximum supported */
 	ret = atomisp_try_fmt(isp, &f->fmt.pix, &format_bridge, &snr_format_bridge);
 	if (ret)
 		return ret;
+
+	dev_info(isp->dev,
+		"setting resolution %ux%u bytesperline %u\n",
+		f->fmt.pix.width, f->fmt.pix.height, f->fmt.pix.bytesperline);
 
 	pipe->sh_fmt = format_bridge->sh_fmt;
 	pipe->pix.pixelformat = format_bridge->pixelformat;
@@ -4432,7 +4433,7 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 	f->fmt.pix.priv = PAGE_ALIGN(pipe->pix.width *
 				     pipe->pix.height * 2);
 
-	dev_dbg(isp->dev, "%s: %dx%d, image size: %d, %d bytes per line\n",
+	dev_info(isp->dev, "%s: %dx%d, image size: %d, %d bytes per line\n",
 		__func__,
 		f->fmt.pix.width, f->fmt.pix.height,
 		f->fmt.pix.sizeimage, f->fmt.pix.bytesperline);

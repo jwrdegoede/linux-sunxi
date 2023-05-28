@@ -143,11 +143,22 @@ int ia_css_ifmtr_configure(struct ia_css_stream_config *config,
 	 * columns.
 	 */
 	err = ifmtr_input_start_line(config, cropped_height, &start_line);
-	if (err)
+	if (err) {
+		pr_err("ifmtr_input_start_line() fail\n");
+		pr_err("ia_css_ifmtr_configure cropped %dx%d input-res %dx%d\n",
+			cropped_width, cropped_height,
+			config->input_config.input_res.width, config->input_config.input_res.height);
+
+		if (ifmtr_start_column(config, cropped_width, &start_column))
+			pr_err("ifmtr_start_column() fail\n");
+			
 		return err;
+	}
 	err = ifmtr_start_column(config, cropped_width, &start_column);
-	if (err)
+	if (err) {
+		pr_err("ifmtr_start_column() fail\n");
 		return err;
+	}
 
 	if (config->left_padding == -1)
 		if (!binary)
@@ -358,8 +369,10 @@ int ia_css_ifmtr_configure(struct ia_css_stream_config *config,
 	case ATOMISP_INPUT_FORMAT_USER_DEF8:
 		break;
 	}
-	if (width_a == 0)
+	if (width_a == 0) {
+		pr_err("width_a == 0\n");
 		return -EINVAL;
+	}
 
 	if (two_ppc)
 		left_padding /= 2;
@@ -531,8 +544,11 @@ static int ifmtr_input_start_line(
 	unsigned int in = config->input_config.input_res.height, start,
 		     for_bayer = ia_css_ifmtr_lines_needed_for_bayer_order(config);
 
-	if (bin_in + 2 * for_bayer > in)
+
+	if (bin_in + 2 * for_bayer > in) {
+		pr_err("%d + 2 * %d > %d\n", bin_in, for_bayer, in);
 		return -EINVAL;
+	}
 
 	/* On the hardware, we want to use the middle of the input, so we
 	 * divide the start line by 2. On the simulator, we cannot handle extra

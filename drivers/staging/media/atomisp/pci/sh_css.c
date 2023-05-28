@@ -494,8 +494,11 @@ sh_css_config_input_network(struct ia_css_stream *stream)
 	    stream->config.input_config.format,
 	    stream->csi_rx_config.comp,
 	    &fmt_type);
-	if (err)
+	if (err) {
+		pr_err("ia_css_isys_convert_stream_format_to_mipi_format() fail\n");
 		return err;
+	}
+
 	sh_css_sp_program_input_circuit(fmt_type,
 					stream->config.channel_id,
 					stream->config.mode);
@@ -504,8 +507,10 @@ sh_css_config_input_network(struct ia_css_stream *stream)
 	    pipe->config.mode == IA_CSS_PIPE_MODE_COPY) {
 		err = ia_css_ifmtr_configure(&stream->config,
 					     binary);
-		if (err)
+		if (err) {
+			pr_err("ia_css_ifmtr_configure() fail\n");
 			return err;
+		}
 	}
 
 	if (stream->config.mode == IA_CSS_INPUT_MODE_TPG ||
@@ -8592,6 +8597,7 @@ ia_css_stream_start(struct ia_css_stream *stream)
 	IA_CSS_ENTER("stream = %p", stream);
 	if ((!stream) || (!stream->last_pipe)) {
 		IA_CSS_LEAVE_ERR(-EINVAL);
+		pr_err("pre-conditions fail\n");
 		return -EINVAL;
 	}
 	IA_CSS_LOG("starting %d", stream->last_pipe->mode);
@@ -8601,6 +8607,7 @@ ia_css_stream_start(struct ia_css_stream *stream)
 	/* Create host side pipeline. */
 	err = create_host_pipeline(stream);
 	if (err) {
+		pr_err("create_host_pipeline fail\n");
 		IA_CSS_LEAVE_ERR(err);
 		return err;
 	}
@@ -8626,11 +8633,18 @@ ia_css_stream_start(struct ia_css_stream *stream)
 
 	if (stream->config.mode != IA_CSS_INPUT_MODE_MEMORY) {
 		err = sh_css_config_input_network(stream);
-		if (err)
+		if (err) {
+			pr_err("sh_css_config_input_network fail\n");
 			return err;
+		}
 	}
 
 	err = sh_css_pipe_start(stream);
+	if (err) {
+		pr_err("sh_css_pipe_start fail\n");
+		return err;
+	}
+
 	IA_CSS_LEAVE_ERR(err);
 	return err;
 }
