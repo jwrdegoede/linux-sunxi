@@ -103,6 +103,7 @@ struct ov2680_ctrls {
 
 struct ov2680_dev {
 	struct device			*dev;
+	struct fwnode_handle		*ep_fwnode;
 	struct regmap			*regmap;
 	struct v4l2_subdev		sd;
 
@@ -638,6 +639,7 @@ static int ov2680_v4l2_register(struct ov2680_dev *sensor)
 	sensor->sd.flags = V4L2_SUBDEV_FL_HAS_DEVNODE;
 	sensor->pad.flags = MEDIA_PAD_FL_SOURCE;
 	sensor->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
+	sensor->sd.fwnode = sensor->ep_fwnode;
 
 	ret = media_entity_pads_init(&sensor->sd.entity, 1, &sensor->pad);
 	if (ret < 0)
@@ -799,21 +801,31 @@ static int ov2680_probe(struct i2c_client *client)
 	if (IS_ERR(sensor->regmap))
 		return PTR_ERR(sensor->regmap);
 
+	/*
+	 * Sometimes the fwnode graph is initialized by the bridge driver.
+	 * Bridge drivers doing this may also add GPIO mappings, wait for this.
+	 */
+	sensor->ep_fwnode = fwnode_graph_get_next_endpoint(dev_fwnode(dev),
+							   NULL);
+	if (!sensor->ep_fwnode)
+		return dev_err_probe(dev, -EPROBE_DEFER,
+				     "waiting for fwnode graph endpoint\n");
+
+	mutex_init(&sensor->lock);
+
 	ret = ov2680_parse_dt(sensor);
 	if (ret < 0)
-		return -EINVAL;
+		goto err_fwnode_put;
 
 	ret = ov2680_mode_init(sensor);
 	if (ret < 0)
-		return ret;
+		goto err_fwnode_put;
 
 	ret = ov2680_get_regulators(sensor);
 	if (ret < 0) {
 		dev_err(dev, "failed to get regulators\n");
-		return ret;
+		goto err_fwnode_put;
 	}
-
-	mutex_init(&sensor->lock);
 
 	/*
 	 * Power up and verify the chip now, so that if runtime pm is
@@ -821,7 +833,7 @@ static int ov2680_probe(struct i2c_client *client)
 	 */
 	ret = ov2680_power_on(sensor);
 	if (ret < 0)
-		goto lock_destroy;
+		goto err_fwnode_put;
 
 	ret = ov2680_check_id(sensor);
 	if (ret < 0)
@@ -848,9 +860,10 @@ err_pm_runtime:
 	pm_runtime_put_noidle(&client->dev);
 err_powerdown:
 	ov2680_power_off(sensor);
-lock_destroy:
+err_fwnode_put:
 	dev_err(dev, "ov2680 init fail: %d\n", ret);
 	mutex_destroy(&sensor->lock);
+	fwnode_handle_put(sensor->ep_fwnode);
 
 	return ret;
 }
@@ -864,6 +877,7 @@ static void ov2680_remove(struct i2c_client *client)
 	mutex_destroy(&sensor->lock);
 	media_entity_cleanup(&sensor->sd.entity);
 	v4l2_ctrl_handler_free(&sensor->ctrls.handler);
+	fwnode_handle_put(sensor->ep_fwnode);
 
 	/*
 	 * Disable runtime PM. In case runtime PM is disabled in the kernel,
