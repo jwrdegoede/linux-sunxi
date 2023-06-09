@@ -329,6 +329,7 @@ static int skl_int3472_discrete_probe(struct platform_device *pdev)
 }
 
 static const struct acpi_device_id int3472_device_id[] = {
+	{ "INT346F", 0 },
 	{ "INT3472", 0 },
 	{ }
 };
