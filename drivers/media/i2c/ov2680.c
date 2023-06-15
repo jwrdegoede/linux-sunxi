@@ -75,6 +75,12 @@
 #define OV2680_MIN_CROP_WIDTH			2
 #define OV2680_MIN_CROP_HEIGHT			2
 
+/* Fixed pre-div of 1/2 */
+#define OV2680_PLL_PREDIV0			2
+
+/* Pre-div configurable through reg 0x3080, left at its default of 0x02 : 1/2 */
+#define OV2680_PLL_PREDIV			2
+
 /* 66MHz pixel clock: 66MHz / 1704 * 1294 = 30fps */
 #define OV2680_PIXELS_PER_LINE			1704
 #define OV2680_LINES_PER_FRAME			1294
@@ -118,6 +124,8 @@ struct ov2680_ctrls {
 	struct v4l2_ctrl *hflip;
 	struct v4l2_ctrl *vflip;
 	struct v4l2_ctrl *test_pattern;
+	struct v4l2_ctrl *link_freq;
+	struct v4l2_ctrl *pixel_rate;
 };
 
 struct ov2680_mode {
@@ -145,6 +153,8 @@ struct ov2680_dev {
 	struct clk			*xvclk;
 	u32				xvclk_freq;
 	u8				pll_mult;
+	s64				link_freq[1];
+	s64				pixel_rate;
 	struct regulator_bulk_data	supplies[OV2680_NUM_SUPPLIES];
 
 	struct gpio_desc		*pwdn_gpio;
@@ -906,6 +916,12 @@ static int ov2680_v4l2_register(struct ov2680_dev *sensor)
 	ctrls->gain = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_GAIN,
 					0, 1023, 1, 250);
 
+	ctrls->link_freq = v4l2_ctrl_new_int_menu(hdl, NULL, V4L2_CID_LINK_FREQ,
+						  0, 0, sensor->link_freq);
+	ctrls->pixel_rate = v4l2_ctrl_new_std(hdl, NULL, V4L2_CID_PIXEL_RATE,
+					      0, sensor->pixel_rate,
+					      1, sensor->pixel_rate);
+
 	if (hdl->error) {
 		ret = hdl->error;
 		goto cleanup_entity;
@@ -913,6 +929,7 @@ static int ov2680_v4l2_register(struct ov2680_dev *sensor)
 
 	ctrls->vflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
 	ctrls->hflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
+	ctrls->link_freq->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
 	sensor->sd.ctrl_handler = hdl;
 
@@ -1029,6 +1046,12 @@ static int ov2680_parse_dt(struct ov2680_dev *sensor)
 				     sensor->xvclk_freq);
 
 	sensor->pll_mult = ov2680_pll_multipliers[i];
+
+	sensor->link_freq[0] = sensor->xvclk_freq / OV2680_PLL_PREDIV0 /
+			       OV2680_PLL_PREDIV * sensor->pll_mult;
+
+	/* CSI-2 is double data rate, bus-format is 10 bpp */
+	sensor->pixel_rate = sensor->link_freq[0] * 2 / 10;
 
 	return 0;
 }
