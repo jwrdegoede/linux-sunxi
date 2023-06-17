@@ -306,23 +306,9 @@ static void tusb1210_chg_det_work(struct work_struct *work)
 	case TUSB1210_CHG_DET_FINISH_DET:
 		mutex_lock(&tusb->phy->mutex);
 
-		/* Set SW_CONTROL to stop the charger-det FSM */
-		ret = tusb1210_ulpi_write(tusb, TUSB1211_POWER_CONTROL_SET,
-					  TUSB1211_POWER_CONTROL_SW_CONTROL);
-
-		/* Clear DP_VSRC_EN which may have been enabled by the charger-det FSM */
-		ret |= tusb1210_ulpi_write(tusb, TUSB1211_POWER_CONTROL_CLEAR,
-					   TUSB1211_POWER_CONTROL_DP_VSRC_EN);
-
-		/* Clear CHGD_IDP_SRC_EN (may have been enabled by the charger-det FSM) */
-		ret |= tusb1210_ulpi_write(tusb, TUSB1211_VENDOR_SPECIFIC3_CLEAR,
-					   TUSB1211_VENDOR_SPECIFIC3_CHGD_IDP_SRC_EN);
-
-		/* If any of the above fails reset the phy */
-		if (ret) {
-			tusb1210_reset(tusb);
-			msleep(TUSB1210_RESET_TIME_MS);
-		}
+		/* Reset the phy to its default parameters */
+		tusb1210_reset(tusb);
+		msleep(TUSB1210_RESET_TIME_MS);
 
 		/* Restore phy-parameters and OTG_CTRL register */
 		tusb1210_ulpi_write(tusb, ULPI_OTG_CTRL, tusb->otg_ctrl);
