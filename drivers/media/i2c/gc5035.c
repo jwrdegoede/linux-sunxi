@@ -176,8 +176,8 @@ struct gc5035 {
 	struct i2c_client *client;
 	struct clk *mclk;
 	unsigned long mclk_rate;
-	struct gpio_desc *resetb_gpio;
-	struct gpio_desc *pwdn_gpio;
+	struct gpio_desc *reset_gpio;
+	struct gpio_desc *powerdown_gpio;
 	struct regulator *iovdd_supply;
 	struct regulator_bulk_data supplies[ARRAY_SIZE(gc5035_supplies)];
 
@@ -1430,13 +1430,13 @@ static int gc5035_runtime_resume(struct device *dev)
 		goto disable_iovdd;
 	}
 
-	gpiod_set_value_cansleep(gc5035->resetb_gpio, 0);
-	gpiod_set_value_cansleep(gc5035->pwdn_gpio, 0);
+	gpiod_set_value_cansleep(gc5035->reset_gpio, 0);
+	gpiod_set_value_cansleep(gc5035->powerdown_gpio, 0);
 
 	ret = clk_prepare_enable(gc5035->mclk);
 	if (ret < 0) {
 		dev_err(dev, "Failed to enable mclk\n");
-		goto enable_pwdn;
+		goto enable_powerdown;
 	}
 
 	/* min. 1200 MCLK cycles required before first I2C transaction. */
@@ -1445,9 +1445,9 @@ static int gc5035_runtime_resume(struct device *dev)
 
 	return 0;
 
-enable_pwdn:
-	gpiod_set_value_cansleep(gc5035->pwdn_gpio, 1);
-	gpiod_set_value_cansleep(gc5035->resetb_gpio, 1);
+enable_powerdown:
+	gpiod_set_value_cansleep(gc5035->powerdown_gpio, 1);
+	gpiod_set_value_cansleep(gc5035->reset_gpio, 1);
 	regulator_bulk_disable(ARRAY_SIZE(gc5035_supplies), gc5035->supplies);
 disable_iovdd:
 	regulator_disable(gc5035->iovdd_supply);
@@ -1468,8 +1468,8 @@ static int gc5035_runtime_suspend(struct device *dev)
 
 	clk_disable_unprepare(gc5035->mclk);
 
-	gpiod_set_value_cansleep(gc5035->pwdn_gpio, 1);
-	gpiod_set_value_cansleep(gc5035->resetb_gpio, 1);
+	gpiod_set_value_cansleep(gc5035->powerdown_gpio, 1);
+	gpiod_set_value_cansleep(gc5035->reset_gpio, 1);
 
 	regulator_bulk_disable(ARRAY_SIZE(gc5035_supplies), gc5035->supplies);
 	regulator_disable(gc5035->iovdd_supply);
@@ -1852,15 +1852,16 @@ static int gc5035_probe(struct i2c_client *client)
 		dev_warn(dev, "mclk rate set to %lu instead of requested %u\n",
 			 gc5035->mclk_rate, freq);
 
-	gc5035->pwdn_gpio = devm_gpiod_get(dev, "pwdn", GPIOD_OUT_HIGH);
-	if (IS_ERR(gc5035->pwdn_gpio))
-		return dev_err_probe(dev, PTR_ERR(gc5035->pwdn_gpio),
-				     "Failed to get pwdn-gpios\n");
+	gc5035->powerdown_gpio =
+		devm_gpiod_get(dev, "powerdown", GPIOD_OUT_HIGH);
+	if (IS_ERR(gc5035->powerdown_gpio))
+		return dev_err_probe(dev, PTR_ERR(gc5035->powerdown_gpio),
+				     "Failed to get powerdown-gpios\n");
 
-	gc5035->resetb_gpio = devm_gpiod_get(dev, "resetb", GPIOD_OUT_HIGH);
-	if (IS_ERR(gc5035->resetb_gpio))
-		return dev_err_probe(dev, PTR_ERR(gc5035->resetb_gpio),
-				     "Failed to get resetb-gpios\n");
+	gc5035->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(gc5035->reset_gpio))
+		return dev_err_probe(dev, PTR_ERR(gc5035->reset_gpio),
+				     "Failed to get reset-gpios\n");
 
 	gc5035->iovdd_supply = devm_regulator_get(dev, "iovdd");
 	if (IS_ERR(gc5035->iovdd_supply))
