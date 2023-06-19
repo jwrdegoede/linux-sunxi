@@ -2,6 +2,7 @@
 // Copyright (c) 2020 Bitland Inc.
 // Copyright 2020 Google LLC.
 
+#include <linux/acpi.h>
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/delay.h>
@@ -1949,6 +1950,14 @@ static void gc5035_remove(struct i2c_client *client)
 	pm_runtime_set_suspended(&client->dev);
 }
 
+#ifdef CONFIG_ACPI
+static const struct acpi_device_id gc5035_acpi_ids[] = {
+	{"GCTI5035"},
+	{}
+};
+MODULE_DEVICE_TABLE(acpi, gc5035_acpi_ids);
+#endif
+
 static const struct of_device_id gc5035_of_match[] = {
 	{ .compatible = "galaxycore,gc5035" },
 	{},
@@ -1959,6 +1968,7 @@ static struct i2c_driver gc5035_i2c_driver = {
 	.driver = {
 		.name = "gc5035",
 		.pm = &gc5035_pm_ops,
+		.acpi_match_table = ACPI_PTR(gc5035_acpi_ids),
 		.of_match_table = gc5035_of_match,
 	},
 	.probe = &gc5035_probe,
