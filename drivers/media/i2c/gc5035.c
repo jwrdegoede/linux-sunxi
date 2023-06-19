@@ -1853,12 +1853,13 @@ static int gc5035_probe(struct i2c_client *client)
 			 gc5035->mclk_rate, freq);
 
 	gc5035->powerdown_gpio =
-		devm_gpiod_get(dev, "powerdown", GPIOD_OUT_HIGH);
+		devm_gpiod_get_optional(dev, "powerdown", GPIOD_OUT_HIGH);
 	if (IS_ERR(gc5035->powerdown_gpio))
 		return dev_err_probe(dev, PTR_ERR(gc5035->powerdown_gpio),
 				     "Failed to get powerdown-gpios\n");
 
-	gc5035->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
+	gc5035->reset_gpio =
+		devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(gc5035->reset_gpio))
 		return dev_err_probe(dev, PTR_ERR(gc5035->reset_gpio),
 				     "Failed to get reset-gpios\n");
