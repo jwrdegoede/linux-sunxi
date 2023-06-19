@@ -40,11 +40,11 @@ properties:
     description:
       Regulator driving the I/O power rail.
 
-  avdd28-supply:
+  avdd-supply:
     description:
       Regulator driving the analog power rail.
 
-  dvdd12-supply:
+  dvdd-supply:
     description:
       Regulator driving the digital power rail.
 
@@ -97,8 +97,8 @@ required:
   - clock-names
   - clock-frequency
   - iovdd-supply
-  - avdd28-supply
-  - dvdd12-supply
+  - avdd-supply
+  - dvdd-supply
   - resetb-gpios
   - pwdn-gpios
   - port
@@ -126,8 +126,8 @@ examples:
             clock-names = "mclk";
             clock-frequency = <24000000>;
 
-            avdd28-supply = <&mt6358_vcama2_reg>;
-            dvdd12-supply = <&mt6358_vcamd_reg>;
+            avdd-supply = <&mt6358_vcama2_reg>;
+            dvdd-supply = <&mt6358_vcamd_reg>;
             iovdd-supply = <&mt6358_vcamio_reg>;
 
             port {
