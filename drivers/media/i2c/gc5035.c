@@ -137,8 +137,8 @@ static const char * const gc5035_supplies[] = {
 	 * Requested separately due to power sequencing needs:
 	 * "iovdd",	 * Power supply for I/O circuits *
 	 */
-	"dvdd12",	/* Digital core power */
-	"avdd21",	/* Analog power */
+	"dvdd",	/* Digital core power */
+	"avdd",	/* Analog power */
 };
 
 struct gc5035_regval {
