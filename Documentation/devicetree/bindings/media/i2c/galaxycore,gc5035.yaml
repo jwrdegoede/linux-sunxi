@@ -48,13 +48,13 @@ properties:
     description:
       Regulator driving the digital power rail.
 
-  resetb-gpios:
+  reset-gpios:
     description:
       The GPIO pin that drives the RESETB signal, controlling sensor reset.
       The RESETB signal must be driven low to activate the reset, so the
       GPIO_ACTIVE_LOW flag should be given by default.
 
-  pwdn-gpios:
+  powerdown-gpios:
     description:
       The GPIO pin that drives the PWDN signal, controlling sensor power-down
       mode. The PWDN signal must be driven low to activate the power-down
@@ -99,8 +99,8 @@ required:
   - iovdd-supply
   - avdd-supply
   - dvdd-supply
-  - resetb-gpios
-  - pwdn-gpios
+  - reset-gpios
+  - powerdown-gpios
   - port
 
 additionalProperties: false
@@ -117,8 +117,8 @@ examples:
             compatible = "galaxycore,gc5035";
             reg = <0x10>;
 
-            resetb-gpios = <&pio 111 GPIO_ACTIVE_LOW>;
-            pwdn-gpios = <&pio 112 GPIO_ACTIVE_LOW>;
+            reset-gpios = <&pio 111 GPIO_ACTIVE_LOW>;
+            powerdown-gpios = <&pio 112 GPIO_ACTIVE_LOW>;
             pinctrl-names = "default";
             pinctrl-0 = <&clk_24m_cam>;
 
