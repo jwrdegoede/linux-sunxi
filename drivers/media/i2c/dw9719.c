@@ -35,14 +35,12 @@
 #define DW9719_DEFAULT_VCM_FREQ		0x60
 #define DW9719_ENABLE_RINGING		0x02
 
-#define NUM_REGULATORS			2
-
 #define to_dw9719_device(x) container_of(x, struct dw9719_device, sd)
 
 struct dw9719_device {
 	struct device *dev;
 	struct i2c_client *client;
-	struct regulator_bulk_data regulators[NUM_REGULATORS];
+	struct regulator *regulator;
 	struct v4l2_subdev sd;
 
 	struct dw9719_v4l2_ctrls {
@@ -131,14 +129,14 @@ static int dw9719_detect(struct dw9719_device *dw9719)
 
 static int dw9719_power_down(struct dw9719_device *dw9719)
 {
-	return regulator_bulk_disable(NUM_REGULATORS, dw9719->regulators);
+	return regulator_disable(dw9719->regulator);
 }
 
 static int dw9719_power_up(struct dw9719_device *dw9719)
 {
 	int ret;
 
-	ret = regulator_bulk_enable(NUM_REGULATORS, dw9719->regulators);
+	ret = regulator_enable(dw9719->regulator);
 	if (ret)
 		return ret;
 
@@ -315,21 +313,10 @@ static int dw9719_probe(struct i2c_client *client)
 	dw9719->client = client;
 	dw9719->dev = &client->dev;
 
-	dw9719->regulators[0].supply = "vdd";
-	/*
-	 * The DW9719 has only the 1 VDD voltage input, but some PMICs such as
-	 * the TPS68470 PMIC have I2C passthrough capability, to disconnect the
-	 * sensor's I2C pins from the I2C bus when the sensors VSIO (Sensor-IO)
-	 * is off, because some sensors then short these pins to ground;
-	 * and the DW9719 might sit behind this passthrough, this it needs to
-	 * enable VSIO as that will also enable the I2C passthrough.
-	 */
-	dw9719->regulators[1].supply = "vsio";
-
-	ret = devm_regulator_bulk_get(&client->dev, NUM_REGULATORS,
-				      dw9719->regulators);
-	if (ret)
-		return dev_err_probe(&client->dev, ret, "getting regulators\n");
+	dw9719->regulator = devm_regulator_get(&client->dev, "vdd");
+	if (IS_ERR(dw9719->regulator))
+		return dev_err_probe(&client->dev, PTR_ERR(dw9719->regulator),
+				     "getting regulator\n");
 
 	v4l2_i2c_subdev_init(&dw9719->sd, client, &dw9719_ops);
 	dw9719->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
