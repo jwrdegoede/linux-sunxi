@@ -66,15 +66,25 @@ static const guid_t atomisp_dsm_guid =
 	GUID_INIT(0xdc2f6c4f, 0x045b, 0x4f1d,
 		  0x97, 0xb9, 0x88, 0x2a, 0x68, 0x60, 0xa4, 0xbe);
 
+/*
+ * 75c9a639-5c8a-4a00-9f48-a9c3b5da789f
+ * This _DSM GUID returns a string given the VCM type e.g. "AD5823".
+ */
+static const guid_t vcm_dsm_guid =
+	GUID_INIT(0x75c9a639, 0x5c8a, 0x4a00,
+		  0x9f, 0x48, 0xa9, 0xc3, 0xb5, 0xda, 0x78, 0x9f);
+
 struct atomisp_sensor_config {
 	int lanes;
+	bool vcm;
 };
 
-#define ATOMISP_SENSOR_CONFIG(_HID, _LANES)				\
+#define ATOMISP_SENSOR_CONFIG(_HID, _LANES, _VCM)			\
 {									\
 	.id = _HID,							\
 	.driver_data = (long)&((const struct atomisp_sensor_config) {	\
 		.lanes = _LANES,					\
+		.vcm = _VCM,						\
 	})								\
 }
 
@@ -473,8 +483,53 @@ static int atomisp_csi2_add_gpio_mappings(struct acpi_device *adev)
 	return ret;
 }
 
+static char *atomisp_csi2_get_vcm_type(struct acpi_device *adev)
+{
+	struct i2c_board_info board_info = {
+		.type = "dummy",
+	};
+	struct i2c_client *vcm_client;
+	union acpi_object *obj;
+	struct device *sensor;
+	char *vcm_type;
+
+	obj = acpi_evaluate_dsm_typed(adev->handle, &vcm_dsm_guid, 0, 0,
+				      NULL, ACPI_TYPE_STRING);
+	if (!obj)
+		return NULL;
+
+	/*
+	 * Unfortunately the _DSM to get the VCM type sometimes
+	 * returns a VCM even though there is none. To work around
+	 * this instantiate a dummy i2c-client and check that there
+	 * actually is something at the address.
+	 */
+	/*
+	 * FIXME problem: this runs before the sensor driver has probed so
+	 * we cannot use runtime-pm to run the sensors resume. At least
+	 * its GPIOs won't be set correctly if we do this now ...
+
+	vcm_client = i2c_acpi_new_device_by_fwnode(acpi_fwnode_handle(adev),
+						   1, &board_info);
+	if (IS_ERR(vcm_client))
+		return NULL;
+	
+	sensor = acpi_get_first_physical_node(
+	*/
+
+
+	vcm_type = kstrdup(obj->string.pointer, GFP_KERNEL);
+	ACPI_FREE(obj);
+
+	if (!vcm_type)
+		return NULL;
+
+	string_lower(vcm_type, vcm_type);
+	return vcm_type;
+}
+
 static const struct acpi_device_id atomisp_sensor_configs[] = {
-	ATOMISP_SENSOR_CONFIG("INT33BE", 2),	/* OV5693 */
+	ATOMISP_SENSOR_CONFIG("INT33BE", 2, true),	/* OV5693 */
 	{}
 };
 
@@ -519,6 +574,7 @@ static int atomisp_csi2_parse_sensor_fwnode(struct acpi_device *adev,
 	sensor->mclkspeed = PMC_CLK_RATE_19_2MHZ;
 	sensor->rotation = 0;
 	sensor->orientation = V4L2_FWNODE_ORIENTATION_EXTERNAL;
+	sensor->vcm_type = atomisp_csi2_get_vcm_type(adev);
 
 	return 0;
 }
@@ -558,6 +614,7 @@ static int atomisp_notifier_bound(struct v4l2_async_notifier *notifier,
 {
 	struct atomisp_device *isp = notifier_to_atomisp(notifier);
 	struct sensor_async_subdev *s_asd = to_sensor_asd(asd);
+	int ret;
 
 	if (s_asd->port >= ATOMISP_CAMERA_NR_PORTS) {
 		dev_err(isp->dev, "port %d not supported\n", s_asd->port);
@@ -568,6 +625,10 @@ static int atomisp_notifier_bound(struct v4l2_async_notifier *notifier,
 		dev_err(isp->dev, "port %d already has a sensor attached\n", s_asd->port);
 		return -EBUSY;
 	}
+
+	ret = ipu_bridge_instantiate_vcm(sd->dev);
+	if (ret)
+		return ret;
 
 	isp->sensor_subdevs[s_asd->port] = sd;
 	return 0;
