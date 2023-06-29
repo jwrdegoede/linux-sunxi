@@ -497,3 +497,7 @@ err_free_bridge:
 	return ret;
 }
 EXPORT_SYMBOL_NS_GPL(ipu_bridge_init, INTEL_IPU_BRIDGE);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Dan Scally <djrscally@gmail.com>");
+MODULE_DESCRIPTION("Intel IPU ACPI Sensors Bridge");
