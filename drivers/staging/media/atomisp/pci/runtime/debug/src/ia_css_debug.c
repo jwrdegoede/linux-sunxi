@@ -101,12 +101,6 @@
 
 #define ENABLE_LINE_MAX_LENGTH (25)
 
-/*
- * TODO:SH_CSS_MAX_SP_THREADS is not the max number of sp threads
- * future rework should fix this and remove the define MAX_THREAD_NUM
- */
-#define MAX_THREAD_NUM (SH_CSS_MAX_SP_THREADS + SH_CSS_MAX_SP_INTERNAL_THREADS)
-
 static struct pipe_graph_class {
 	bool do_init;
 	int height;
@@ -145,79 +139,6 @@ void ia_css_debug_dtrace(unsigned int level, const char *fmt, ...)
 	va_start(ap, fmt);
 	ia_css_debug_vdtrace(level, fmt, ap);
 	va_end(ap);
-}
-
-static void debug_dump_long_array_formatted(
-    const sp_ID_t sp_id,
-    hrt_address stack_sp_addr,
-    unsigned int stack_size)
-{
-	unsigned int i;
-	u32 val;
-	u32 addr = (uint32_t)stack_sp_addr;
-	u32 stack_size_words = CEIL_DIV(stack_size, sizeof(uint32_t));
-
-	/* When size is not multiple of four, last word is only relevant for
-	 * remaining bytes */
-	for (i = 0; i < stack_size_words; i++) {
-		val = sp_dmem_load_uint32(sp_id, (hrt_address)addr);
-		if ((i % 8) == 0)
-			ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE, "\n");
-
-		ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE, "0x%08x ", val);
-		addr += sizeof(uint32_t);
-	}
-
-	ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE, "\n");
-}
-
-static void debug_dump_sp_stack_info(
-    const sp_ID_t sp_id)
-{
-	const struct ia_css_fw_info *fw;
-	unsigned int HIVE_ADDR_sp_threads_stack;
-	unsigned int HIVE_ADDR_sp_threads_stack_size;
-	u32 stack_sizes[MAX_THREAD_NUM];
-	u32 stack_sp_addr[MAX_THREAD_NUM];
-	unsigned int i;
-
-	fw = &sh_css_sp_fw;
-
-	ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE, "sp_id(%u) stack info\n", sp_id);
-	ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE,
-			    "from objects stack_addr_offset:0x%x stack_size_offset:0x%x\n",
-			    fw->info.sp.threads_stack,
-			    fw->info.sp.threads_stack_size);
-
-	HIVE_ADDR_sp_threads_stack = fw->info.sp.threads_stack;
-	HIVE_ADDR_sp_threads_stack_size = fw->info.sp.threads_stack_size;
-
-	if (fw->info.sp.threads_stack == 0 ||
-	    fw->info.sp.threads_stack_size == 0)
-		return;
-
-	(void)HIVE_ADDR_sp_threads_stack;
-	(void)HIVE_ADDR_sp_threads_stack_size;
-
-	sp_dmem_load(sp_id,
-		     (unsigned int)sp_address_of(sp_threads_stack),
-		     &stack_sp_addr, sizeof(stack_sp_addr));
-	sp_dmem_load(sp_id,
-		     (unsigned int)sp_address_of(sp_threads_stack_size),
-		     &stack_sizes, sizeof(stack_sizes));
-
-	for (i = 0 ; i < MAX_THREAD_NUM; i++) {
-		ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE,
-				    "thread: %u stack_addr: 0x%08x stack_size: %u\n",
-				    i, stack_sp_addr[i], stack_sizes[i]);
-		debug_dump_long_array_formatted(sp_id, (hrt_address)stack_sp_addr[i],
-						stack_sizes[i]);
-	}
-}
-
-void ia_css_debug_dump_sp_stack_info(void)
-{
-	debug_dump_sp_stack_info(SP0_ID);
 }
 
 void ia_css_debug_set_dtrace_level(const unsigned int trace_level)
@@ -2147,12 +2068,6 @@ void ia_css_debug_dump_debug_info(const char *context)
 	ia_css_debug_dump_isp_gdc_fifo_state();
 	ia_css_debug_dump_sp_state();
 	ia_css_debug_dump_perf_counters();
-
-#ifdef HAS_WATCHDOG_SP_THREAD_DEBUG
-	sh_css_dump_thread_wait_info();
-	sh_css_dump_pipe_stage_info();
-	sh_css_dump_pipe_stripe_info();
-#endif
 	ia_css_debug_dump_dma_isp_fifo_state();
 	ia_css_debug_dump_dma_sp_fifo_state();
 	ia_css_debug_dump_dma_state();
@@ -2463,86 +2378,6 @@ static void __printf(1, 2) dtrace_dot(const char *fmt, ...)
 	ia_css_debug_dtrace(IA_CSS_DEBUG_INFO, "%s", DPG_END);
 	va_end(ap);
 }
-
-#ifdef HAS_WATCHDOG_SP_THREAD_DEBUG
-void sh_css_dump_thread_wait_info(void)
-{
-	const struct ia_css_fw_info *fw;
-	int i;
-	unsigned int HIVE_ADDR_sp_thread_wait;
-	s32 sp_thread_wait[MAX_THREAD_NUM];
-
-	ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE, "SEM WAITS:\n");
-
-	fw = &sh_css_sp_fw;
-	HIVE_ADDR_sp_thread_wait =
-	    fw->info.sp.debug_wait;
-
-	(void)HIVE_ADDR_sp_thread_wait;
-
-	sp_dmem_load(SP0_ID,
-		     (unsigned int)sp_address_of(sp_thread_wait),
-		     &sp_thread_wait,
-		     sizeof(sp_thread_wait));
-	for (i = 0; i < MAX_THREAD_NUM; i++) {
-		ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE,
-				    "\twait[%d] = 0x%X\n",
-				    i, sp_thread_wait[i]);
-	}
-}
-
-void sh_css_dump_pipe_stage_info(void)
-{
-	const struct ia_css_fw_info *fw;
-	int i;
-	unsigned int HIVE_ADDR_sp_pipe_stage;
-	s32 sp_pipe_stage[MAX_THREAD_NUM];
-
-	ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE, "PIPE STAGE:\n");
-
-	fw = &sh_css_sp_fw;
-	HIVE_ADDR_sp_pipe_stage =
-	    fw->info.sp.debug_stage;
-
-	(void)HIVE_ADDR_sp_pipe_stage;
-
-	sp_dmem_load(SP0_ID,
-		     (unsigned int)sp_address_of(sp_pipe_stage),
-		     &sp_pipe_stage,
-		     sizeof(sp_pipe_stage));
-	for (i = 0; i < MAX_THREAD_NUM; i++) {
-		ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE,
-				    "\tstage[%d] = %d\n",
-				    i, sp_pipe_stage[i]);
-	}
-}
-
-void sh_css_dump_pipe_stripe_info(void)
-{
-	const struct ia_css_fw_info *fw;
-	int i;
-	unsigned int HIVE_ADDR_sp_pipe_stripe;
-	s32 sp_pipe_stripe[MAX_THREAD_NUM];
-
-	ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE, "PIPE STRIPE:\n");
-
-	fw = &sh_css_sp_fw;
-	HIVE_ADDR_sp_pipe_stripe =
-	    fw->info.sp.debug_stripe;
-
-	(void)HIVE_ADDR_sp_pipe_stripe;
-
-	sp_dmem_load(SP0_ID,
-		     (unsigned int)sp_address_of(sp_pipe_stripe),
-		     &sp_pipe_stripe,
-		     sizeof(sp_pipe_stripe));
-	for (i = 0; i < MAX_THREAD_NUM; i++) {
-		ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE,
-				    "\tstripe[%d] = %d\n",
-				    i, sp_pipe_stripe[i]);
-	}
-}
-#endif
 
 static void
 ia_css_debug_pipe_graph_dump_frame(
