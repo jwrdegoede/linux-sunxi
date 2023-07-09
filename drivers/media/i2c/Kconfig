@@ -750,6 +750,14 @@ config VIDEO_AD5820
 	  This is a driver for the AD5820 camera lens voice coil.
 	  It is used for example in Nokia N900 (RX-51).
 
+config VIDEO_AD5823
+	tristate "AD5823 lens voice coil support"
+	select V4L2_CCI_I2C
+	help
+	  This is a driver for the AD5823 camera lens voice coil / VCM.
+	  This is designed for linear control of voice coil motors,
+	  controlled via I2C serial interface.
+
 config VIDEO_AK7375
 	tristate "AK7375 lens voice coil support"
 	help
