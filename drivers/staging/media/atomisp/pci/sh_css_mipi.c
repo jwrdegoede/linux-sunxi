@@ -185,35 +185,6 @@ ia_css_mipi_frame_calculate_size(const unsigned int width,
 	return err;
 }
 
-/*
- * Check if a source port or TPG/PRBS ID is valid
- */
-
-#if !defined(ISP2401)
-int
-ia_css_mipi_frame_enable_check_on_size(const enum mipi_port_id port,
-				       const unsigned int	size_mem_words)
-{
-	u32 idx;
-
-	int err = -EBUSY;
-
-	OP___assert(port < N_CSI_PORTS);
-	OP___assert(size_mem_words != 0);
-
-	for (idx = 0; idx < IA_CSS_MIPI_SIZE_CHECK_MAX_NOF_ENTRIES_PER_PORT &&
-	     my_css.mipi_sizes_for_check[port][idx] != 0;
-	     idx++) { /* do nothing */
-	}
-	if (idx < IA_CSS_MIPI_SIZE_CHECK_MAX_NOF_ENTRIES_PER_PORT) {
-		my_css.mipi_sizes_for_check[port][idx] = size_mem_words;
-		err = 0;
-	}
-
-	return err;
-}
-#endif
-
 void
 mipi_init(void)
 {
@@ -350,15 +321,6 @@ allocate_mipi_frames(struct ia_css_pipe *pipe,
 
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE,
 			    "allocate_mipi_frames(%p) enter:\n", pipe);
-
-	assert(pipe);
-	assert(pipe->stream);
-	if ((!pipe) || (!pipe->stream)) {
-		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE,
-				    "allocate_mipi_frames(%p) exit: pipe or stream is null.\n",
-				    pipe);
-		return -EINVAL;
-	}
 
 	if (IS_ISP2401 && pipe->stream->config.online) {
 		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE,
@@ -556,13 +518,6 @@ send_mipi_frames(struct ia_css_pipe *pipe)
 	unsigned int port;
 
 	IA_CSS_ENTER_PRIVATE("pipe=%p", pipe);
-
-	assert(pipe);
-	assert(pipe->stream);
-	if (!pipe || !pipe->stream) {
-		IA_CSS_ERROR("pipe or stream is null");
-		return -EINVAL;
-	}
 
 	/* multi stream video needs mipi buffers */
 	/* nothing to be done in other cases. */

@@ -613,9 +613,6 @@ static void __apply_additional_pipe_config(
 static bool is_pipe_valid_to_current_run_mode(struct atomisp_sub_device *asd,
 	enum ia_css_pipe_id pipe_id)
 {
-	if (!asd)
-		return false;
-
 	if (pipe_id == IA_CSS_PIPE_ID_YUVPP)
 		return true;
 
@@ -853,19 +850,17 @@ int atomisp_css_irq_translate(struct atomisp_device *isp,
 void atomisp_css_rx_get_irq_info(enum mipi_port_id port,
 				 unsigned int *infos)
 {
-#ifndef ISP2401
-	ia_css_isys_rx_get_irq_info(port, infos);
-#else
-	*infos = 0;
-#endif
+	if (IS_ISP2401)
+		*infos = 0;
+	else
+		ia_css_isys_rx_get_irq_info(port, infos);
 }
 
 void atomisp_css_rx_clear_irq_info(enum mipi_port_id port,
 				   unsigned int infos)
 {
-#ifndef ISP2401
-	ia_css_isys_rx_clear_irq_info(port, infos);
-#endif
+	if (!IS_ISP2401)
+		ia_css_isys_rx_clear_irq_info(port, infos);
 }
 
 int atomisp_css_irq_enable(struct atomisp_device *isp,
