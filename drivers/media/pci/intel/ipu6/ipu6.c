@@ -14,6 +14,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/timer.h>
 
+#include <media/ipu-bridge.h>
+
 #include "ipu6.h"
 #include "ipu6-bus.h"
 #include "ipu6-buttress.h"
@@ -24,7 +26,6 @@
 #include "ipu6-platform-buttress-regs.h"
 #include "ipu6-platform-isys-csi2-reg.h"
 #include "ipu6-platform-regs.h"
-#include "../ipu-bridge.h"
 
 #define IPU6_PCI_BAR		0
 
@@ -430,7 +431,7 @@ ipu6_isys_init(struct pci_dev *pdev, struct device *parent,
 			return ERR_PTR(-EINVAL);
 		}
 
-		ret = ipu_bridge_init(pdev);
+		ret = ipu_bridge_init(&pdev->dev, ipu_bridge_parse_ssdb);
 		if (ret) {
 			dev_err_probe(&pdev->dev, ret,
 				      "IPU6 bridge init failed\n");
