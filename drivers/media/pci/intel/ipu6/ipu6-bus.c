@@ -110,7 +110,6 @@ ipu6_bus_initialize_device(struct pci_dev *pdev, struct device *parent,
 	auxdev->dev.dma_mask = &adev->dma_mask;
 	auxdev->dev.dma_parms = pdev->dev.dma_parms;
 	auxdev->dev.coherent_dma_mask = adev->dma_mask;
-	dev_pm_domain_set(&auxdev->dev, &ipu6_bus_pm_domain);
 
 	ret = auxiliary_device_init(auxdev);
 	if (ret < 0) {
@@ -119,6 +118,8 @@ ipu6_bus_initialize_device(struct pci_dev *pdev, struct device *parent,
 		kfree(adev);
 		return ERR_PTR(ret);
 	}
+
+	dev_pm_domain_set(&auxdev->dev, &ipu6_bus_pm_domain);
 
 	pm_runtime_forbid(&adev->auxdev.dev);
 	pm_runtime_enable(&adev->auxdev.dev);
