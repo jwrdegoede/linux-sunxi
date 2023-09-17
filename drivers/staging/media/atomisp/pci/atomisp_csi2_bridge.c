@@ -521,12 +521,7 @@ static char *atomisp_csi2_get_vcm_type(struct acpi_device *adev)
 }
 
 static const struct acpi_device_id atomisp_sensor_configs[] = {
-	/*
-	 * FIXME ov5693 modules have a VCM, but for unknown reasons
-	 * the sensor fails to start streaming when instantiating
-	 * an i2c-client for the VCM, so it is disabled for now.
-	 */
-	ATOMISP_SENSOR_CONFIG("INT33BE", 2, false),	/* OV5693 */
+	ATOMISP_SENSOR_CONFIG("INT33BE", 2, true),	/* OV5693 */
 	{}
 };
 
