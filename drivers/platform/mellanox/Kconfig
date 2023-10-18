@@ -48,7 +48,6 @@ config MLXREG_LC
 
 config MLXBF_TMFIFO
 	tristate "Mellanox BlueField SoC TmFifo platform driver"
-	depends on ARM64
 	depends on ACPI
 	depends on VIRTIO_CONSOLE && VIRTIO_NET
 	help
