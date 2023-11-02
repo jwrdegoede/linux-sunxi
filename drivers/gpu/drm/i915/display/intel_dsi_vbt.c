@@ -221,11 +221,14 @@ static void soc_opaque_gpio_set_value(struct intel_connector *connector,
 				      u8 gpio_index, const char *chip,
 				      const char *con_id, u8 idx, bool value)
 {
+	struct drm_i915_private *dev_priv = to_i915(connector->base.dev);
 	struct gpiod_lookup_table *lookup;
 
 	lookup = kzalloc(struct_size(lookup, table, 2), GFP_KERNEL);
 	if (!lookup)
 		return;
+
+	drm_info(&dev_priv->drm, "set GPIO %s %d=%d\n", chip, idx, value);
 
 	lookup->dev_id = "0000:00:02.0";
 	lookup->table[0] =
