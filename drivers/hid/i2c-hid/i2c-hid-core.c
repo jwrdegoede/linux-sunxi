@@ -45,7 +45,6 @@
 
 /* quirks to control the device */
 #define I2C_HID_QUIRK_SET_PWR_WAKEUP_DEV	BIT(0)
-#define I2C_HID_QUIRK_NO_IRQ_AFTER_RESET	BIT(1)
 #define I2C_HID_QUIRK_BOGUS_IRQ			BIT(4)
 #define I2C_HID_QUIRK_RESET_ON_RESUME		BIT(5)
 #define I2C_HID_QUIRK_BAD_INPUT_SIZE		BIT(6)
@@ -122,12 +121,6 @@ static const struct i2c_hid_quirks {
 } i2c_hid_quirks[] = {
 	{ USB_VENDOR_ID_WEIDA, HID_ANY_ID,
 		I2C_HID_QUIRK_SET_PWR_WAKEUP_DEV },
-	{ I2C_VENDOR_ID_HANTICK, I2C_PRODUCT_ID_HANTICK_5288,
-		I2C_HID_QUIRK_NO_IRQ_AFTER_RESET },
-	{ I2C_VENDOR_ID_ITE, I2C_DEVICE_ID_ITE_VOYO_WINPAD_A15,
-		I2C_HID_QUIRK_NO_IRQ_AFTER_RESET },
-	{ I2C_VENDOR_ID_RAYDIUM, I2C_PRODUCT_ID_RAYDIUM_3118,
-		I2C_HID_QUIRK_NO_IRQ_AFTER_RESET },
 	{ USB_VENDOR_ID_ALPS_JP, HID_ANY_ID,
 		 I2C_HID_QUIRK_RESET_ON_RESUME },
 	{ I2C_VENDOR_ID_SYNAPTICS, I2C_PRODUCT_ID_SYNAPTICS_SYNA2393,
@@ -470,11 +463,11 @@ err_unlock:
 	return ret;
 }
 
-static int i2c_hid_finish_hwreset(struct i2c_hid *ihid)
+static int i2c_hid_finish_hwreset(struct i2c_hid *ihid, bool no_irq_after_reset)
 {
 	int ret = 0;
 
-	if (ihid->quirks & I2C_HID_QUIRK_NO_IRQ_AFTER_RESET) {
+	if (no_irq_after_reset) {
 		msleep(100);
 		clear_bit(I2C_HID_RESET_PENDING, &ihid->flags);
 	}
@@ -482,9 +475,9 @@ static int i2c_hid_finish_hwreset(struct i2c_hid *ihid)
 	i2c_hid_dbg(ihid, "%s: waiting...\n", __func__);
 	if (!wait_event_timeout(ihid->wait,
 				!test_bit(I2C_HID_RESET_PENDING, &ihid->flags),
-				msecs_to_jiffies(5000))) {
-		ret = -ENODATA;
-		goto err_clear_reset;
+				msecs_to_jiffies(1000))) {
+		dev_warn(&ihid->client->dev, "device did not ack reset within 1000 ms\n");
+		clear_bit(I2C_HID_RESET_PENDING, &ihid->flags);
 	}
 	i2c_hid_dbg(ihid, "%s: finished.\n", __func__);
 
@@ -492,12 +485,6 @@ static int i2c_hid_finish_hwreset(struct i2c_hid *ihid)
 	if (!(ihid->quirks & I2C_HID_QUIRK_NO_WAKEUP_AFTER_RESET))
 		ret = i2c_hid_set_power(ihid, I2C_HID_PWR_ON);
 
-	mutex_unlock(&ihid->reset_lock);
-	return ret;
-
-err_clear_reset:
-	clear_bit(I2C_HID_RESET_PENDING, &ihid->flags);
-	i2c_hid_set_power(ihid, I2C_HID_PWR_SLEEP);
 	mutex_unlock(&ihid->reset_lock);
 	return ret;
 }
@@ -736,6 +723,7 @@ static int i2c_hid_parse(struct hid_device *hid)
 	struct i2c_client *client = hid->driver_data;
 	struct i2c_hid *ihid = i2c_get_clientdata(client);
 	struct i2c_hid_desc *hdesc = &ihid->hdesc;
+	bool no_irq_after_reset = false;
 	unsigned int rsize;
 	char *rdesc;
 	int ret;
@@ -764,6 +752,7 @@ static int i2c_hid_parse(struct hid_device *hid)
 
 	if (use_override) {
 		rdesc = use_override;
+		no_irq_after_reset = true;
 		i2c_hid_dbg(ihid, "Using a HID report descriptor override\n");
 	} else {
 		rdesc = kzalloc(rsize, GFP_KERNEL);
@@ -790,7 +779,7 @@ static int i2c_hid_parse(struct hid_device *hid)
 	 * actually wait for the report-descriptor to be read before signalling
 	 * reset completion.
 	 */
-	ret = i2c_hid_finish_hwreset(ihid);
+	ret = i2c_hid_finish_hwreset(ihid, no_irq_after_reset);
 	if (ret)
 		goto out;
 
@@ -1005,7 +994,7 @@ static int i2c_hid_core_resume(struct i2c_hid *ihid)
 	if (ihid->quirks & I2C_HID_QUIRK_RESET_ON_RESUME) {
 		ret = i2c_hid_start_hwreset(ihid);
 		if (ret == 0)
-			ret = i2c_hid_finish_hwreset(ihid);
+			ret = i2c_hid_finish_hwreset(ihid, false);
 	} else {
 		ret = i2c_hid_set_power(ihid, I2C_HID_PWR_ON);
 	}
