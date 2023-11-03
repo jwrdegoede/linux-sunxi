@@ -502,6 +502,12 @@ err_clear_reset:
 	return ret;
 }
 
+static void i2c_hid_abort_hwreset(struct i2c_hid *ihid)
+{
+	clear_bit(I2C_HID_RESET_PENDING, &ihid->flags);
+	mutex_unlock(&ihid->reset_lock);
+}
+
 static void i2c_hid_get_input(struct i2c_hid *ihid)
 {
 	u16 size = le16_to_cpu(ihid->hdesc.wMaxInputLength);
@@ -746,8 +752,6 @@ static int i2c_hid_parse(struct hid_device *hid)
 
 	do {
 		ret = i2c_hid_start_hwreset(ihid);
-		if (ret == 0)
-			ret = i2c_hid_finish_hwreset(ihid);
 		if (ret)
 			msleep(1000);
 	} while (tries-- > 0 && ret);
@@ -763,9 +767,8 @@ static int i2c_hid_parse(struct hid_device *hid)
 		i2c_hid_dbg(ihid, "Using a HID report descriptor override\n");
 	} else {
 		rdesc = kzalloc(rsize, GFP_KERNEL);
-
 		if (!rdesc) {
-			dbg_hid("couldn't allocate rdesc memory\n");
+			i2c_hid_abort_hwreset(ihid);
 			return -ENOMEM;
 		}
 
@@ -776,9 +779,20 @@ static int i2c_hid_parse(struct hid_device *hid)
 					    rdesc, rsize);
 		if (ret) {
 			hid_err(hid, "reading report descriptor failed\n");
+			i2c_hid_abort_hwreset(ihid);
 			goto out;
 		}
 	}
+
+	/*
+	 * Windows directly reads the report-descriptor after sending reset
+	 * and then waits for resets completion afterwards. Some touchpads
+	 * actually wait for the report-descriptor to be read before signalling
+	 * reset completion.
+	 */
+	ret = i2c_hid_finish_hwreset(ihid);
+	if (ret)
+		goto out;
 
 	i2c_hid_dbg(ihid, "Report Descriptor: %*ph\n", rsize, rdesc);
 
