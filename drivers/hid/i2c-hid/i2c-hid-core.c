@@ -44,10 +44,10 @@
 #include "i2c-hid.h"
 
 /* quirks to control the device */
-#define I2C_HID_QUIRK_BOGUS_IRQ			BIT(4)
-#define I2C_HID_QUIRK_RESET_ON_RESUME		BIT(5)
-#define I2C_HID_QUIRK_BAD_INPUT_SIZE		BIT(6)
-#define I2C_HID_QUIRK_NO_WAKEUP_AFTER_RESET	BIT(7)
+#define I2C_HID_QUIRK_BOGUS_IRQ			BIT(0)
+#define I2C_HID_QUIRK_RESET_ON_RESUME		BIT(1)
+#define I2C_HID_QUIRK_BAD_INPUT_SIZE		BIT(2)
+#define I2C_HID_QUIRK_NO_WAKEUP_AFTER_RESET	BIT(3)
 
 /* Command opcodes */
 #define I2C_HID_OPCODE_RESET			0x01
