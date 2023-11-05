@@ -129,7 +129,6 @@ int ipu6_isys_vidioc_enum_fmt(struct file *file, void *fh,
 	if (!f->mbus_code) {
 		f->flags = 0;
 		f->pixelformat = ipu6_isys_pfmts[f->index].pixelformat;
-		f->mbus_code = ipu6_isys_pfmts[f->index].code;
 		return 0;
 	}
 
