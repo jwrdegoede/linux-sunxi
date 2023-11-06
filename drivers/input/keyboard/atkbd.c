@@ -787,6 +787,20 @@ static int atkbd_probe(struct atkbd *atkbd)
 				 ps2dev->serio->phys);
 
 /*
+ * On many modern laptops ATKBD_CMD_GETID may cause problems, on these laptops
+ * the controller is always in translated mode. In this mode mice/touchpads will
+ * not work. So in this case simply assume a keyboard is connected to avoid
+ * confusing some laptop keyboards.
+ *
+ * Using a fake keyboard id is ok in translated mode. Only atkbd_select_set()
+ * checks atkbd->id and in translated mode that is a no-op.
+ */
+	if (atkbd->translated) {
+		atkbd->id = 0xabba;
+		goto deactivate;
+	}
+
+/*
  * Then we check the keyboard ID. We should get 0xab83 under normal conditions.
  * Some keyboards report different values, but the first byte is always 0xab or
  * 0xac. Some old AT keyboards don't report anything. If a mouse is connected, this
@@ -813,13 +827,7 @@ static int atkbd_probe(struct atkbd *atkbd)
 
 	atkbd->id = (param[0] << 8) | param[1];
 
-	if (atkbd->id == 0xaca1 && atkbd->translated) {
-		dev_err(&ps2dev->serio->dev,
-			"NCD terminal keyboards are only supported on non-translating controllers. "
-			"Use i8042.direct=1 to disable translation.\n");
-		return -1;
-	}
-
+deactivate:
 /*
  * Make sure nothing is coming from the keyboard and disturbs our
  * internal state.
