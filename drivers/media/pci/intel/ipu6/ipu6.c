@@ -531,7 +531,7 @@ static int ipu6_pci_config_setup(struct pci_dev *dev, u8 hw_ver)
 		return 0;
 	}
 
-	ret = pci_alloc_irq_vectors(dev, 1, 1, PCI_IRQ_MSI);
+	ret = pci_enable_msi(dev);
 	if (ret)
 		dev_err_probe(&dev->dev, ret, "Request msi failed");
 
