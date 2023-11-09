@@ -144,7 +144,7 @@ static const struct v4l2_subdev_core_ops csi2_sd_core_ops = {
 #define DIV_SHIFT	8
 #define CSI2_ACCINV	8
 
-static u32 calc_timing(s32 a, s32 b, s64 link_freq, u32 accinv)
+static u32 calc_timing(s32 a, s32 b, s64 link_freq, s32 accinv)
 {
 	return accinv * a + (accinv * b * (500000000 >> DIV_SHIFT)
 			     / (int32_t)(link_freq >> DIV_SHIFT));
