@@ -55,10 +55,6 @@
 /* G-Min addition: pull this in from intel_mid_pm.h */
 #define CSTATE_EXIT_LATENCY_C1  1
 
-static uint skip_fwload;
-module_param(skip_fwload, uint, 0644);
-MODULE_PARM_DESC(skip_fwload, "Skip atomisp firmware load");
-
 /* cross componnet debug message flag */
 int dbg_level;
 module_param(dbg_level, int, 0644);
@@ -1131,9 +1127,6 @@ atomisp_load_firmware(struct atomisp_device *isp)
 	const struct firmware *fw;
 	int rc;
 	char *fw_path = NULL;
-
-	if (skip_fwload)
-		return NULL;
 
 	if (firmware_name[0] != '\0') {
 		fw_path = firmware_name;
