@@ -386,12 +386,11 @@ static int ipu6_isys_csi2_set_sel(struct v4l2_subdev *sd,
 	if (!sink_ffmt)
 		return -EINVAL;
 
-	src_ffmt = v4l2_subdev_state_get_stream_format(state, sel->pad,
-						       sel->stream);
+	src_ffmt = v4l2_subdev_state_get_format(state, sel->pad, sel->stream);
 	if (!src_ffmt)
 		return -EINVAL;
 
-	crop = v4l2_subdev_state_get_stream_crop(state, sel->pad, sel->stream);
+	crop = v4l2_subdev_state_get_crop(state, sel->pad, sel->stream);
 	if (!crop)
 		return -EINVAL;
 
@@ -436,7 +435,7 @@ static int ipu6_isys_csi2_get_sel(struct v4l2_subdev *sd,
 	if (!sink_ffmt)
 		return -EINVAL;
 
-	crop = v4l2_subdev_state_get_stream_crop(state, sel->pad, sel->stream);
+	crop = v4l2_subdev_state_get_crop(state, sel->pad, sel->stream);
 	if (!crop)
 		return -EINVAL;
 
@@ -463,7 +462,6 @@ static const struct v4l2_subdev_video_ops csi2_sd_video_ops = {
 };
 
 static const struct v4l2_subdev_pad_ops csi2_sd_pad_ops = {
-	.init_cfg = ipu6_isys_subdev_init_cfg,
 	.get_fmt = v4l2_subdev_get_fmt,
 	.set_fmt = ipu6_isys_subdev_set_fmt,
 	.get_selection = ipu6_isys_csi2_get_sel,
