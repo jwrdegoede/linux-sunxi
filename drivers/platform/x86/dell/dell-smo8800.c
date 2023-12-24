@@ -201,6 +201,7 @@ static void smo8800_instantiate_i2c_client(struct smo8800_device *smo8800)
 	}
 
 	info.addr = addr;
+	info.irq = smo8800->irq;
 	strscpy(info.type, "lis3lv02d", I2C_NAME_SIZE);
 
 	smo8800->i2c_dev = i2c_new_client_device(adap, &info);
@@ -241,21 +242,24 @@ static int smo8800_probe(struct platform_device *device)
 
 	smo8800_instantiate_i2c_client(smo8800);
 
-	err = misc_register(&smo8800->miscdev);
-	if (err) {
-		dev_err(&device->dev, "failed to register misc dev: %d\n", err);
-		goto error_unregister_i2c_client;
-	}
+	/* smo8800->irq is passed to the i2c_client and its driver will take care of this */
+	if (!smo8800->i2c_dev) {
+		err = misc_register(&smo8800->miscdev);
+		if (err) {
+			dev_err(&device->dev, "failed to register misc dev: %d\n", err);
+			goto error_unregister_i2c_client;
+		}
 
-	err = request_threaded_irq(smo8800->irq, smo8800_interrupt_quick,
-				   smo8800_interrupt_thread,
-				   IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-				   DRIVER_NAME, smo8800);
-	if (err) {
-		dev_err(&device->dev,
-			"failed to request thread for IRQ %d: %d\n",
-			smo8800->irq, err);
-		goto error;
+		err = request_threaded_irq(smo8800->irq, smo8800_interrupt_quick,
+					   smo8800_interrupt_thread,
+					   IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+					   DRIVER_NAME, smo8800);
+		if (err) {
+			dev_err(&device->dev,
+				"failed to request thread for IRQ %d: %d\n",
+				smo8800->irq, err);
+			goto error;
+		}
 	}
 
 	dev_dbg(&device->dev, "device /dev/freefall registered with IRQ %d\n",
@@ -274,9 +278,11 @@ static void smo8800_remove(struct platform_device *device)
 {
 	struct smo8800_device *smo8800 = platform_get_drvdata(device);
 
-	free_irq(smo8800->irq, smo8800);
-	misc_deregister(&smo8800->miscdev);
-	dev_dbg(&device->dev, "device /dev/freefall unregistered\n");
+	if (!smo8800->i2c_dev) {
+		free_irq(smo8800->irq, smo8800);
+		misc_deregister(&smo8800->miscdev);
+		dev_dbg(&device->dev, "device /dev/freefall unregistered\n");
+	}
 	i2c_unregister_device(smo8800->i2c_dev);
 }
 
