@@ -121,18 +121,16 @@ static int smo8800_probe(struct platform_device *device)
 
 	init_waitqueue_head(&smo8800->misc_wait);
 
+	err = platform_get_irq(device, 0);
+	if (err < 0)
+		return err;
+	smo8800->irq = err;
+
 	err = misc_register(&smo8800->miscdev);
 	if (err) {
 		dev_err(&device->dev, "failed to register misc dev: %d\n", err);
 		return err;
 	}
-
-	platform_set_drvdata(device, smo8800);
-
-	err = platform_get_irq(device, 0);
-	if (err < 0)
-		goto error;
-	smo8800->irq = err;
 
 	err = request_threaded_irq(smo8800->irq, smo8800_interrupt_quick,
 				   smo8800_interrupt_thread,
@@ -147,6 +145,7 @@ static int smo8800_probe(struct platform_device *device)
 
 	dev_dbg(&device->dev, "device /dev/freefall registered with IRQ %d\n",
 		 smo8800->irq);
+	platform_set_drvdata(device, smo8800);
 	return 0;
 
 error:
