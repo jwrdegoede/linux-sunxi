@@ -633,8 +633,8 @@ static void axp288_charger_extcon_evt_worker(struct work_struct *work)
 	/* Offline? Disable charging and bail */
 	if (!(val & PS_STAT_VBUS_VALID)) {
 		dev_dbg(&info->pdev->dev, "USB charger disconnected\n");
-		axp288_charger_enable_charger(info, false);
 		mutex_lock(&info->lock);
+		axp288_charger_enable_charger(info, false);
 		info->valid = false;
 		mutex_unlock(&info->lock);
 		power_supply_changed(info->psy_usb);
@@ -662,13 +662,13 @@ static void axp288_charger_extcon_evt_worker(struct work_struct *work)
 
 	/* Set vbus current limit first, then enable charger */
 	ret = axp288_charger_set_vbus_inlmt(info, current_limit);
-	if (ret == 0)
-		axp288_charger_enable_charger(info, true);
-	else
+	if (ret)
 		dev_err(&info->pdev->dev,
 			"error setting current limit (%d)\n", ret);
 
 	mutex_lock(&info->lock);
+	if (ret == 0)
+		axp288_charger_enable_charger(info, true);
 	info->valid = false;
 	mutex_unlock(&info->lock);
 	power_supply_changed(info->psy_usb);
