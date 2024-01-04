@@ -359,6 +359,8 @@ static int axp288_charger_usb_set_property(struct power_supply *psy,
 
 out:
 	mutex_unlock(&info->lock);
+	if (ret == 0)
+		power_supply_changed(info->psy_usb);
 	return ret;
 }
 
