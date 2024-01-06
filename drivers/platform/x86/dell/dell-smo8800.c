@@ -324,6 +324,7 @@ static const struct {
 	{ "Vostro V131",        0x1d },
 	{ "Vostro 5568",        0x29 },
 	{ "XPS 15 7590",        0x29 },
+	{ "XPS 15 9550",	0x29 },
 };
 
 static void smo8800_instantiate_i2c_client(struct smo8800_device *smo8800)
