@@ -319,6 +319,8 @@ static const struct {
 	 */
 	{ "Latitude 5480",      0x29 },
 	{ "Precision 3540",     0x29 },
+	{ "Latitude E6330",     0x29 },
+	{ "Latitude E6430",     0x29 },
 	{ "Vostro V131",        0x1d },
 	{ "Vostro 5568",        0x29 },
 	{ "XPS 15 7590",        0x29 },
