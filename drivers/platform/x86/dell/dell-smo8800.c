@@ -411,11 +411,13 @@ static int smo8800_probe(struct platform_device *device)
 	init_waitqueue_head(&smo8800->misc_wait);
 
 	err = platform_get_irq(device, 0);
-	if (err < 0)
-		return err;
-	smo8800->irq = err;
+	if (err > 0)
+		smo8800->irq = err;
 
 	smo8800_instantiate_i2c_client(smo8800);
+
+	if (!smo8800->i2c_dev && !smo8800->irq)
+		return err;
 
 	/* smo8800->irq is passed to the i2c_client and its driver will take care of this */
 	if (!smo8800->i2c_dev) {
