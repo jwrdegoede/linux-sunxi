@@ -298,8 +298,7 @@ static int link_validate(struct media_link *link)
 
 	v4l2_subdev_lock_state(s_state);
 
-	s_fmt = v4l2_subdev_state_get_stream_format(s_state, s_pad->index,
-						    s_stream);
+	s_fmt = v4l2_subdev_state_get_format(s_state, s_pad->index, s_stream);
 	if (!s_fmt) {
 		dev_err(dev, "failed to get source pad format\n");
 		goto unlock;
