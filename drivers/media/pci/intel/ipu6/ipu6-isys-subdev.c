@@ -151,8 +151,7 @@ int ipu6_isys_subdev_set_fmt(struct v4l2_subdev *sd,
 	format->format.field = V4L2_FIELD_NONE;
 
 	/* Store the format and propagate it to the source pad. */
-	fmt = v4l2_subdev_state_get_stream_format(state, format->pad,
-						  format->stream);
+	fmt = v4l2_subdev_state_get_format(state, format->pad, format->stream);
 	if (!fmt)
 		return -EINVAL;
 
@@ -177,8 +176,7 @@ int ipu6_isys_subdev_set_fmt(struct v4l2_subdev *sd,
 	if (ret)
 		return -EINVAL;
 
-	crop = v4l2_subdev_state_get_stream_crop(state, other_pad,
-						 other_stream);
+	crop = v4l2_subdev_state_get_crop(state, other_pad, other_stream);
 	/* reset crop */
 	crop->left = 0;
 	crop->top = 0;
@@ -236,7 +234,7 @@ int ipu6_isys_get_stream_pad_fmt(struct v4l2_subdev *sd, u32 pad, u32 stream,
 		return -EINVAL;
 
 	state = v4l2_subdev_lock_and_get_active_state(sd);
-	fmt = v4l2_subdev_state_get_stream_format(state, pad, stream);
+	fmt = v4l2_subdev_state_get_format(state, pad, stream);
 	if (fmt)
 		*format = *fmt;
 	v4l2_subdev_unlock_state(state);
@@ -254,7 +252,7 @@ int ipu6_isys_get_stream_pad_crop(struct v4l2_subdev *sd, u32 pad, u32 stream,
 		return -EINVAL;
 
 	state = v4l2_subdev_lock_and_get_active_state(sd);
-	rect = v4l2_subdev_state_get_stream_crop(state, pad, stream);
+	rect = v4l2_subdev_state_get_crop(state, pad, stream);
 	if (rect)
 		*crop = *rect;
 	v4l2_subdev_unlock_state(state);
@@ -286,8 +284,8 @@ u32 ipu6_isys_get_src_stream_by_src_pad(struct v4l2_subdev *sd, u32 pad)
 	return source_stream;
 }
 
-int ipu6_isys_subdev_init_cfg(struct v4l2_subdev *sd,
-			      struct v4l2_subdev_state *state)
+static int ipu6_isys_subdev_init_state(struct v4l2_subdev *sd,
+				       struct v4l2_subdev_state *state)
 {
 	struct v4l2_subdev_route route = {
 		.sink_pad = 0,
@@ -312,6 +310,10 @@ int ipu6_isys_subdev_set_routing(struct v4l2_subdev *sd,
 	return subdev_set_routing(sd, state, routing);
 }
 
+static const struct v4l2_subdev_internal_ops ipu6_isys_subdev_internal_ops = {
+	.init_state = ipu6_isys_subdev_init_state,
+};
+
 int ipu6_isys_subdev_init(struct ipu6_isys_subdev *asd,
 			  const struct v4l2_subdev_ops *ops,
 			  unsigned int nr_ctrls,
@@ -329,6 +331,7 @@ int ipu6_isys_subdev_init(struct ipu6_isys_subdev *asd,
 			 V4L2_SUBDEV_FL_STREAMS;
 	asd->sd.owner = THIS_MODULE;
 	asd->sd.entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
+	asd->sd.internal_ops = &ipu6_isys_subdev_internal_ops;
 
 	asd->pad = devm_kcalloc(&asd->isys->adev->auxdev.dev, num_pads,
 				sizeof(*asd->pad), GFP_KERNEL);
