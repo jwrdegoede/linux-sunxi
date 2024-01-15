@@ -61,6 +61,17 @@ const struct ipu6_isys_pixelformat ipu6_isys_pfmts[] = {
 	 IPU6_FW_ISYS_FRAME_FORMAT_RAW8},
 	{V4L2_PIX_FMT_SRGGB8, 8, 8, MEDIA_BUS_FMT_SRGGB8_1X8,
 	 IPU6_FW_ISYS_FRAME_FORMAT_RAW8},
+	{V4L2_PIX_FMT_UYVY, 16, 16, MEDIA_BUS_FMT_UYVY8_1X16,
+	 IPU6_FW_ISYS_FRAME_FORMAT_UYVY},
+	{V4L2_PIX_FMT_YUYV, 16, 16, MEDIA_BUS_FMT_YUYV8_1X16,
+	 IPU6_FW_ISYS_FRAME_FORMAT_YUYV},
+	{V4L2_PIX_FMT_RGB565, 16, 16, MEDIA_BUS_FMT_RGB565_1X16,
+	 IPU6_FW_ISYS_FRAME_FORMAT_RGB565},
+	{V4L2_PIX_FMT_BGR24, 24, 24, MEDIA_BUS_FMT_RGB888_1X24,
+	 IPU6_FW_ISYS_FRAME_FORMAT_RGBA888},
+};
+
+const struct ipu6_isys_pixelformat ipu6_isys_pfmts_packed[] = {
 	{V4L2_PIX_FMT_SBGGR12P, 12, 12, MEDIA_BUS_FMT_SBGGR12_1X12,
 	 IPU6_FW_ISYS_FRAME_FORMAT_RAW12},
 	{V4L2_PIX_FMT_SGBRG12P, 12, 12, MEDIA_BUS_FMT_SGBRG12_1X12,
@@ -77,14 +88,6 @@ const struct ipu6_isys_pixelformat ipu6_isys_pfmts[] = {
 	 IPU6_FW_ISYS_FRAME_FORMAT_RAW10},
 	{V4L2_PIX_FMT_SRGGB10P, 10, 10, MEDIA_BUS_FMT_SRGGB10_1X10,
 	 IPU6_FW_ISYS_FRAME_FORMAT_RAW10},
-	{V4L2_PIX_FMT_UYVY, 16, 16, MEDIA_BUS_FMT_UYVY8_1X16,
-	 IPU6_FW_ISYS_FRAME_FORMAT_UYVY},
-	{V4L2_PIX_FMT_YUYV, 16, 16, MEDIA_BUS_FMT_YUYV8_1X16,
-	 IPU6_FW_ISYS_FRAME_FORMAT_YUYV},
-	{V4L2_PIX_FMT_RGB565, 16, 16, MEDIA_BUS_FMT_RGB565_1X16,
-	 IPU6_FW_ISYS_FRAME_FORMAT_RGB565},
-	{V4L2_PIX_FMT_BGR24, 24, 24, MEDIA_BUS_FMT_RGB888_1X24,
-	 IPU6_FW_ISYS_FRAME_FORMAT_RGBA888},
 };
 
 static int video_open(struct file *file)
@@ -110,13 +113,26 @@ static int video_release(struct file *file)
 }
 
 static const struct ipu6_isys_pixelformat *
+ipu6_isys_get_pixelformat_by_idx(unsigned int idx)
+{
+	if (idx < ARRAY_SIZE(ipu6_isys_pfmts))
+		return &ipu6_isys_pfmts[idx];
+
+	idx -= ARRAY_SIZE(ipu6_isys_pfmts);
+
+	if (idx < ARRAY_SIZE(ipu6_isys_pfmts_packed))
+		return &ipu6_isys_pfmts_packed[idx];
+
+	return NULL;
+}
+
+static const struct ipu6_isys_pixelformat *
 ipu6_isys_get_pixelformat(u32 pixelformat)
 {
+	const struct ipu6_isys_pixelformat *pfmt;
 	unsigned int i;
 
-	for (i = 0; i < ARRAY_SIZE(ipu6_isys_pfmts); i++) {
-		const struct ipu6_isys_pixelformat *pfmt = &ipu6_isys_pfmts[i];
-
+	for (i = 0; (pfmt = ipu6_isys_get_pixelformat_by_idx(i)); i++) {
 		if (pfmt->pixelformat == pixelformat)
 			return pfmt;
 	}
@@ -138,24 +154,34 @@ int ipu6_isys_vidioc_querycap(struct file *file, void *fh,
 int ipu6_isys_vidioc_enum_fmt(struct file *file, void *fh,
 			      struct v4l2_fmtdesc *f)
 {
-	unsigned int i, found = 0;
+	struct ipu6_isys_video *av = video_drvdata(file);
+	const struct ipu6_isys_pixelformat *fmt;
+	unsigned int i, nfmts, found = 0;
 
-	if (f->index >= ARRAY_SIZE(ipu6_isys_pfmts))
+	nfmts = ARRAY_SIZE(ipu6_isys_pfmts);
+	/* Disable packed formats on TGL for now, TGL has 8 CSI ports */
+	if (av->isys->pdata->ipdata->csi2.nports != 8)
+		nfmts += ARRAY_SIZE(ipu6_isys_pfmts_packed);
+
+	if (f->index >= nfmts)
 		return -EINVAL;
 
 	if (!f->mbus_code) {
+		fmt = ipu6_isys_get_pixelformat_by_idx(f->index);
 		f->flags = 0;
-		f->pixelformat = ipu6_isys_pfmts[f->index].pixelformat;
+		f->pixelformat = fmt->pixelformat;
 		return 0;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(ipu6_isys_pfmts); i++) {
-		if (f->mbus_code != ipu6_isys_pfmts[i].code)
+	for (i = 0; i < nfmts; i++) {
+		fmt = ipu6_isys_get_pixelformat_by_idx(i);
+
+		if (f->mbus_code != fmt->code)
 			continue;
 
 		if (f->index == found) {
 			f->flags = 0;
-			f->pixelformat = ipu6_isys_pfmts[i].pixelformat;
+			f->pixelformat = fmt->pixelformat;
 			return 0;
 		}
 		found++;
