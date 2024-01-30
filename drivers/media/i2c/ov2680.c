@@ -130,6 +130,7 @@ struct ov2680_ctrls {
 	struct v4l2_ctrl *link_freq;
 	struct v4l2_ctrl *pixel_rate;
 	struct v4l2_ctrl *vblank;
+	struct v4l2_ctrl *hblank;
 };
 
 struct ov2680_mode {
@@ -684,6 +685,10 @@ static int ov2680_set_fmt(struct v4l2_subdev *sd,
 	/* exposure range depends on vts which may have changed */
 	ov2680_exposure_update_range(sensor);
 
+	/* adjust hblank value for new width */
+	def = OV2680_PIXELS_PER_LINE - width;
+	__v4l2_ctrl_modify_range(sensor->ctrls.hblank, def, def, 1, def);
+
 unlock:
 	mutex_unlock(&sensor->lock);
 
@@ -983,6 +988,12 @@ static int ov2680_v4l2_register(struct ov2680_dev *sensor)
 	def = OV2680_LINES_PER_FRAME_30FPS - OV2680_DEFAULT_HEIGHT;
 	ctrls->vblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_VBLANK,
 					  OV2680_MIN_VBLANK, max, 1, def);
+
+	def = OV2680_PIXELS_PER_LINE - OV2680_DEFAULT_WIDTH;
+	ctrls->hblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_HBLANK,
+					  def, def, 1, def);
+	if (ctrls->hblank)
+		ctrls->hblank->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
 	if (hdl->error) {
 		ret = hdl->error;
