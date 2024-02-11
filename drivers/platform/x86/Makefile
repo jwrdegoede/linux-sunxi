@@ -70,6 +70,9 @@ obj-$(CONFIG_YOGABOOK)		+= lenovo-yogabook.o
 # Intel
 obj-y				+= intel/
 
+# MeeGoPad
+obj-$(CONFIG_MEEGOPAD_ANX7428)	+= meegopad_anx7428.o
+
 # MSI
 obj-$(CONFIG_MSI_EC)		+= msi-ec.o
 obj-$(CONFIG_MSI_LAPTOP)	+= msi-laptop.o
