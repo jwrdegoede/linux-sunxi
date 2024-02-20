@@ -20,6 +20,7 @@
 #include <linux/printk.h>
 #include <linux/sprintf.h>
 #include <linux/string.h>
+#include <linux/version.h>
 
 static inline struct device *
 get_serdev_controller(const char *serial_ctrl_hid,
@@ -49,7 +50,12 @@ get_serdev_controller(const char *serial_ctrl_hid,
 	}
 
 	/* Walk host -> uart-ctrl -> port -> serdev-ctrl */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0)
 	for (i = 0; i < 3; i++) {
+#else
+	/* Kernels < 6.8 have host -> serdev-ctrl */
+	for (i = 2; i < 3; i++) {
+#endif
 		switch (i) {
 		case 0:
 			snprintf(name, sizeof(name), "%s:0", dev_name(ctrl_dev));
