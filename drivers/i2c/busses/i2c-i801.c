@@ -1743,8 +1743,13 @@ static int i801_probe(struct pci_dev *dev, const struct pci_device_id *id)
 
 	i801_add_tco(priv);
 
-	snprintf(priv->adapter.name, sizeof(priv->adapter.name),
-		"SMBus I801 adapter at %04lx", priv->smba);
+	if (priv->features & FEATURE_IDF)
+		snprintf(priv->adapter.name, sizeof(priv->adapter.name),
+			"SMBus I801 IDF adapter at %04lx", priv->smba);
+	else
+		snprintf(priv->adapter.name, sizeof(priv->adapter.name),
+			"SMBus I801 adapter at %04lx", priv->smba);
+
 	err = i2c_add_adapter(&priv->adapter);
 	if (err) {
 		platform_device_unregister(priv->tco_pdev);
