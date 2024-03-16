@@ -83,29 +83,11 @@ static struct v4l2_queryctrl ci_v4l2_controls[] = {
 		.default_value = 0x00,
 	},
 	{
-		.id = V4L2_CID_POWER_LINE_FREQUENCY,
-		.type = V4L2_CTRL_TYPE_MENU,
-		.name = "Light frequency filter",
-		.minimum = 1,
-		.maximum = 2,
-		.step = 1,
-		.default_value = 1,
-	},
-	{
 		.id = V4L2_CID_COLORFX,
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.name = "Image Color Effect",
 		.minimum = 0,
 		.maximum = 9,
-		.step = 1,
-		.default_value = 0,
-	},
-	{
-		.id = V4L2_CID_COLORFX_CBCR,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "Image Color Effect CbCr",
-		.minimum = 0,
-		.maximum = 0xffff,
 		.step = 1,
 		.default_value = 0,
 	},
@@ -171,142 +153,6 @@ static struct v4l2_queryctrl ci_v4l2_controls[] = {
 		.maximum = 1,
 		.step = 1,
 		.default_value = 1,
-	},
-	{
-		.id = V4L2_CID_2A_STATUS,
-		.type = V4L2_CTRL_TYPE_BITMASK,
-		.name = "AE and AWB status",
-		.minimum = 0,
-		.maximum = V4L2_2A_STATUS_AE_READY | V4L2_2A_STATUS_AWB_READY,
-		.step = 1,
-		.default_value = 0,
-	},
-	{
-		.id = V4L2_CID_EXPOSURE,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "exposure",
-		.minimum = -4,
-		.maximum = 4,
-		.step = 1,
-		.default_value = 0,
-	},
-	{
-		.id = V4L2_CID_EXPOSURE_ZONE_NUM,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "one-time exposure zone number",
-		.minimum = 0x0,
-		.maximum = 0xffff,
-		.step = 1,
-		.default_value = 0,
-	},
-	{
-		.id = V4L2_CID_EXPOSURE_AUTO_PRIORITY,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "Exposure auto priority",
-		.minimum = V4L2_EXPOSURE_AUTO,
-		.maximum = V4L2_EXPOSURE_APERTURE_PRIORITY,
-		.step = 1,
-		.default_value = V4L2_EXPOSURE_AUTO,
-	},
-	{
-		.id = V4L2_CID_SCENE_MODE,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "scene mode",
-		.minimum = 0,
-		.maximum = 13,
-		.step = 1,
-		.default_value = 0,
-	},
-	{
-		.id = V4L2_CID_ISO_SENSITIVITY,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "iso",
-		.minimum = -4,
-		.maximum = 4,
-		.step = 1,
-		.default_value = 0,
-	},
-	{
-		.id = V4L2_CID_ISO_SENSITIVITY_AUTO,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "iso mode",
-		.minimum = V4L2_ISO_SENSITIVITY_MANUAL,
-		.maximum = V4L2_ISO_SENSITIVITY_AUTO,
-		.step = 1,
-		.default_value = V4L2_ISO_SENSITIVITY_AUTO,
-	},
-	{
-		.id = V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "white balance",
-		.minimum = 0,
-		.maximum = 9,
-		.step = 1,
-		.default_value = 0,
-	},
-	{
-		.id = V4L2_CID_EXPOSURE_METERING,
-		.type = V4L2_CTRL_TYPE_MENU,
-		.name = "metering",
-		.minimum = 0,
-		.maximum = 3,
-		.step = 1,
-		.default_value = 1,
-	},
-	{
-		.id = V4L2_CID_3A_LOCK,
-		.type = V4L2_CTRL_TYPE_BITMASK,
-		.name = "3a lock",
-		.minimum = 0,
-		.maximum = V4L2_LOCK_EXPOSURE | V4L2_LOCK_WHITE_BALANCE
-		| V4L2_LOCK_FOCUS,
-		.step = 1,
-		.default_value = 0,
-	},
-	{
-		.id = V4L2_CID_TEST_PATTERN,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "Test Pattern",
-		.minimum = 0,
-		.maximum = 0xffff,
-		.step = 1,
-		.default_value = 0,
-	},
-	{
-		.id = V4L2_CID_TEST_PATTERN_COLOR_R,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "Test Pattern Solid Color R",
-		.minimum = INT_MIN,
-		.maximum = INT_MAX,
-		.step = 1,
-		.default_value = 0,
-	},
-	{
-		.id = V4L2_CID_TEST_PATTERN_COLOR_GR,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "Test Pattern Solid Color GR",
-		.minimum = INT_MIN,
-		.maximum = INT_MAX,
-		.step = 1,
-		.default_value = 0,
-	},
-	{
-		.id = V4L2_CID_TEST_PATTERN_COLOR_GB,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "Test Pattern Solid Color GB",
-		.minimum = INT_MIN,
-		.maximum = INT_MAX,
-		.step = 1,
-		.default_value = 0,
-	},
-	{
-		.id = V4L2_CID_TEST_PATTERN_COLOR_B,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "Test Pattern Solid Color B",
-		.minimum = INT_MIN,
-		.maximum = INT_MAX,
-		.step = 1,
-		.default_value = 0,
 	},
 };
 
@@ -557,7 +403,6 @@ static int atomisp_enum_input(struct file *file, void *fh,
 	struct video_device *vdev = video_devdata(file);
 	struct atomisp_device *isp = video_get_drvdata(vdev);
 	int index = input->index;
-	struct v4l2_subdev *motor;
 
 	if (index >= isp->input_cnt)
 		return -EINVAL;
@@ -568,28 +413,6 @@ static int atomisp_enum_input(struct file *file, void *fh,
 	memset(input, 0, sizeof(struct v4l2_input));
 	strscpy(input->name, isp->inputs[index].camera->name,
 		sizeof(input->name));
-
-	/*
-	 * HACK: append actuator's name to sensor's
-	 * As currently userspace can't talk directly to subdev nodes, this
-	 * ioctl is the only way to enum inputs + possible external actuators
-	 * for 3A tuning purpose.
-	 */
-	if (!IS_ISP2401)
-		motor = isp->inputs[index].motor;
-	else
-		motor = isp->motor;
-
-	if (motor && strlen(motor->name) > 0) {
-		const int cur_len = strlen(input->name);
-		const int max_size = sizeof(input->name) - cur_len - 1;
-
-		if (max_size > 1) {
-			input->name[cur_len] = '+';
-			strscpy(&input->name[cur_len + 1],
-				motor->name, max_size);
-		}
-	}
 
 	input->type = V4L2_INPUT_TYPE_CAMERA;
 	input->index = index;
@@ -629,7 +452,6 @@ static int atomisp_s_input(struct file *file, void *fh, unsigned int input)
 	struct atomisp_video_pipe *pipe = atomisp_to_video_pipe(vdev);
 	struct atomisp_sub_device *asd = pipe->asd;
 	struct v4l2_subdev *camera = NULL;
-	struct v4l2_subdev *motor;
 	int ret;
 
 	ret = atomisp_pipe_check(pipe, true);
@@ -665,25 +487,6 @@ static int atomisp_s_input(struct file *file, void *fh, unsigned int input)
 		dev_err(isp->dev, "Failed to power-on sensor\n");
 		return ret;
 	}
-
-	/* select operating sensor */
-	ret = v4l2_subdev_call(isp->inputs[input].camera, video, s_routing,
-			       0, 0, 0);
-	if (ret && (ret != -ENOIOCTLCMD)) {
-		dev_err(isp->dev, "Failed to select sensor\n");
-		return ret;
-	}
-
-	if (!IS_ISP2401) {
-		motor = isp->inputs[input].motor;
-	} else {
-		motor = isp->motor;
-		if (motor)
-			ret = v4l2_subdev_call(motor, core, s_power, 1);
-	}
-
-	if (motor)
-		ret = v4l2_subdev_call(motor, core, init, 1);
 
 	asd->input_curr = input;
 	/* mark this camera is used by the current stream */
@@ -1291,7 +1094,6 @@ static int atomisp_g_ctrl(struct file *file, void *fh,
 {
 	struct video_device *vdev = video_devdata(file);
 	struct atomisp_sub_device *asd = atomisp_to_video_pipe(vdev)->asd;
-	struct atomisp_device *isp = video_get_drvdata(vdev);
 	int i, ret = -EINVAL;
 
 	for (i = 0; i < ctrls_num; i++) {
@@ -1305,27 +1107,6 @@ static int atomisp_g_ctrl(struct file *file, void *fh,
 		return ret;
 
 	switch (control->id) {
-	case V4L2_CID_IRIS_ABSOLUTE:
-	case V4L2_CID_EXPOSURE_ABSOLUTE:
-	case V4L2_CID_2A_STATUS:
-	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
-	case V4L2_CID_EXPOSURE:
-	case V4L2_CID_EXPOSURE_AUTO:
-	case V4L2_CID_SCENE_MODE:
-	case V4L2_CID_ISO_SENSITIVITY:
-	case V4L2_CID_ISO_SENSITIVITY_AUTO:
-	case V4L2_CID_CONTRAST:
-	case V4L2_CID_SATURATION:
-	case V4L2_CID_SHARPNESS:
-	case V4L2_CID_3A_LOCK:
-	case V4L2_CID_EXPOSURE_ZONE_NUM:
-	case V4L2_CID_TEST_PATTERN:
-	case V4L2_CID_TEST_PATTERN_COLOR_R:
-	case V4L2_CID_TEST_PATTERN_COLOR_GR:
-	case V4L2_CID_TEST_PATTERN_COLOR_GB:
-	case V4L2_CID_TEST_PATTERN_COLOR_B:
-		return v4l2_g_ctrl(isp->inputs[asd->input_curr].camera->
-				   ctrl_handler, control);
 	case V4L2_CID_COLORFX:
 		ret = atomisp_color_effect(asd, 0, &control->value);
 		break;
@@ -1365,7 +1146,6 @@ static int atomisp_s_ctrl(struct file *file, void *fh,
 {
 	struct video_device *vdev = video_devdata(file);
 	struct atomisp_sub_device *asd = atomisp_to_video_pipe(vdev)->asd;
-	struct atomisp_device *isp = video_get_drvdata(vdev);
 	int i, ret = -EINVAL;
 
 	for (i = 0; i < ctrls_num; i++) {
@@ -1379,28 +1159,6 @@ static int atomisp_s_ctrl(struct file *file, void *fh,
 		return ret;
 
 	switch (control->id) {
-	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
-	case V4L2_CID_EXPOSURE:
-	case V4L2_CID_EXPOSURE_AUTO:
-	case V4L2_CID_EXPOSURE_AUTO_PRIORITY:
-	case V4L2_CID_SCENE_MODE:
-	case V4L2_CID_ISO_SENSITIVITY:
-	case V4L2_CID_ISO_SENSITIVITY_AUTO:
-	case V4L2_CID_POWER_LINE_FREQUENCY:
-	case V4L2_CID_EXPOSURE_METERING:
-	case V4L2_CID_CONTRAST:
-	case V4L2_CID_SATURATION:
-	case V4L2_CID_SHARPNESS:
-	case V4L2_CID_3A_LOCK:
-	case V4L2_CID_COLORFX_CBCR:
-	case V4L2_CID_TEST_PATTERN:
-	case V4L2_CID_TEST_PATTERN_COLOR_R:
-	case V4L2_CID_TEST_PATTERN_COLOR_GR:
-	case V4L2_CID_TEST_PATTERN_COLOR_GB:
-	case V4L2_CID_TEST_PATTERN_COLOR_B:
-		return v4l2_s_ctrl(NULL,
-				   isp->inputs[asd->input_curr].camera->
-				   ctrl_handler, control);
 	case V4L2_CID_COLORFX:
 		ret = atomisp_color_effect(asd, 1, &control->value);
 		break;
@@ -1442,25 +1200,6 @@ static int atomisp_queryctl(struct file *file, void *fh,
 			    struct v4l2_queryctrl *qc)
 {
 	int i, ret = -EINVAL;
-	struct video_device *vdev = video_devdata(file);
-	struct atomisp_sub_device *asd = atomisp_to_video_pipe(vdev)->asd;
-	struct atomisp_device *isp = video_get_drvdata(vdev);
-
-	switch (qc->id) {
-	case V4L2_CID_FOCUS_ABSOLUTE:
-	case V4L2_CID_FOCUS_RELATIVE:
-	case V4L2_CID_FOCUS_STATUS:
-		if (!IS_ISP2401) {
-			return v4l2_queryctrl(isp->inputs[asd->input_curr].camera->
-					    ctrl_handler, qc);
-		}
-		/* ISP2401 */
-		if (isp->motor)
-			return v4l2_queryctrl(isp->motor->ctrl_handler, qc);
-		else
-			return v4l2_queryctrl(isp->inputs[asd->input_curr].
-					      camera->ctrl_handler, qc);
-	}
 
 	if (qc->id & V4L2_CTRL_FLAG_NEXT_CTRL)
 		return ret;
@@ -1486,44 +1225,14 @@ static int atomisp_camera_g_ext_ctrls(struct file *file, void *fh,
 	struct video_device *vdev = video_devdata(file);
 	struct atomisp_sub_device *asd = atomisp_to_video_pipe(vdev)->asd;
 	struct atomisp_device *isp = video_get_drvdata(vdev);
-	struct v4l2_subdev *motor;
 	struct v4l2_control ctrl;
 	int i;
 	int ret = 0;
-
-	if (!IS_ISP2401)
-		motor = isp->inputs[asd->input_curr].motor;
-	else
-		motor = isp->motor;
 
 	for (i = 0; i < c->count; i++) {
 		ctrl.id = c->controls[i].id;
 		ctrl.value = c->controls[i].value;
 		switch (ctrl.id) {
-		case V4L2_CID_EXPOSURE_ABSOLUTE:
-		case V4L2_CID_EXPOSURE_AUTO:
-		case V4L2_CID_IRIS_ABSOLUTE:
-		case V4L2_CID_3A_LOCK:
-		case V4L2_CID_TEST_PATTERN:
-		case V4L2_CID_TEST_PATTERN_COLOR_R:
-		case V4L2_CID_TEST_PATTERN_COLOR_GR:
-		case V4L2_CID_TEST_PATTERN_COLOR_GB:
-		case V4L2_CID_TEST_PATTERN_COLOR_B:
-			/*
-			 * Exposure related control will be handled by sensor
-			 * driver
-			 */
-			ret =
-			    v4l2_g_ctrl(isp->inputs[asd->input_curr].camera->
-					ctrl_handler, &ctrl);
-			break;
-		case V4L2_CID_FOCUS_ABSOLUTE:
-		case V4L2_CID_FOCUS_RELATIVE:
-		case V4L2_CID_FOCUS_STATUS:
-		case V4L2_CID_FOCUS_AUTO:
-			if (motor)
-				ret = v4l2_g_ctrl(motor->ctrl_handler, &ctrl);
-			break;
 		case V4L2_CID_FLASH_STATUS:
 		case V4L2_CID_FLASH_INTENSITY:
 		case V4L2_CID_FLASH_TORCH_INTENSITY:
@@ -1539,11 +1248,6 @@ static int atomisp_camera_g_ext_ctrls(struct file *file, void *fh,
 			break;
 		case V4L2_CID_ZOOM_ABSOLUTE:
 			ret = atomisp_digital_zoom(asd, 0, &ctrl.value);
-			break;
-		case V4L2_CID_G_SKIP_FRAMES:
-			ret = v4l2_subdev_call(
-				  isp->inputs[asd->input_curr].camera,
-				  sensor, g_skip_frames, (u32 *)&ctrl.value);
 			break;
 		default:
 			ret = -EINVAL;
@@ -1592,15 +1296,9 @@ static int atomisp_camera_s_ext_ctrls(struct file *file, void *fh,
 	struct video_device *vdev = video_devdata(file);
 	struct atomisp_sub_device *asd = atomisp_to_video_pipe(vdev)->asd;
 	struct atomisp_device *isp = video_get_drvdata(vdev);
-	struct v4l2_subdev *motor;
 	struct v4l2_control ctrl;
 	int i;
 	int ret = 0;
-
-	if (!IS_ISP2401)
-		motor = isp->inputs[asd->input_curr].motor;
-	else
-		motor = isp->motor;
 
 	for (i = 0; i < c->count; i++) {
 		struct v4l2_ctrl *ctr;
@@ -1608,34 +1306,6 @@ static int atomisp_camera_s_ext_ctrls(struct file *file, void *fh,
 		ctrl.id = c->controls[i].id;
 		ctrl.value = c->controls[i].value;
 		switch (ctrl.id) {
-		case V4L2_CID_EXPOSURE_ABSOLUTE:
-		case V4L2_CID_EXPOSURE_AUTO:
-		case V4L2_CID_EXPOSURE_METERING:
-		case V4L2_CID_IRIS_ABSOLUTE:
-		case V4L2_CID_VCM_TIMING:
-		case V4L2_CID_VCM_SLEW:
-		case V4L2_CID_3A_LOCK:
-		case V4L2_CID_TEST_PATTERN:
-		case V4L2_CID_TEST_PATTERN_COLOR_R:
-		case V4L2_CID_TEST_PATTERN_COLOR_GR:
-		case V4L2_CID_TEST_PATTERN_COLOR_GB:
-		case V4L2_CID_TEST_PATTERN_COLOR_B:
-			ret = v4l2_s_ctrl(NULL,
-					  isp->inputs[asd->input_curr].camera->
-					  ctrl_handler, &ctrl);
-			break;
-		case V4L2_CID_FOCUS_ABSOLUTE:
-		case V4L2_CID_FOCUS_RELATIVE:
-		case V4L2_CID_FOCUS_STATUS:
-		case V4L2_CID_FOCUS_AUTO:
-			if (motor)
-				ret = v4l2_s_ctrl(NULL, motor->ctrl_handler,
-						  &ctrl);
-			else
-				ret = v4l2_s_ctrl(NULL,
-						  isp->inputs[asd->input_curr].
-						  camera->ctrl_handler, &ctrl);
-			break;
 		case V4L2_CID_FLASH_STATUS:
 		case V4L2_CID_FLASH_INTENSITY:
 		case V4L2_CID_FLASH_TORCH_INTENSITY:
@@ -1784,7 +1454,6 @@ static long atomisp_vidioc_default(struct file *file, void *fh,
 				   bool valid_prio, unsigned int cmd, void *arg)
 {
 	struct video_device *vdev = video_devdata(file);
-	struct atomisp_device *isp = video_get_drvdata(vdev);
 	struct atomisp_sub_device *asd = atomisp_to_video_pipe(vdev)->asd;
 	int err;
 
@@ -1931,11 +1600,6 @@ static long atomisp_vidioc_default(struct file *file, void *fh,
 		err = atomisp_fixed_pattern_table(asd, arg);
 		break;
 
-	case ATOMISP_IOC_S_EXPOSURE:
-		err = v4l2_subdev_call(isp->inputs[asd->input_curr].camera,
-				       core, ioctl, cmd, arg);
-		break;
-
 	case ATOMISP_IOC_S_ISP_SHD_TAB:
 		err = atomisp_set_shading_table(asd, arg);
 		break;
@@ -1952,10 +1616,6 @@ static long atomisp_vidioc_default(struct file *file, void *fh,
 		err = atomisp_set_parameters(vdev, arg);
 		break;
 
-	case ATOMISP_IOC_EXT_ISP_CTRL:
-		err = v4l2_subdev_call(isp->inputs[asd->input_curr].camera,
-				       core, ioctl, cmd, arg);
-		break;
 	case ATOMISP_IOC_EXP_ID_UNLOCK:
 		err = atomisp_exp_id_unlock(asd, arg);
 		break;
@@ -2006,6 +1666,7 @@ const struct v4l2_ioctl_ops atomisp_ioctl_ops = {
 	.vidioc_querybuf = vb2_ioctl_querybuf,
 	.vidioc_qbuf = atomisp_qbuf_wrapper,
 	.vidioc_dqbuf = atomisp_dqbuf_wrapper,
+	.vidioc_expbuf = vb2_ioctl_expbuf,
 	.vidioc_streamon = vb2_ioctl_streamon,
 	.vidioc_streamoff = vb2_ioctl_streamoff,
 	.vidioc_default = atomisp_vidioc_default,

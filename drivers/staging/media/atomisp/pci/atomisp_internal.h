@@ -134,9 +134,6 @@ struct atomisp_input_subdev {
 	struct v4l2_rect active_rect;
 	/* Sensor state for which == V4L2_SUBDEV_FORMAT_TRY calls */
 	struct v4l2_subdev_state *try_sd_state;
-
-	struct v4l2_subdev *motor;
-
 	/*
 	 * To show this resource is used by
 	 * which stream, in ISP multiple stream mode
@@ -192,6 +189,7 @@ struct atomisp_device {
 	struct dev_pm_domain pm_domain;
 	struct pm_qos_request pm_qos;
 	s32 max_isr_latency;
+	bool pm_only;
 
 	struct atomisp_mipi_csi2_device csi2_port[ATOMISP_CAMERA_NR_PORTS];
 	struct atomisp_tpg_device tpg;
@@ -209,7 +207,6 @@ struct atomisp_device {
 	unsigned int input_cnt;
 	struct atomisp_input_subdev inputs[ATOM_ISP_MAX_INPUTS];
 	struct v4l2_subdev *flash;
-	struct v4l2_subdev *motor;
 
 	struct atomisp_regs saved_regs;
 	struct atomisp_css_env css_env;
