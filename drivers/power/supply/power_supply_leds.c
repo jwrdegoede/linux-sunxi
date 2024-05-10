@@ -24,6 +24,16 @@ struct power_supply_led_trigger {
 	struct power_supply *psy;
 };
 
+static int power_supply_led_trigger_activate(struct led_classdev *led_cdev)
+{
+	struct power_supply_led_trigger *psy_trig =
+		container_of(led_cdev->trigger, struct power_supply_led_trigger, trig);
+
+	/* Sync current power-supply state to LED being activated */
+	power_supply_update_leds(psy_trig->psy);
+	return 0;
+}
+
 static int power_supply_register_led_trigger(struct power_supply *psy,
 					     const char *name_template,
 					     struct led_trigger **tp)
@@ -41,6 +51,7 @@ static int power_supply_register_led_trigger(struct power_supply *psy,
 		goto err_free_trigger;
 	}
 
+	psy_trig->trig.activate = power_supply_led_trigger_activate;
 	psy_trig->psy = psy;
 
 	err = led_trigger_register(&psy_trig->trig);
