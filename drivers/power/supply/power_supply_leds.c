@@ -19,6 +19,57 @@
 
 /* Battery specific LEDs triggers. */
 
+struct power_supply_led_trigger {
+	struct led_trigger trig;
+	struct power_supply *psy;
+};
+
+static int power_supply_register_led_trigger(struct power_supply *psy,
+					     const char *name_template,
+					     struct led_trigger **tp)
+{
+	struct power_supply_led_trigger *psy_trig;
+	int err;
+
+	psy_trig = kzalloc(sizeof(*psy_trig), GFP_KERNEL);
+	if (!psy_trig)
+		return -ENOMEM;
+
+	psy_trig->trig.name = kasprintf(GFP_KERNEL, name_template, psy->desc->name);
+	if (!psy_trig->trig.name) {
+		err = -ENOMEM;
+		goto err_free_trigger;
+	}
+
+	psy_trig->psy = psy;
+
+	err = led_trigger_register(&psy_trig->trig);
+	if (err)
+		goto err_free_name;
+
+	*tp = &psy_trig->trig;
+	return 0;
+
+err_free_name:
+	kfree(psy_trig->trig.name);
+err_free_trigger:
+	kfree(psy_trig);
+	return -ENOMEM;
+}
+
+static void power_supply_unregister_led_trigger(struct led_trigger *trig)
+{
+	struct power_supply_led_trigger *psy_trig;
+
+	if (!trig)
+		return;
+
+	psy_trig = container_of(trig, struct power_supply_led_trigger, trig);
+	led_trigger_unregister(&psy_trig->trig);
+	kfree(psy_trig->trig.name);
+	kfree(psy_trig);
+}
+
 static void power_supply_update_bat_leds(struct power_supply *psy)
 {
 	union power_supply_propval status;
@@ -65,69 +116,39 @@ static void power_supply_update_bat_leds(struct power_supply *psy)
 	}
 }
 
-static int power_supply_create_bat_triggers(struct power_supply *psy)
-{
-	psy->charging_full_trig_name = kasprintf(GFP_KERNEL,
-					"%s-charging-or-full", psy->desc->name);
-	if (!psy->charging_full_trig_name)
-		goto charging_full_failed;
-
-	psy->charging_trig_name = kasprintf(GFP_KERNEL,
-					"%s-charging", psy->desc->name);
-	if (!psy->charging_trig_name)
-		goto charging_failed;
-
-	psy->full_trig_name = kasprintf(GFP_KERNEL, "%s-full", psy->desc->name);
-	if (!psy->full_trig_name)
-		goto full_failed;
-
-	psy->charging_blink_full_solid_trig_name = kasprintf(GFP_KERNEL,
-		"%s-charging-blink-full-solid", psy->desc->name);
-	if (!psy->charging_blink_full_solid_trig_name)
-		goto charging_blink_full_solid_failed;
-
-	psy->charging_orange_full_green_trig_name = kasprintf(GFP_KERNEL,
-		"%s-charging-orange-full-green", psy->desc->name);
-	if (!psy->charging_orange_full_green_trig_name)
-		goto charging_red_full_green_failed;
-
-	led_trigger_register_simple(psy->charging_full_trig_name,
-				    &psy->charging_full_trig);
-	led_trigger_register_simple(psy->charging_trig_name,
-				    &psy->charging_trig);
-	led_trigger_register_simple(psy->full_trig_name,
-				    &psy->full_trig);
-	led_trigger_register_simple(psy->charging_blink_full_solid_trig_name,
-				    &psy->charging_blink_full_solid_trig);
-	led_trigger_register_simple(psy->charging_orange_full_green_trig_name,
-				    &psy->charging_orange_full_green_trig);
-
-	return 0;
-
-charging_red_full_green_failed:
-	kfree(psy->charging_blink_full_solid_trig_name);
-charging_blink_full_solid_failed:
-	kfree(psy->full_trig_name);
-full_failed:
-	kfree(psy->charging_trig_name);
-charging_failed:
-	kfree(psy->charging_full_trig_name);
-charging_full_failed:
-	return -ENOMEM;
-}
-
 static void power_supply_remove_bat_triggers(struct power_supply *psy)
 {
-	led_trigger_unregister_simple(psy->charging_full_trig);
-	led_trigger_unregister_simple(psy->charging_trig);
-	led_trigger_unregister_simple(psy->full_trig);
-	led_trigger_unregister_simple(psy->charging_blink_full_solid_trig);
-	led_trigger_unregister_simple(psy->charging_orange_full_green_trig);
-	kfree(psy->charging_blink_full_solid_trig_name);
-	kfree(psy->full_trig_name);
-	kfree(psy->charging_trig_name);
-	kfree(psy->charging_full_trig_name);
-	kfree(psy->charging_orange_full_green_trig_name);
+	power_supply_unregister_led_trigger(psy->charging_full_trig);
+	power_supply_unregister_led_trigger(psy->charging_trig);
+	power_supply_unregister_led_trigger(psy->full_trig);
+	power_supply_unregister_led_trigger(psy->charging_blink_full_solid_trig);
+	power_supply_unregister_led_trigger(psy->charging_orange_full_green_trig);
+}
+
+static int power_supply_create_bat_triggers(struct power_supply *psy)
+{
+	int err = 0;
+
+	err |= power_supply_register_led_trigger(psy, "%s-charging-or-full",
+						 &psy->charging_full_trig);
+	err |= power_supply_register_led_trigger(psy, "%s-charging",
+						 &psy->charging_trig);
+	err |= power_supply_register_led_trigger(psy, "%s-full",
+						 &psy->full_trig);
+	err |= power_supply_register_led_trigger(psy, "%s-charging-blink-full-solid",
+						 &psy->charging_blink_full_solid_trig);
+	err |= power_supply_register_led_trigger(psy, "%s-charging-orange-full-green",
+						 &psy->charging_orange_full_green_trig);
+	if (err) {
+		power_supply_remove_bat_triggers(psy);
+		/*
+		 * led_trigger_register() may also return -EEXIST but that should
+		 * never happen with the dynamically generated psy trigger names.
+		 */
+		return -ENOMEM;
+	}
+
+	return 0;
 }
 
 /* Generated power specific LEDs triggers. */
@@ -149,20 +170,12 @@ static void power_supply_update_gen_leds(struct power_supply *psy)
 
 static int power_supply_create_gen_triggers(struct power_supply *psy)
 {
-	psy->online_trig_name = kasprintf(GFP_KERNEL, "%s-online",
-					  psy->desc->name);
-	if (!psy->online_trig_name)
-		return -ENOMEM;
-
-	led_trigger_register_simple(psy->online_trig_name, &psy->online_trig);
-
-	return 0;
+	return power_supply_register_led_trigger(psy, "%s-online", &psy->online_trig);
 }
 
 static void power_supply_remove_gen_triggers(struct power_supply *psy)
 {
-	led_trigger_unregister_simple(psy->online_trig);
-	kfree(psy->online_trig_name);
+	power_supply_unregister_led_trigger(psy->online_trig);
 }
 
 /* Choice what triggers to create&update. */
