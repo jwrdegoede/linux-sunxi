@@ -56,3 +56,13 @@ config VIDEO_ATOMISP_GC0310
 	help
 	  This is a Video4Linux2 sensor-level driver for the Galaxycore
 	  GC0310 0.3MP sensor.
+
+config VIDEO_ATOMISP_T4KA3
+	tristate "Toshiba T4KA3 sensor support"
+	depends on ACPI
+	depends on I2C && VIDEO_DEV
+	help
+	  This is a Video4Linux2 sensor driver for the Toshiba T4KA3 8 MP
+	  camera sensor.
+
+	  It currently only works with the atomisp driver.
