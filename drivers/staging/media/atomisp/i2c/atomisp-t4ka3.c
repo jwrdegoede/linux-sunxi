@@ -1231,18 +1231,11 @@ static int t4ka3_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct t4ka3_device *dev =
 	    container_of(ctrl->handler, struct t4ka3_device, ctrl_handler);
-	unsigned int val;
 	int ret = 0;
 
 	switch (ctrl->id) {
 	case V4L2_CID_LINK_FREQ:
-		val = t4ka3_res[dev->fmt_idx].mipi_freq;
-		if (val == 0) {
-			ret = -EINVAL;
-			break;
-		}
-
-		ctrl->val = val * 1000;	/* To Hz */
+		ctrl->val = T4K3A_LINK_FREQ;
 		break;
 	case V4L2_CID_EXPOSURE_ABSOLUTE:
 		ret = t4ka3_q_exposure(&dev->sd, &ctrl->val);
