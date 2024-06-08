@@ -73,7 +73,12 @@
 #define T4KA3_HORIZONTAL_END_H	0x0348
 #define T4KA3_VERTICAL_END_H		0x034a
 #define T4KA3_HORIZONTAL_OUTPUT_SIZE_H	0x034c
+/* Per resolution register lists set this to vertical (resolution - 2) ? */
 #define T4KA3_VERTICAL_OUTPUT_SIZE_H		0x034e
+
+/* Window width/height reg guessed based on per resolution register lists */
+#define T4KA3_REG_WINDOW_WIDTH			0x040c
+#define T4KA3_REG_WINDOW_HEIGHT			0x040e
 
 enum t4ka3_tok_type {
 	T4KA3_8BIT  = 0x0001,
@@ -517,7 +522,7 @@ static struct t4ka3_reg const t4ka3_1936x1096_30fps[] = {
 	{T4KA3_8BIT, 0x040C, 0x07},
 	{T4KA3_8BIT, 0x040D, 0x90},
 	{T4KA3_8BIT, 0x040E, 0x04},
-	{T4KA3_8BIT, 0x040F, 0x4B},
+	{T4KA3_8BIT, 0x040F, 0x4B}, /* Should be 0x48 ? */
 	{T4KA3_8BIT, 0x0900, 0x01},
 	{T4KA3_8BIT, 0x0901, 0x11},
 	{T4KA3_8BIT, 0x0902, 0x00},
@@ -757,7 +762,7 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.width = 736,
 		.height = 496,
 		.fps = 30,
-		.pixels_per_line = 3744, /* consistent with regs arrays */
+		.pixels_per_line = 3440, /* consistent with regs arrays */
 		.lines_per_frame = 2492, /* consistent with regs arrays */
 		.skip_frames = 2,
 		.mipi_freq = 700800,
@@ -769,7 +774,7 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.width = 896,
 		.height = 736,
 		.fps = 30,
-		.pixels_per_line = 3744, /* consistent with regs arrays */
+		.pixels_per_line = 3440, /* consistent with regs arrays */
 		.lines_per_frame = 2492, /* consistent with regs arrays */
 		.skip_frames = 2,
 		.mipi_freq = 700800,
@@ -781,7 +786,7 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.width = 1936,
 		.height = 1096,
 		.fps = 30,
-		.pixels_per_line = 3744, /* consistent with regs arrays */
+		.pixels_per_line = 3440, /* consistent with regs arrays */
 		.lines_per_frame = 2492, /* consistent with regs arrays */
 		.skip_frames = 2,
 		.mipi_freq = 700800,
