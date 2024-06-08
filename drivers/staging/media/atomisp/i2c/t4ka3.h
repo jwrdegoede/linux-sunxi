@@ -33,6 +33,11 @@
 #define T4KA3_RES_WIDTH_MAX	3280
 #define T4KA3_RES_HEIGHT_MAX	2464
 
+#define T4K3A_PIXELS_PER_LINE	3440
+#define T4K3A_LINES_PER_FRAME	2492
+
+#define T4K3A_FPS		30
+
 #define T4KA3_REG_PRODUCT_ID			0x0000
 #define T4KA3_PRODUCT_ID				0x1490
 
@@ -97,14 +102,10 @@ struct t4ka3_device {
 	int fmt_idx;
 	int streaming;
 	int power;
-	int vt_pix_clk_freq_mhz;
 	u16 coarse_itg;
 	u16 gain;
 	u16 digital_gain;
-	u16 pixels_per_line;
-	u16 lines_per_frame;
 	u16 flip;
-	u8 fps;
 
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct v4l2_ctrl *link_freq;
@@ -149,9 +150,6 @@ struct t4ka3_resolution {
 	int res;
 	int width;
 	int height;
-	int fps;
-	unsigned short pixels_per_line;
-	unsigned short lines_per_frame;
 	u32 skip_frames;
 	u32 code;
 	int mipi_freq;
@@ -760,9 +758,6 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.regs = t4ka3_736x496_30fps,
 		.width = 736,
 		.height = 496,
-		.fps = 30,
-		.pixels_per_line = 3440, /* consistent with regs arrays */
-		.lines_per_frame = 2492, /* consistent with regs arrays */
 		.skip_frames = 2,
 		.mipi_freq = 700800,
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
@@ -772,9 +767,6 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.regs = t4ka3_896x736_30fps,
 		.width = 896,
 		.height = 736,
-		.fps = 30,
-		.pixels_per_line = 3440, /* consistent with regs arrays */
-		.lines_per_frame = 2492, /* consistent with regs arrays */
 		.skip_frames = 2,
 		.mipi_freq = 700800,
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
@@ -784,9 +776,6 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.regs = t4ka3_1936x1096_30fps,
 		.width = 1936,
 		.height = 1096,
-		.fps = 30,
-		.pixels_per_line = 3440, /* consistent with regs arrays */
-		.lines_per_frame = 2492, /* consistent with regs arrays */
 		.skip_frames = 2,
 		.mipi_freq = 700800,
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
@@ -796,10 +785,6 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.regs = t4ka3_3280x2464_30fps,
 		.width = 3280,
 		.height = 2464,
-		.fps = 30,
-		.pixels_per_line = 3440, /* consistent with regs arrays */
-		.lines_per_frame = 2492, /* consistent with regs arrays */
-		.skip_frames = 2,
 		.mipi_freq = 700800,
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
