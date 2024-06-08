@@ -533,7 +533,7 @@ static int t4ka3_q_exposure(struct v4l2_subdev *sd, s32 *value)
 	int ret;
 	/* the fine integration time is currently not calculated */
 	ret = t4ka3_read_reg(client, T4KA3_16BIT,
-			       T4KA3_COARSE_INTEGRATION_TIME, &coarse);
+			       T4KA3_REG_COARSE_INTEGRATION_TIME, &coarse);
 	*value = coarse;
 
 	return ret;
@@ -690,7 +690,7 @@ static int __t4ka3_set_mbus_fmt(struct v4l2_subdev *sd,
 	dev->gain = 0;
 
 	ret = t4ka3_read_reg(client, T4KA3_8BIT,
-				T4KA3_IMG_ORIENTATION, (u16 *)&tmp);
+				T4KA3_REG_IMG_ORIENTATION, (u16 *)&tmp);
 	if (ret) {
 		mutex_unlock(&dev->input_lock);
 		return ret;
@@ -703,7 +703,7 @@ static int __t4ka3_set_mbus_fmt(struct v4l2_subdev *sd,
 		t4ka3_info->raw_bayer_order);
 
 	/*t4ka3_write_reg(client, T4KA3_16BIT,
-			T4KA3_TEST_PATTERN_MODE, 0x0304);*/
+			T4KA3_REG_TEST_PATTERN_MODE, 0x0304);*/
 
 	mutex_unlock(&dev->input_lock);
 	return 0;
@@ -721,7 +721,7 @@ static int t4ka3_t_hflip(struct v4l2_subdev *sd, int value)
 	ret = t4ka3_write_reg_array(c, t4ka3_param_hold);
 
 	ret = t4ka3_read_reg(c, T4KA3_8BIT,
-				T4KA3_IMG_ORIENTATION, &val);
+				T4KA3_REG_IMG_ORIENTATION, &val);
 	if (ret)
 		return ret;
 	if (value)
@@ -729,7 +729,7 @@ static int t4ka3_t_hflip(struct v4l2_subdev *sd, int value)
 	else
 		val &= ~T4KA3_HFLIP_BIT;
 	ret = t4ka3_write_reg(c, T4KA3_8BIT,
-				T4KA3_IMG_ORIENTATION, val);
+				T4KA3_REG_IMG_ORIENTATION, val);
 	if (ret)
 		return ret;
 
@@ -752,7 +752,7 @@ static int t4ka3_t_vflip(struct v4l2_subdev *sd, int value)
 	ret = t4ka3_write_reg_array(c, t4ka3_param_hold);
 
 	ret = t4ka3_read_reg(c, T4KA3_8BIT,
-				T4KA3_IMG_ORIENTATION, &val);
+				T4KA3_REG_IMG_ORIENTATION, &val);
 	if (ret)
 		return ret;
 	if (value)
@@ -760,7 +760,7 @@ static int t4ka3_t_vflip(struct v4l2_subdev *sd, int value)
 	else
 		val &= ~T4KA3_VFLIP_BIT;
 	ret = t4ka3_write_reg(c, T4KA3_8BIT,
-				T4KA3_IMG_ORIENTATION, val);
+				T4KA3_REG_IMG_ORIENTATION, val);
 	if (ret)
 		return ret;
 
@@ -776,7 +776,7 @@ static int t4ka3_test_pattern(struct v4l2_subdev *sd, s32 value)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
 	return t4ka3_write_reg(client, T4KA3_8BIT,
-			T4KA3_TEST_PATTERN_MODE, 0x0304);
+			T4KA3_REG_TEST_PATTERN_MODE, 0x0304);
 }
 
 static long __t4ka3_set_exposure(struct v4l2_subdev *sd,
@@ -805,38 +805,38 @@ static long __t4ka3_set_exposure(struct v4l2_subdev *sd,
 		lines_per_frame = dev->lines_per_frame;
 
 	ret = t4ka3_write_reg(client, T4KA3_16BIT,
-				T4KA3_FRAME_LENGTH_LINES,
+				T4KA3_REG_FRAME_LENGTH_LINES,
 				lines_per_frame);
 	if (ret)
 		goto out_disable;
 
 	/* set exposure gain */
 	ret = t4ka3_write_reg(client, T4KA3_16BIT,
-				T4KA3_COARSE_INTEGRATION_TIME,
+				T4KA3_REG_COARSE_INTEGRATION_TIME,
 				coarse_itg);
 	if (ret)
 		goto out_disable;
 
 	/* set analogue gain */
 	ret = t4ka3_write_reg(client, T4KA3_16BIT,
-					T4KA3_GLOBAL_GAIN, gain);
+					T4KA3_REG_GLOBAL_GAIN, gain);
 	if (ret)
 		goto out_disable;
 	/* set digital gain*/
 	ret = t4ka3_write_reg(client, T4KA3_16BIT,
-					T4KA3_DIGGAIN_GREEN_R_H, digitalgain);
+					T4KA3_REG_DIGGAIN_GREEN_R, digitalgain);
 	if (ret)
 		goto out_disable;
 	ret = t4ka3_write_reg(client, T4KA3_16BIT,
-					T4KA3_DIGGAIN_RED_H, digitalgain);
+					T4KA3_REG_DIGGAIN_RED, digitalgain);
 	if (ret)
 		goto out_disable;
 	ret = t4ka3_write_reg(client, T4KA3_16BIT,
-					T4KA3_DIGGAIN_BLUE_H, digitalgain);
+					T4KA3_REG_DIGGAIN_BLUE, digitalgain);
 	if (ret)
 		goto out_disable;
 	ret = t4ka3_write_reg(client, T4KA3_16BIT,
-					T4KA3_DIGGAIN_GREEN_B_H, digitalgain);
+					T4KA3_REG_DIGGAIN_GREEN_B, digitalgain);
 	if (ret)
 		goto out_disable;
 
@@ -943,13 +943,13 @@ static int t4ka3_detect(struct i2c_client *client, u16 *id)
 		return -ENODEV;
 
 	/* check sensor chip ID	 */
-	if (t4ka3_read_reg(client, T4KA3_8BIT, T4KA3_PID_HIGH,
+	if (t4ka3_read_reg(client, T4KA3_8BIT, T4KA3_REG_PRODUCT_ID,
 			     &high)) {
 		dev_err(&client->dev, "sensor_id_high = 0x%x\n", high);
 		return -ENODEV;
 	}
 
-	if (t4ka3_read_reg(client, T4KA3_8BIT, T4KA3_PID_LOW,
+	if (t4ka3_read_reg(client, T4KA3_8BIT, T4KA3_REG_PRODUCT_ID + 1,
 			     &low)) {
 		dev_err(&client->dev, "sensor_id_low = 0x%x\n", low);
 		return -ENODEV;
@@ -957,7 +957,7 @@ static int t4ka3_detect(struct i2c_client *client, u16 *id)
 
 	*id = (((u8) high) << 8) | (u8) low;
 
-	if (*id != T4KA3_MOD_ID) {
+	if (*id != T4KA3_PRODUCT_ID) {
 		dev_err(&client->dev, "main sensor t4ka3 ID error\n");
 		return -ENODEV;
 	}
@@ -1072,7 +1072,7 @@ static int t4ka3_recovery(struct v4l2_subdev *sd)
 		return ret;
 
 	ret = t4ka3_write_reg(client, T4KA3_8BIT,
-			T4KA3_IMG_ORIENTATION, dev->flip);
+			T4KA3_REG_IMG_ORIENTATION, dev->flip);
 	if (ret)
 		return ret;
 
