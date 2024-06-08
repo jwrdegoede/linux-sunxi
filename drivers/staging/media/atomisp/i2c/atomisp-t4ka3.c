@@ -46,8 +46,6 @@ static const int t4ka3_bayer_order_mapping[2][2] = {
 	{ atomisp_bayer_order_bggr, atomisp_bayer_order_gbrg }
 };
 
-struct t4ka3_device *global_dev;
-
 static int t4ka3_detect(struct i2c_client *client, u16 *id);
 
 static int t4ka3_read_reg(struct i2c_client *client, u16 len,
@@ -317,7 +315,6 @@ static void t4ka3_uninit(struct v4l2_subdev *sd)
 	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
 
 	dev->coarse_itg = 0;
-	dev->fine_itg   = 0;
 	dev->gain       = 0;
 }
 
@@ -690,7 +687,6 @@ static int __t4ka3_set_mbus_fmt(struct v4l2_subdev *sd,
 	dev->pixels_per_line = t4ka3_res[dev->fmt_idx].pixels_per_line;
 	dev->lines_per_frame = t4ka3_res[dev->fmt_idx].lines_per_frame;
 	dev->coarse_itg = 0;
-	dev->fine_itg = 0;
 	dev->gain = 0;
 
 	ret = t4ka3_read_reg(client, T4KA3_8BIT,
@@ -1000,7 +996,6 @@ t4ka3_s_config(struct v4l2_subdev *sd, int irq, void *platform_data)
 		dev_err(&client->dev, "t4ka3_detect err s_config.\n");
 		goto fail_detect;
 	}
-	dev->sensor_id = sensor_id;
 
 	ret = dev->platform_data->csi_cfg(sd, 1);
 	if (ret)
@@ -1437,7 +1432,6 @@ static int t4ka3_probe(struct i2c_client *client)
 	mutex_init(&dev->input_lock);
 
 	dev->fmt_idx = 0;
-	dev->module_vendor_id = 0x1;/* default 0x01 is sunny */
 	iddir = NULL;
 	idfile = NULL;
 
@@ -1482,7 +1476,6 @@ static int t4ka3_probe(struct i2c_client *client)
 		t4ka3_vendorid_procfs_uninit();
 	}
 
-	global_dev = dev;
 	v4l2_info(client, "%s: done!!\n", __func__);
 
 	return ret;
