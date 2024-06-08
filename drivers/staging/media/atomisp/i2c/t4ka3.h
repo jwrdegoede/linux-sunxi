@@ -38,6 +38,19 @@
 
 #define T4K3A_FPS		30
 
+#define T4K3A_PIXEL_RATE	(T4K3A_PIXELS_PER_LINE * T4K3A_LINES_PER_FRAME * T4K3A_FPS)
+
+/*
+ * TODO this really should be derived from the 19.2 MHz xvclk combined
+ * with the PLL settings. But without a datasheet this is the closest
+ * approximation possible.
+ *
+ * link-freq = pixel_rate * bpp / (lanes * 2)
+ * (lanes * 2) because CSI lanes use double-data-rate (DDR) signalling.
+ * bpp = 10 and lanes = 4
+ */
+#define T4K3A_LINK_FREQ		((s64)T4K3A_PIXEL_RATE * 10 / 8)
+
 #define T4KA3_REG_PRODUCT_ID			0x0000
 #define T4KA3_PRODUCT_ID				0x1490
 
@@ -152,7 +165,6 @@ struct t4ka3_resolution {
 	int height;
 	u32 skip_frames;
 	u32 code;
-	int mipi_freq;
 };
 
 /* init settings */
@@ -759,7 +771,6 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.width = 736,
 		.height = 496,
 		.skip_frames = 2,
-		.mipi_freq = 700800,
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
 	{
@@ -768,7 +779,6 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.width = 896,
 		.height = 736,
 		.skip_frames = 2,
-		.mipi_freq = 700800,
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
 	{
@@ -777,7 +787,6 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.width = 1936,
 		.height = 1096,
 		.skip_frames = 2,
-		.mipi_freq = 700800,
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
 	{
@@ -785,7 +794,6 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.regs = t4ka3_3280x2464_30fps,
 		.width = 3280,
 		.height = 2464,
-		.mipi_freq = 700800,
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
 };
