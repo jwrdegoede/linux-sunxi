@@ -28,7 +28,6 @@
 #define T4KA3_BYTE_MAX	30
 #define T4KA3_SHORT_MAX	16
 #define I2C_MSG_LENGTH		0x2
-#define I2C_RETRY_COUNT		5
 
 #define T4KA3_TEST_PATTERN_MODE	0x0601
 
@@ -37,7 +36,6 @@
 #define T4KA3_VFLIP_OFFSET	1
 #define T4KA3_IMG_ORIENTATION 0x0101
 
-#define I2C_RETRY_COUNT		5
 #define MAX_FMTS		1
 
 #define T4KA3_PID_HIGH	0x0000
@@ -50,8 +48,6 @@
 #define T4KA3_COARSE_INTEGRATION_TIME	0x0202
 #define T4KA3_GLOBAL_GAIN			0x234
 
-#define T4KA3_FINE_INTG_TIME_MIN 0
-#define T4KA3_FINE_INTG_TIME_MAX_MARGIN 0
 #define T4KA3_COARSE_INTEGRATION_TIME_MARGIN	6
 #define T4KA3_COARSE_INTEGRATION_TIME_MIN	1
 
@@ -65,9 +61,6 @@
 #define T4KA3_DIGGAIN_BLUE_H		0x0212
 #define T4KA3_DIGGAIN_GREEN_B_H		0x0214
 
-
-#define T4KA3_INTG_BUF_COUNT		1
-
 #define T4KA3_VT_PIX_CLK_DIV		0x0300
 #define T4KA3_VT_SYS_CLK_DIV		0x0302
 #define T4KA3_PRE_PLL_CLK_DIV	0x0304
@@ -75,130 +68,12 @@
 #define T4KA3_FRAME_LENGTH_LINES	0x0340
 #define T4KA3_LINE_LENGTH_PCK	0x0342
 
-
-#define T4KA3_MCLK	192
-
 #define T4KA3_HORIZONTAL_START_H	0x0344
 #define T4KA3_VERTICAL_START_H	0x0346
 #define T4KA3_HORIZONTAL_END_H	0x0348
 #define T4KA3_VERTICAL_END_H		0x034a
 #define T4KA3_HORIZONTAL_OUTPUT_SIZE_H	0x034c
 #define T4KA3_VERTICAL_OUTPUT_SIZE_H		0x034e
-
-/*
- * focal length bits definition:
- * bits 31-16: numerator, bits 15-0: denominator
- */
-#define T4KA3_FOCAL_LENGTH_DEFAULT	0x1280064
-
-/*
- * current f-number bits definition:
- * bits 31-16: numerator, bits 15-0: denominator
- */
-#define T4KA3_F_NUMBER_DEFAULT	0x14000a
-
-/*
- * f-number range bits definition:
- * bits 31-24: max f-number numerator
- * bits 23-16: max f-number denominator
- * bits 15-8: min f-number numerator
- * bits 7-0: min f-number denominator
- */
-#define T4KA3_F_NUMBER_RANGE	0x140a140a
-
-#define T4KA3_BIN_FACTOR_MAX	2
-
-/* Defines for lens/VCM */
-#define T4KA3_FOCAL_LENGTH_NUM	296	/* 2.96 mm */
-#define T4KA3_FOCAL_LENGTH_DEM	100
-#define T4KA3_F_NUMBER_DEFAULT_NUM	20	/*  F/2.0 */
-#define T4KA3_F_NUMBER_DEM	10
-
-#define T4KA3_INVALID_CONFIG	0xffffffff
-
-#define	v4l2_format_capture_type_entry(_width, _height, \
-		_pixelformat, _bytesperline, _colorspace) \
-	{\
-		.type = V4L2_BUF_TYPE_VIDEO_CAPTURE,\
-		.fmt.pix.width = (_width),\
-		.fmt.pix.height = (_height),\
-		.fmt.pix.pixelformat = (_pixelformat),\
-		.fmt.pix.bytesperline = (_bytesperline),\
-		.fmt.pix.colorspace = (_colorspace),\
-		.fmt.pix.sizeimage = (_height)*(_bytesperline),\
-	}
-
-#define	s_output_format_entry(_width, _height, _pixelformat, \
-		_bytesperline, _colorspace, _fps) \
-	{\
-		.v4l2_fmt = v4l2_format_capture_type_entry(_width, \
-			_height, _pixelformat, _bytesperline, \
-				_colorspace),\
-		.fps = (_fps),\
-	}
-
-#define	s_output_format_reg_entry(_width, _height, _pixelformat, \
-		_bytesperline, _colorspace, _fps, _reg_setting) \
-	{\
-		.s_fmt = s_output_format_entry(_width, _height,\
-				_pixelformat, _bytesperline, \
-				_colorspace, _fps),\
-		.reg_setting = (_reg_setting),\
-	}
-
-struct s_ctrl_id {
-	struct v4l2_queryctrl qc;
-	int (*s_ctrl)(struct v4l2_subdev *sd, u32 val);
-	int (*g_ctrl)(struct v4l2_subdev *sd, u32 *val);
-};
-
-#define	v4l2_queryctrl_entry_integer(_id, _name,\
-		_minimum, _maximum, _step, \
-		_default_value, _flags)	\
-	{\
-		.id = (_id), \
-		.type = V4L2_CTRL_TYPE_INTEGER, \
-		.name = _name, \
-		.minimum = (_minimum), \
-		.maximum = (_maximum), \
-		.step = (_step), \
-		.default_value = (_default_value),\
-		.flags = (_flags),\
-	}
-#define	v4l2_queryctrl_entry_boolean(_id, _name,\
-		_default_value, _flags)	\
-	{\
-		.id = (_id), \
-		.type = V4L2_CTRL_TYPE_BOOLEAN, \
-		.name = _name, \
-		.minimum = 0, \
-		.maximum = 1, \
-		.step = 1, \
-		.default_value = (_default_value),\
-		.flags = (_flags),\
-	}
-
-#define	s_ctrl_id_entry_integer(_id, _name, \
-		_minimum, _maximum, _step, \
-		_default_value, _flags, \
-		_s_ctrl, _g_ctrl)	\
-	{\
-		.qc = v4l2_queryctrl_entry_integer(_id, _name,\
-				_minimum, _maximum, _step,\
-				_default_value, _flags), \
-		.s_ctrl = _s_ctrl, \
-		.g_ctrl = _g_ctrl, \
-	}
-
-#define	s_ctrl_id_entry_boolean(_id, _name, \
-		_default_value, _flags, \
-		_s_ctrl, _g_ctrl)	\
-	{\
-		.qc = v4l2_queryctrl_entry_boolean(_id, _name,\
-				_default_value, _flags), \
-		.s_ctrl = _s_ctrl, \
-		.g_ctrl = _g_ctrl, \
-	}
 
 enum t4ka3_tok_type {
 	T4KA3_8BIT  = 0x0001,
@@ -209,52 +84,23 @@ enum t4ka3_tok_type {
 	T4KA3_TOK_MASK = 0xfff0
 };
 
-/*
- * If register address or register width is not 32 bit width,
- * user needs to convert it manually
- */
-
-struct s_register_setting {
-	u32 reg;
-	u32 val;
-};
-
-struct s_output_format {
-	struct v4l2_format v4l2_fmt;
-	int fps;
-};
-
-struct sysfs_debug {
-	u16 addr;
-	u16 page;
-	u16 val;
-};
-
 struct t4ka3_device {
 	struct v4l2_subdev sd;
 	struct media_pad pad;
 	struct v4l2_mbus_framefmt format;
 	struct camera_sensor_platform_data *platform_data;
 	struct mutex input_lock; /* serialize sensor's ioctl */
-	struct sysfs_debug sysdbg;
 	int fmt_idx;
-	int status;
 	int streaming;
 	int power;
-	int run_mode;
 	int vt_pix_clk_freq_mhz;
-	u16 sensor_id;
 	u16 coarse_itg;
-	u16 fine_itg;
 	u16 gain;
 	u16 digital_gain;
 	u16 pixels_per_line;
 	u16 lines_per_frame;
 	u16 flip;
 	u8 fps;
-	u8 res;
-	u8 type;
-	u8 module_vendor_id;
 
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct v4l2_ctrl *link_freq;
@@ -302,9 +148,6 @@ struct t4ka3_resolution {
 	int fps;
 	unsigned short pixels_per_line;
 	unsigned short lines_per_frame;
-	u8 bin_factor_x;
-	u8 bin_factor_y;
-	bool used;
 	u32 skip_frames;
 	u32 code;
 	int mipi_freq;
@@ -525,6 +368,7 @@ static struct t4ka3_reg const t4ka3_896x736_30fps[] = {
 	{T4KA3_TOK_TERM, 0, 0 }
 };
 
+#if 0 /* unused */
 static struct t4ka3_reg const t4ka3_1296x736_30fps[] = {
 	{T4KA3_8BIT, 0x0112, 0x0A},
 	{T4KA3_8BIT, 0x0113, 0x0A},
@@ -577,7 +421,9 @@ static struct t4ka3_reg const t4ka3_1296x736_30fps[] = {
 	{T4KA3_8BIT, 0x3394, 0x10},
 	{T4KA3_TOK_TERM, 0, 0 }
 };
+#endif
 
+#if 0 /* unused */
 static struct t4ka3_reg const t4ka3_1632x1224_30fps[] = {
 	{T4KA3_8BIT, 0x0112, 0x0A},
 	{T4KA3_8BIT, 0x0113, 0x0A},
@@ -630,6 +476,7 @@ static struct t4ka3_reg const t4ka3_1632x1224_30fps[] = {
 	{T4KA3_8BIT, 0x3394, 0x10},
 	{T4KA3_TOK_TERM, 0, 0 }
 };
+#endif
 
 static struct t4ka3_reg const t4ka3_1936x1096_30fps[] = {
 	{T4KA3_8BIT, 0x0112, 0x0A},
@@ -684,6 +531,7 @@ static struct t4ka3_reg const t4ka3_1936x1096_30fps[] = {
 	{T4KA3_TOK_TERM, 0, 0 }
 };
 
+#if 0 /* unused */
 static struct t4ka3_reg const t4ka3_2064x1552_30fps[] = {
 	{T4KA3_8BIT, 0x0112, 0x0A},
 	{T4KA3_8BIT, 0x0113, 0x0A},
@@ -736,7 +584,9 @@ static struct t4ka3_reg const t4ka3_2064x1552_30fps[] = {
 	{T4KA3_8BIT, 0x3394, 0x10},
 	{T4KA3_TOK_TERM, 0, 0 }
 };
+#endif
 
+#if 0 /* unused */
 static struct t4ka3_reg const t4ka3_2576x1936_30fps[] = {
 	{T4KA3_8BIT, 0x0112, 0x0A},
 	{T4KA3_8BIT, 0x0113, 0x0A},
@@ -789,7 +639,9 @@ static struct t4ka3_reg const t4ka3_2576x1936_30fps[] = {
 	{T4KA3_8BIT, 0x3394, 0x10},
 	{T4KA3_TOK_TERM, 0, 0 }
 };
+#endif
 
+#if 0 /* unused */
 static struct t4ka3_reg const t4ka3_3280x1852_30fps[] = {
 	{T4KA3_8BIT, 0x0112, 0x0A},
 	{T4KA3_8BIT, 0x0113, 0x0A},
@@ -842,6 +694,7 @@ static struct t4ka3_reg const t4ka3_3280x1852_30fps[] = {
 	{T4KA3_8BIT, 0x3394, 0x10},
 	{T4KA3_TOK_TERM, 0, 0 }
 };
+#endif
 
 static struct t4ka3_reg const t4ka3_3280x2464_30fps[] = {
 	{T4KA3_8BIT, 0x0112, 0x0A},
@@ -906,9 +759,6 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.fps = 30,
 		.pixels_per_line = 3744, /* consistent with regs arrays */
 		.lines_per_frame = 2492, /* consistent with regs arrays */
-		.bin_factor_x = 0,
-		.bin_factor_y = 0,
-		.used = 0,
 		.skip_frames = 2,
 		.mipi_freq = 700800,
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
@@ -921,9 +771,6 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.fps = 30,
 		.pixels_per_line = 3744, /* consistent with regs arrays */
 		.lines_per_frame = 2492, /* consistent with regs arrays */
-		.bin_factor_x = 0,
-		.bin_factor_y = 0,
-		.used = 0,
 		.skip_frames = 2,
 		.mipi_freq = 700800,
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
@@ -936,9 +783,6 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.fps = 30,
 		.pixels_per_line = 3744, /* consistent with regs arrays */
 		.lines_per_frame = 2492, /* consistent with regs arrays */
-		.bin_factor_x = 0,
-		.bin_factor_y = 0,
-		.used = 0,
 		.skip_frames = 2,
 		.mipi_freq = 700800,
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
@@ -951,83 +795,12 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.fps = 30,
 		.pixels_per_line = 3440, /* consistent with regs arrays */
 		.lines_per_frame = 2492, /* consistent with regs arrays */
-		.bin_factor_x = 0,
-		.bin_factor_y = 0,
-		.used = 0,
 		.skip_frames = 2,
 		.mipi_freq = 700800,
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
 };
 #define N_RES_PREVIEW (ARRAY_SIZE(t4ka3_res_preview))
-
-struct t4ka3_resolution t4ka3_res_still[] = {
-	{
-		.desc = "t4ka3_3280x2464_30fps",
-		.regs = t4ka3_3280x2464_30fps,
-		.width = 3280,
-		.height = 2464,
-		.fps = 30,
-		.pixels_per_line = 3440, /* consistent with regs arrays */
-		.lines_per_frame = 2492, /* consistent with regs arrays */
-		.bin_factor_x = 0,
-		.bin_factor_y = 0,
-		.used = 0,
-		.skip_frames = 2,
-		.mipi_freq = 700800,
-		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
-	},
-};
-#define N_RES_STILL (ARRAY_SIZE(t4ka3_res_still))
-
-struct t4ka3_resolution t4ka3_res_video[] = {
-	{
-		.desc = "t4ka3_1296x736_30fps",
-		.regs = t4ka3_1296x736_30fps,
-		.width = 1296,
-		.height = 736,
-		.fps = 30,
-		.pixels_per_line = 3440, /* consistent with regs arrays */
-		.lines_per_frame = 2492, /* consistent with regs arrays */
-		.bin_factor_x = 0,
-		.bin_factor_y = 0,
-		.used = 0,
-		.skip_frames = 2,
-		.mipi_freq = 700800,
-		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
-	},
-	{
-		.desc = "t4ka3_3280x1852_30fps",
-		.regs = t4ka3_3280x1852_30fps,
-		.width = 3280,
-		.height = 1852,
-		.fps = 30,
-		.pixels_per_line = 3440, /* consistent with regs arrays */
-		.lines_per_frame = 2492, /* consistent with regs arrays */
-		.bin_factor_x = 0,
-		.bin_factor_y = 0,
-		.used = 0,
-		.skip_frames = 2,
-		.mipi_freq = 700800,
-		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
-	},
-	{
-		.desc = "t4ka3_3280x2464_30fps",
-		.regs = t4ka3_3280x2464_30fps,
-		.width = 3280,
-		.height = 2464,
-		.fps = 30,
-		.pixels_per_line = 3440, /* consistent with regs arrays */
-		.lines_per_frame = 2492, /* consistent with regs arrays */
-		.bin_factor_x = 0,
-		.bin_factor_y = 0,
-		.used = 0,
-		.skip_frames = 2,
-		.mipi_freq = 700800,
-		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
-	},
-};
-#define N_RES_VIDEO (ARRAY_SIZE(t4ka3_res_video))
 
 struct t4ka3_resolution *t4ka3_res = t4ka3_res_preview;
 static int N_RES = N_RES_PREVIEW;
