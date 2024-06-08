@@ -683,9 +683,6 @@ static int __t4ka3_set_mbus_fmt(struct v4l2_subdev *sd,
 		mutex_unlock(&dev->input_lock);
 		return ret;
 	}
-	dev->fps = t4ka3_res[dev->fmt_idx].fps;
-	dev->pixels_per_line = t4ka3_res[dev->fmt_idx].pixels_per_line;
-	dev->lines_per_frame = t4ka3_res[dev->fmt_idx].lines_per_frame;
 	dev->coarse_itg = 0;
 	dev->gain = 0;
 
@@ -797,12 +794,12 @@ static long __t4ka3_set_exposure(struct v4l2_subdev *sd,
 					T4KA3_MAX_GLOBAL_GAIN_SUPPORTED);
 
 	/* check coarse integration time margin */
-	if (coarse_itg > dev->lines_per_frame -
+	if (coarse_itg > T4K3A_LINES_PER_FRAME -
 					T4KA3_COARSE_INTEGRATION_TIME_MARGIN)
 		lines_per_frame = coarse_itg +
 					T4KA3_COARSE_INTEGRATION_TIME_MARGIN;
 	else
-		lines_per_frame = dev->lines_per_frame;
+		lines_per_frame = T4K3A_LINES_PER_FRAME;
 
 	ret = t4ka3_write_reg(client, T4KA3_16BIT,
 				T4KA3_REG_FRAME_LENGTH_LINES,
@@ -1214,41 +1211,8 @@ static int t4ka3_get_frame_interval(struct v4l2_subdev *sd,
 				    struct v4l2_subdev_state *sd_state,
 				    struct v4l2_subdev_frame_interval *interval)
 {
-	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
-	u16 lines_per_frame;
-
-	/*
-	 * if no specific information to calculate the fps,
-	 * just used the value in sensor settings
-	 */
-	if (!dev->pixels_per_line || !dev->lines_per_frame) {
-		interval->interval.numerator = 1;
-		interval->interval.denominator = dev->fps;
-		return 0;
-	}
-
-	/*
-	 * DS: if coarse_integration_time is set larger than
-	 * lines_per_frame the frame_size will be expanded to
-	 * coarse_integration_time+1
-	 */
-	if (dev->coarse_itg > dev->lines_per_frame -
-			T4KA3_COARSE_INTEGRATION_TIME_MARGIN) {
-
-		if (dev->coarse_itg > T4KA3_MAX_EXPOSURE_SUPPORTED) {
-			lines_per_frame = dev->coarse_itg;
-		} else {
-			lines_per_frame = dev->coarse_itg +
-				T4KA3_COARSE_INTEGRATION_TIME_MARGIN;
-		}
-	} else {
-		lines_per_frame = dev->lines_per_frame;
-	}
-
-	interval->interval.numerator = dev->pixels_per_line *
-					lines_per_frame;
-	interval->interval.denominator = dev->vt_pix_clk_freq_mhz;
-
+	interval->interval.numerator = 1;
+	interval->interval.denominator = T4K3A_FPS;
 	return 0;
 }
 
