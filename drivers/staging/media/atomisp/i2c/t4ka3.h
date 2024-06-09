@@ -106,12 +106,22 @@ enum t4ka3_tok_type {
 	T4KA3_TOK_MASK = 0xfff0
 };
 
+struct t4ka3_ctrls {
+	struct v4l2_ctrl_handler handler;
+	struct v4l2_ctrl *hflip;
+	struct v4l2_ctrl *vflip;
+	struct v4l2_ctrl *test_pattern;
+	struct v4l2_ctrl *link_freq;
+};
+
 struct t4ka3_device {
 	struct v4l2_subdev sd;
 	struct media_pad pad;
 	struct v4l2_mbus_framefmt format;
 	struct camera_sensor_platform_data *platform_data;
 	struct mutex input_lock; /* serialize sensor's ioctl */
+	struct t4ka3_ctrls ctrls;
+	s64 link_freq[1];
 	int fmt_idx;
 	int streaming;
 	int power;
@@ -119,9 +129,6 @@ struct t4ka3_device {
 	u16 gain;
 	u16 digital_gain;
 	u16 flip;
-
-	struct v4l2_ctrl_handler ctrl_handler;
-	struct v4l2_ctrl *link_freq;
 };
 
 /**

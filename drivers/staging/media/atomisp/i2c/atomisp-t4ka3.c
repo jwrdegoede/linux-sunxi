@@ -32,6 +32,11 @@
 
 #include "t4ka3.h"
 
+static inline struct t4ka3_device *ctrl_to_t4ka3(struct v4l2_ctrl *ctrl)
+{
+	return container_of(ctrl->handler, struct t4ka3_device, ctrls.handler);
+}
+
 /* the bayer order mapping table
  *          hflip=0			hflip=1
  * vflip=0  atomisp_bayer_order_grbg atomisp_bayer_order_rggb
@@ -1003,8 +1008,7 @@ fail_detect:
 
 static int t4ka3_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct t4ka3_device *dev =
-	    container_of(ctrl->handler, struct t4ka3_device, ctrl_handler);
+	struct t4ka3_device *dev = ctrl_to_t4ka3(ctrl);
 	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
 	int ret = 0;
 
@@ -1212,69 +1216,8 @@ static int t4ka3_g_skip_frames(struct v4l2_subdev *sd, u32 *frames)
 	return 0;
 }
 
-static int t4ka3_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
-{
-	int ret = 0;
-
-	switch (ctrl->id) {
-	case V4L2_CID_LINK_FREQ:
-		ctrl->val = T4K3A_LINK_FREQ;
-		break;
-	default:
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-
 static struct v4l2_ctrl_ops t4ka3_ctrl_ops = {
-	.g_volatile_ctrl = t4ka3_g_volatile_ctrl,
 	.s_ctrl = t4ka3_s_ctrl,
-};
-
-static const struct v4l2_ctrl_config v4l2_ctrl_link_freq = {
-	.ops = &t4ka3_ctrl_ops,
-	.id = V4L2_CID_LINK_FREQ,
-	.name = "Link Frequency",
-	.type = V4L2_CTRL_TYPE_INTEGER,
-	.min = 1,
-	.max = 1500000 * 1000,
-	.step = 1,
-	.def = 1,
-	.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
-};
-
-static const struct v4l2_ctrl_config t4ka3_controls[] = {
-	{
-		.ops = &t4ka3_ctrl_ops,
-		.id = V4L2_CID_TEST_PATTERN,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "Test pattern",
-		.min = 0,
-		.max = 0xffff,
-		.step = 1,
-		.def = 0,
-	},
-	{
-		.ops = &t4ka3_ctrl_ops,
-		.id = V4L2_CID_VFLIP,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "Image v-Flip",
-		.min = 0,
-		.max = 1,
-		.step = 1,
-		.def = 0,
-	},
-	{
-		.ops = &t4ka3_ctrl_ops,
-		.id = V4L2_CID_HFLIP,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "Image h-Flip",
-		.min = 0,
-		.max = 1,
-		.step = 1,
-		.def = 0,
-	},
 };
 
 static const struct v4l2_subdev_sensor_ops t4ka3_sensor_ops = {
@@ -1317,30 +1260,45 @@ static void t4ka3_remove(struct i2c_client *client)
 	media_entity_cleanup(&dev->sd.entity);
 	atomisp_gmin_remove_subdev(sd);
 	t4ka3_vendorid_procfs_uninit();
-	v4l2_ctrl_handler_free(&dev->ctrl_handler);
+	v4l2_ctrl_handler_free(&dev->ctrls.handler);
 }
 
-static int t4ka3_init_controls(struct t4ka3_device *dev)
+static int t4ka3_init_controls(struct t4ka3_device *sensor)
 {
-	struct v4l2_ctrl_handler *hdl;
-	unsigned int i;
+	const struct v4l2_ctrl_ops *ops = &t4ka3_ctrl_ops;
+	struct t4ka3_ctrls *ctrls = &sensor->ctrls;
+	struct v4l2_ctrl_handler *hdl = &ctrls->handler;
+	/* FIXME copied from ov2680 very likely wrong */
+	static const char * const test_pattern_menu[] = {
+		"Disabled",
+		"Color Bars",
+		"Random Data",
+		"Square",
+		"Black Image",
+	};
 
-	hdl = &dev->ctrl_handler;
+	v4l2_ctrl_handler_init(hdl, 4);
 
-	v4l2_ctrl_handler_init(&dev->ctrl_handler,
-			       3 + ARRAY_SIZE(t4ka3_controls));
+	hdl->lock = &sensor->input_lock;
 
-	dev->link_freq = v4l2_ctrl_new_custom(&dev->ctrl_handler,
-				&v4l2_ctrl_link_freq, NULL);
+	ctrls->vflip = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_VFLIP, 0, 1, 1, 0);
+	ctrls->hflip = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_HFLIP, 0, 1, 1, 0);
 
-	for (i = 0; i < ARRAY_SIZE(t4ka3_controls); i++)
-		v4l2_ctrl_new_custom(&dev->ctrl_handler, &t4ka3_controls[i],
-				     NULL);
+	ctrls->test_pattern = v4l2_ctrl_new_std_menu_items(hdl, ops,
+					V4L2_CID_TEST_PATTERN,
+					ARRAY_SIZE(test_pattern_menu) - 1,
+					0, 0, test_pattern_menu);
+	ctrls->link_freq = v4l2_ctrl_new_int_menu(hdl, NULL, V4L2_CID_LINK_FREQ,
+						  0, 0, sensor->link_freq);
 
-	if (dev->ctrl_handler.error || dev->link_freq == NULL)
-		return dev->ctrl_handler.error;
+	if (hdl->error)
+		return hdl->error;
 
-	dev->sd.ctrl_handler = hdl;
+	ctrls->vflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
+	ctrls->hflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
+	ctrls->link_freq->flags |= V4L2_CTRL_FLAG_READ_ONLY;
+
+	sensor->sd.ctrl_handler = hdl;
 	return 0;
 }
 
@@ -1357,6 +1315,7 @@ static int t4ka3_probe(struct i2c_client *client)
 
 	mutex_init(&dev->input_lock);
 
+	dev->link_freq[0] = T4K3A_LINK_FREQ;
 	dev->fmt_idx = 0;
 	iddir = NULL;
 	idfile = NULL;
