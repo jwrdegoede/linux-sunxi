@@ -524,21 +524,6 @@ static int t4ka3_s_power(struct v4l2_subdev *sd, int on)
 	return ret;
 }
 
-/* This returns the exposure time being used. This should only be used
-   for filling in EXIF data, not for actual image processing. */
-static int t4ka3_q_exposure(struct v4l2_subdev *sd, s32 *value)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	u16 coarse;
-	int ret;
-	/* the fine integration time is currently not calculated */
-	ret = t4ka3_read_reg(client, T4KA3_16BIT,
-			       T4KA3_REG_COARSE_INTEGRATION_TIME, &coarse);
-	*value = coarse;
-
-	return ret;
-}
-
 /*
  * distance - calculate the distance
  * @res: resolution
@@ -1229,16 +1214,11 @@ static int t4ka3_g_skip_frames(struct v4l2_subdev *sd, u32 *frames)
 
 static int t4ka3_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct t4ka3_device *dev =
-	    container_of(ctrl->handler, struct t4ka3_device, ctrl_handler);
 	int ret = 0;
 
 	switch (ctrl->id) {
 	case V4L2_CID_LINK_FREQ:
 		ctrl->val = T4K3A_LINK_FREQ;
-		break;
-	case V4L2_CID_EXPOSURE_ABSOLUTE:
-		ret = t4ka3_q_exposure(&dev->sd, &ctrl->val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1265,17 +1245,6 @@ static const struct v4l2_ctrl_config v4l2_ctrl_link_freq = {
 };
 
 static const struct v4l2_ctrl_config t4ka3_controls[] = {
-	{
-		.ops = &t4ka3_ctrl_ops,
-		.id = V4L2_CID_EXPOSURE_ABSOLUTE,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "exposure",
-		.min = 0x0,
-		.max = 0xffff,
-		.step = 0x01,
-		.def = 0x00,
-		.flags = 0,
-	},
 	{
 		.ops = &t4ka3_ctrl_ops,
 		.id = V4L2_CID_TEST_PATTERN,
