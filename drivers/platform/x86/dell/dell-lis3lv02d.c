@@ -15,6 +15,8 @@
 #include <linux/workqueue.h>
 #include "dell-smo8800-ids.h"
 
+#define LIS3_WHO_AM_I 0x0f
+
 #define DELL_LIS3LV02D_DMI_ENTRY(product_name, i2c_addr)                 \
 	{                                                                \
 		.matches = {                                             \
@@ -57,6 +59,121 @@ static const struct dmi_system_id *lis3lv02d_dmi_id;
 static struct i2c_client *i2c_dev;
 static bool notifier_registered;
 
+static bool probe_i2c_addr;
+module_param(probe_i2c_addr, bool, 0444);
+MODULE_PARM_DESC(probe_i2c_addr, "Probe the i801 I2C bus for the accelerometer on models where the address is unknown");
+
+/*
+ * This is the kernel version of the single register device sanity checks from
+ * the i2c_safety_check function from lm_sensors sensor-detect script:
+ * This is meant to prevent access to 1-register-only devices,
+ * which are designed to be accessed with SMBus receive byte and SMBus send
+ * byte transactions (i.e. short reads and short writes) and treat SMBus
+ * read byte as a real write followed by a read. The device detection
+ * routines would write random values to the chip with possibly very nasty
+ * results for the hardware. Note that this function won't catch all such
+ * chips, as it assumes that reads and writes relate to the same register,
+ * but that's the best we can do.
+ */
+static int i2c_safety_check(struct i2c_adapter *adap, u8 addr)
+{
+	union i2c_smbus_data smbus_data;
+	int err;
+	u8 data;
+
+	/*
+	 * First receive a byte from the chip, and remember it. This
+	 * also checks if there is a device at the address at all.
+	 */
+	err = i2c_smbus_xfer(adap, addr, 0, I2C_SMBUS_READ, 0,
+			     I2C_SMBUS_BYTE, &smbus_data);
+	if (err < 0)
+		return err;
+
+	data = smbus_data.byte;
+
+	/*
+	 * Receive a byte again; very likely to be the same for
+	 * 1-register-only devices.
+	 */
+	err = i2c_smbus_xfer(adap, addr, 0, I2C_SMBUS_READ, 0,
+			     I2C_SMBUS_BYTE, &smbus_data);
+	if (err < 0)
+		return err;
+
+	if (smbus_data.byte != data)
+		return 0; /* Not a 1-register-only device. */
+
+	/*
+	 * Then try a standard byte read, with a register offset equal to
+	 * the read byte; for 1-register-only device this should read
+	 * the same byte value in return.
+	 */
+	err = i2c_smbus_xfer(adap, addr, 0, I2C_SMBUS_READ, data,
+			     I2C_SMBUS_BYTE_DATA, &smbus_data);
+	if (err < 0)
+		return err;
+
+	if (smbus_data.byte != data)
+		return 0; /* Not a 1-register-only device. */
+
+	/*
+	 * Then try a standard byte read, with a slightly different register
+	 * offset; this should again read the register offset in return.
+	 */
+	err = i2c_smbus_xfer(adap, addr, 0, I2C_SMBUS_READ, data ^ 0x01,
+			     I2C_SMBUS_BYTE_DATA, &smbus_data);
+	if (err < 0)
+		return err;
+
+	if (smbus_data.byte != (data ^ 0x01))
+		return 0; /* Not a 1-register-only device. */
+
+	/*
+	 * Apparently this is a 1-register-only device, restore the original
+	 * register value and leave it alone.
+	 */
+	i2c_smbus_xfer(adap, addr, 0, I2C_SMBUS_WRITE, data,
+		       I2C_SMBUS_BYTE, NULL);
+	pr_warn("I2C safety check for address 0x%02x failed, skipping\n", addr);
+	return -ENODEV;
+}
+
+static int detect_lis3lv02d(struct i2c_adapter *adap, u8 addr,
+			    struct i2c_board_info *info)
+{
+	union i2c_smbus_data smbus_data;
+	int err;
+
+	pr_info("Probing for lis3lv02d on address 0x%02x\n", addr);
+	err = i2c_safety_check(adap, addr);
+	if (err < 0)
+		return err;
+
+	err = i2c_smbus_xfer(adap, addr, 0, I2C_SMBUS_READ, LIS3_WHO_AM_I,
+			     I2C_SMBUS_BYTE_DATA, &smbus_data);
+	if (err < 0) {
+		pr_warn("Failed to read who-am-i register: %d\n", err);
+		return err;
+	}
+
+	/* valid who-am-i values are from drivers/misc/lis3lv02d/lis3lv02d.c */
+	switch (smbus_data.byte) {
+	case 0x32:
+	case 0x33:
+	case 0x3a:
+	case 0x3b:
+		break;
+	default:
+		pr_warn("Unknown who-am-i register value 0x%02x\n", smbus_data.byte);
+		return -ENODEV;
+	}
+
+	pr_debug("Detected lis3lv02d on address 0x%02x\n", addr);
+	info->addr = addr;
+	return 0;
+}
+
 static bool i2c_adapter_is_main_i801(struct i2c_adapter *adap)
 {
 	/*
@@ -93,7 +210,17 @@ static void instantiate_i2c_client(struct work_struct *work)
 	if (!adap)
 		return;
 
-	info.addr = (long)lis3lv02d_dmi_id->driver_data;
+	if (lis3lv02d_dmi_id) {
+		info.addr = (long)lis3lv02d_dmi_id->driver_data;
+	} else {
+		/* First try address 0x29 (most used) and then try 0x1d */
+		if (detect_lis3lv02d(adap, 0x29, &info) != 0 &&
+		    detect_lis3lv02d(adap, 0x1d, &info) != 0) {
+			pr_warn("failed to probe for lis3lv02d I2C address\n");
+			goto out_put_adapter;
+		}
+	}
+
 	strscpy(info.type, "lis3lv02d", I2C_NAME_SIZE);
 
 	i2c_dev = i2c_new_client_device(adap, &info);
@@ -104,6 +231,7 @@ static void instantiate_i2c_client(struct work_struct *work)
 		pr_debug("registered lis3lv02d on address 0x%02x\n", info.addr);
 	}
 
+out_put_adapter:
 	i2c_put_adapter(adap);
 }
 static DECLARE_WORK(i2c_work, instantiate_i2c_client);
@@ -166,8 +294,9 @@ static int __init dell_lis3lv02d_init(void)
 	put_device(dev);
 
 	lis3lv02d_dmi_id = dmi_first_match(lis3lv02d_devices);
-	if (!lis3lv02d_dmi_id) {
+	if (!lis3lv02d_dmi_id && !probe_i2c_addr) {
 		pr_warn("accelerometer is present on SMBus but its address is unknown, skipping registration\n");
+		pr_info("Pass dell_lis3lv02d.probe_i2c_addr=1 on the kernel commandline to probe, this may be dangerous!\n");
 		return 0;
 	}
 
