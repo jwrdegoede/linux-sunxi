@@ -389,13 +389,19 @@ static const struct bcm_set_sleep_mode default_sleep_params = {
 	.pulsed_host_wake = 1,
 };
 
-static int bcm_setup_sleep(struct hci_uart *hu)
+static int bcm_setup_sleep(struct hci_uart *hu, bool sync, int mode)
 {
 	struct bcm_data *bcm = hu->priv;
 	struct sk_buff *skb;
 	struct bcm_set_sleep_mode sleep_params = default_sleep_params;
 
 	sleep_params.host_wake_active = !bcm->dev->irq_active_low;
+	sleep_params.sleep_mode = mode;
+
+	if (!sync) {
+		return __hci_cmd_send(hu->hdev, 0xfc27, sizeof(sleep_params),
+				      &sleep_params);
+	}
 
 	skb = __hci_cmd_sync(hu->hdev, 0xfc27, sizeof(sleep_params),
 			     &sleep_params, HCI_INIT_TIMEOUT);
@@ -412,7 +418,7 @@ static int bcm_setup_sleep(struct hci_uart *hu)
 }
 #else
 static inline int bcm_request_irq(struct bcm_data *bcm) { return 0; }
-static inline int bcm_setup_sleep(struct hci_uart *hu) { return 0; }
+static inline int bcm_setup_sleep(struct hci_uart *hu, bool sync, int mode) { return 0; }
 #endif
 
 static int bcm_set_diag(struct hci_dev *hdev, bool enable)
@@ -647,7 +653,7 @@ static int bcm_setup(struct hci_uart *hu)
 		set_bit(HCI_QUIRK_USE_BDADDR_PROPERTY, &hu->hdev->quirks);
 
 	if (!bcm_request_irq(bcm))
-		err = bcm_setup_sleep(hu);
+		err = bcm_setup_sleep(hu, true, 0);
 
 	return err;
 }
@@ -767,6 +773,16 @@ static int bcm_suspend_device(struct device *dev)
 	bt_dev_dbg(bdev, "");
 
 	if (!bdev->is_suspended && bdev->hu) {
+		err = bcm_setup_sleep(bdev->hu, false, 1);
+		/*
+		 * If the sleep mode cannot be enabled, the BT device
+		 * may consume more power, but this should not prevent
+		 * RPM suspend from completion. Warn about this, but
+		 * attempt to suspend anyway.
+		 */
+		if (err)
+			dev_err(dev, "Failed to enable sleep mode\n");
+
 		hci_uart_set_flow_control(bdev->hu, true);
 
 		/* Once this returns, driver suspends BT via GPIO */
@@ -810,6 +826,16 @@ static int bcm_resume_device(struct device *dev)
 		bdev->is_suspended = false;
 
 		hci_uart_set_flow_control(bdev->hu, false);
+
+		err = bcm_setup_sleep(bdev->hu, false, 0);
+		/*
+		 * If the sleep mode cannot be disabled, the BT device
+		 * may fail to respond to commands at times, or may be
+		 * completely unresponsive. Warn user about this, but
+		 * attempt to resume anyway in best effort manner.
+		 */
+		if (err)
+			dev_err(dev, "Failed to disable sleep mode\n");
 	}
 
 	return 0;
