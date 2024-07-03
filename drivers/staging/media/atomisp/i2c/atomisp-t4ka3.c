@@ -860,6 +860,22 @@ static long t4ka3_s_exposure(struct v4l2_subdev *sd,
 	return t4ka3_set_exposure(sd, coarse_itg, analog_gain, digital_gain);
 }
 
+static int t4ka3_update_exposure_range (struct v4l2_subdev *sd)
+{
+	int exp_max;
+	struct t4ka3_device *sensor;
+
+	if (sd == NULL)
+		return -1;
+	
+	sensor = to_t4ka3_sensor (sd);
+
+	exp_max = sensor->format.height + sensor->ctrls.vblank->val - T4KA3_COARSE_INTEGRATION_TIME_MARGIN;
+
+	return __v4l2_ctrl_modify_range(sensor->ctrls.exposure, 0, exp_max,
+					1, exp_max);
+}
+
 static long t4ka3_ioctl(struct v4l2_subdev *sd,
 						unsigned int cmd, void *arg)
 {
@@ -1027,6 +1043,11 @@ static int t4ka3_s_ctrl(struct v4l2_ctrl *ctrl)
 		dev_dbg(&client->dev, "%s: V4L2_CID_HFLIP: %d\n",
 			__func__, ctrl->val);
 		ret = t4ka3_t_hflip(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_VBLANK:
+		dev_dbg(&client->dev, "%s: V4L2_CID_VBLANK: %d\n",
+			__func__, ctrl->val);
+		t4ka3_update_exposure_range (&dev->sd);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1268,6 +1289,7 @@ static int t4ka3_init_controls(struct t4ka3_device *sensor)
 	const struct v4l2_ctrl_ops *ops = &t4ka3_ctrl_ops;
 	struct t4ka3_ctrls *ctrls = &sensor->ctrls;
 	struct v4l2_ctrl_handler *hdl = &ctrls->handler;
+	int def, max;
 	/* FIXME copied from ov2680 very likely wrong */
 	static const char * const test_pattern_menu[] = {
 		"Disabled",
@@ -1290,6 +1312,16 @@ static int t4ka3_init_controls(struct t4ka3_device *sensor)
 					0, 0, test_pattern_menu);
 	ctrls->link_freq = v4l2_ctrl_new_int_menu(hdl, NULL, V4L2_CID_LINK_FREQ,
 						  0, 0, sensor->link_freq);
+
+	def = T4K3A_LINES_PER_FRAME - T4KA3_RES_HEIGHT_MAX;
+	max = 0xffff - T4KA3_RES_HEIGHT_MAX;
+	/* FIXME: need a datasheet to verify the min VBI */
+	ctrls->vblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_VBLANK,
+					  4, max, 1, def);
+
+	max = T4K3A_LINES_PER_FRAME - T4KA3_COARSE_INTEGRATION_TIME_MARGIN;
+	ctrls->exposure = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_EXPOSURE,
+					    0, max, 1, max);
 
 	if (hdl->error)
 		return hdl->error;

@@ -110,6 +110,8 @@ struct t4ka3_ctrls {
 	struct v4l2_ctrl_handler handler;
 	struct v4l2_ctrl *hflip;
 	struct v4l2_ctrl *vflip;
+	struct v4l2_ctrl *vblank;
+	struct v4l2_ctrl *exposure;
 	struct v4l2_ctrl *test_pattern;
 	struct v4l2_ctrl *link_freq;
 };
