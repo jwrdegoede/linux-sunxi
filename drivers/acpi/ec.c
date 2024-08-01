@@ -1788,13 +1788,12 @@ void __init acpi_ec_dsdt_probe(void)
 	}
 
 	/*
-	 * When the DSDT EC is available, always re-configure boot EC to
-	 * have _REG evaluated. _REG can only be evaluated after the
-	 * namespace initialization.
+	 * Delay _REG evaluation until the EC is found by regular ACPI device
+	 * hierarchy parsing and acpi_ec_add() is called for the EC.
 	 * At this point, the GPE is not fully initialized, so do not to
 	 * handle the events.
 	 */
-	ret = acpi_ec_setup(ec, NULL, true);
+	ret = acpi_ec_setup(ec, NULL, false);
 	if (ret) {
 		acpi_ec_free(ec);
 		return;
