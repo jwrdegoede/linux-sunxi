@@ -201,7 +201,7 @@ static enum pipe vlv_find_free_pps(struct drm_i915_private *dev_priv)
 		if (!(pipes & (1 << pipe)))
 			continue;
 
-		if (intel_de_read(dev_priv, DPLL(pipe)) & DPLL_VCO_ENABLE)
+		if (intel_de_read(dev_priv, DPLL(dev_priv, pipe)) & DPLL_VCO_ENABLE)
 			continue;
 
 		if (intel_pipe_is_enabled(dev_priv, (enum transcoder)pipe)) {
