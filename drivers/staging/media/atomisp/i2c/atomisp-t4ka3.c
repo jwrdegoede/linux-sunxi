@@ -21,6 +21,7 @@
 #include <linux/kmod.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
+#include <linux/pm_runtime.h>
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/types.h>
@@ -467,7 +468,7 @@ fail_gpio:
 	dev->platform_data->gpio0_ctrl(sd, 0);
 	dev->platform_data->gpio1_ctrl(sd, 0);
 fail_power:
-	dev_err(&client->dev, "sensor power-up failed\n");
+	dev_err(&client->dev, "sensor power-down failed\n");
 
 	return ret;
 }
@@ -515,18 +516,6 @@ static int __t4ka3_s_power(struct v4l2_subdev *sd, int power)
 		dev_info(&client->dev, "__t4ka3_s_power on %d\n", __LINE__);
 		return t4ka3_init(sd, 0);
 	}
-}
-
-static int t4ka3_s_power(struct v4l2_subdev *sd, int on)
-{
-	int ret;
-	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
-
-	mutex_lock(&dev->input_lock);
-	ret = __t4ka3_s_power(sd, on);
-	mutex_unlock(&dev->input_lock);
-
-	return ret;
 }
 
 /*
@@ -1105,40 +1094,64 @@ static int t4ka3_s_stream(struct v4l2_subdev *sd, int enable)
 	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
 
 	mutex_lock(&dev->input_lock);
+
+	if (dev->streaming == enable) {
+		dev_warn (&client->dev, "Stream aleady %s\n", enable ? "started" : "stopped");
+		goto error_unlock;
+	}
+
 	if (enable) {
+
+		dev_info (&client->dev, "power on while streaming set on t4ka3");
+
+		ret = __t4ka3_s_power(sd, 1);
+		if (ret) {
+			dev_err(&client->dev, "power-up err.\n");
+			goto error_unlock;
+		}
+
+		dev_info (&client->dev, "Detect t4ka3\n");
 		ret = t4ka3_detect(client, &id);
 		if (ret) {
 			ret = t4ka3_recovery(sd);
 			if (ret) {
 				dev_err(&client->dev, "recovery err.\n");
-				mutex_unlock(&dev->input_lock);
-				return ret;
+				goto error_powerdown;
 			}
 		}
 
 		ret = t4ka3_write_reg_array(client,
-							t4ka3_streaming);
-
+					    t4ka3_streaming);
 		if (ret) {
-			mutex_unlock(&dev->input_lock);
-			return ret;
+			dev_err (&client->dev, "Error on setting reg\n");
+			goto error_powerdown;
 		}
 
 		dev->streaming = 1;
 	} else {
 
 		ret = t4ka3_write_reg_array(client,
-							t4ka3_suspend);
-
-		if (ret != 0) {
-			mutex_unlock(&dev->input_lock);
-			return ret;
+					    t4ka3_suspend);
+		if (ret) {
+			dev_err(&client->dev, "Error on writing streaming config\n");
+			goto error_powerdown;
 		}
+
+		ret = __t4ka3_power_ctrl(sd, 0);
+		if (ret)
+			goto error_unlock;
+
 		dev->streaming = 0;
 	}
 
 	mutex_unlock(&dev->input_lock);
-	return 0;
+	return ret;
+
+error_powerdown:
+	ret = __t4ka3_s_power(sd, 0);
+error_unlock:
+	mutex_unlock(&dev->input_lock);
+	return ret;
 }
 
 static int
@@ -1251,7 +1264,7 @@ static const struct v4l2_subdev_video_ops t4ka3_video_ops = {
 
 static const struct v4l2_subdev_core_ops t4ka3_core_ops = {
 	.ioctl = t4ka3_ioctl,
-	.s_power = t4ka3_s_power,
+//	.s_power = t4ka3_s_power,
 	.init = t4ka3_init,
 };
 
@@ -1393,7 +1406,7 @@ static int t4ka3_probe(struct i2c_client *client)
 		t4ka3_vendorid_procfs_uninit();
 	}
 
-	v4l2_info(client, "%s: done!!\n", __func__);
+	v4l2_info(client, "%s: done!! with ret %d\n", __func__, ret);
 
 	return ret;
 
