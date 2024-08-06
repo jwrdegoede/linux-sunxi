@@ -975,7 +975,7 @@ t4ka3_s_config(struct v4l2_subdev *sd, int irq, void *platform_data)
 		(struct camera_sensor_platform_data *)platform_data;
 
 	mutex_lock(&dev->input_lock);
-	ret = __t4ka3_s_power(sd, 1);
+	ret = pm_runtime_get_sync(dev->sd.dev);
 	if (ret) {
 		mutex_unlock(&dev->input_lock);
 		dev_err(&client->dev, "t4ka3 power-up err");
@@ -993,7 +993,7 @@ t4ka3_s_config(struct v4l2_subdev *sd, int irq, void *platform_data)
 	if (ret)
 		goto fail_csi_cfg;
 
-	ret = __t4ka3_s_power(sd, 0);
+	ret = pm_runtime_put(dev->sd.dev);
 	mutex_unlock(&dev->input_lock);
 	if (ret) {
 		dev_err(&client->dev, "t4ka3 power down err\n");
@@ -1005,7 +1005,7 @@ t4ka3_s_config(struct v4l2_subdev *sd, int irq, void *platform_data)
 fail_csi_cfg:
 	dev->platform_data->csi_cfg(sd, 0);
 fail_detect:
-	__t4ka3_s_power(sd, 0);
+	ret = pm_runtime_put(dev->sd.dev);
 	mutex_unlock(&dev->input_lock);
 	dev_err(&client->dev, "t4ka3 sensor power-gating failed\n");
 	return ret;
@@ -1050,13 +1050,15 @@ static int t4ka3_recovery(struct v4l2_subdev *sd)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
 
-	ret = __t4ka3_s_power(sd, 0);
+	dev_info(&client->dev, "Start recovering T4KA3.\n");
+
+	ret = pm_runtime_put(sd->dev);
 	if (ret) {
 		dev_err(&client->dev, "power-down err.\n");
 		return ret;
 	}
 
-	ret = __t4ka3_s_power(sd, 1);
+	ret = pm_runtime_get_sync(sd->dev);
 	if (ret) {
 		dev_err(&client->dev, "power-up err.\n");
 		return ret;
@@ -1104,7 +1106,7 @@ static int t4ka3_s_stream(struct v4l2_subdev *sd, int enable)
 
 		dev_info (&client->dev, "power on while streaming set on t4ka3");
 
-		ret = __t4ka3_s_power(sd, 1);
+		ret = pm_runtime_get_sync(dev->sd.dev);
 		if (ret) {
 			dev_err(&client->dev, "power-up err.\n");
 			goto error_unlock;
@@ -1137,7 +1139,7 @@ static int t4ka3_s_stream(struct v4l2_subdev *sd, int enable)
 			goto error_powerdown;
 		}
 
-		ret = __t4ka3_power_ctrl(sd, 0);
+		ret = pm_runtime_put(dev->sd.dev);
 		if (ret)
 			goto error_unlock;
 
@@ -1148,7 +1150,7 @@ static int t4ka3_s_stream(struct v4l2_subdev *sd, int enable)
 	return ret;
 
 error_powerdown:
-	ret = __t4ka3_s_power(sd, 0);
+	ret = pm_runtime_put(dev->sd.dev);
 error_unlock:
 	mutex_unlock(&dev->input_lock);
 	return ret;
@@ -1295,6 +1297,8 @@ static void t4ka3_remove(struct i2c_client *client)
 	atomisp_gmin_remove_subdev(sd);
 	t4ka3_vendorid_procfs_uninit();
 	v4l2_ctrl_handler_free(&dev->ctrls.handler);
+	pm_runtime_disable(&client->dev);
+	kfree(dev);
 }
 
 static int t4ka3_init_controls(struct t4ka3_device *sensor)
@@ -1347,6 +1351,22 @@ static int t4ka3_init_controls(struct t4ka3_device *sensor)
 	return 0;
 }
 
+static int t4ka3_pm_suspend(struct device *dev)
+{
+	struct t4ka3_device *sensor = dev_get_drvdata(dev);
+
+	return __t4ka3_s_power (&sensor->sd, 0);
+}
+
+static int t4ka3_pm_resume(struct device *dev)
+{
+	struct t4ka3_device *sensor = dev_get_drvdata(dev);
+
+	return __t4ka3_s_power (&sensor->sd, 1);
+}
+
+static DEFINE_RUNTIME_DEV_PM_OPS(t4ka3_pm_ops, t4ka3_pm_suspend, t4ka3_pm_resume, NULL);
+
 static int t4ka3_probe(struct i2c_client *client)
 {
 	struct t4ka3_device *dev;
@@ -1372,6 +1392,11 @@ static int t4ka3_probe(struct i2c_client *client)
 					  atomisp_bayer_order_grbg);
 
 	dev_info(&client->dev, "before s_config\n");
+	
+	pm_runtime_set_suspended(&client->dev);
+	pm_runtime_enable(&client->dev);
+	pm_runtime_set_autosuspend_delay(&client->dev, 1000);
+	pm_runtime_use_autosuspend(&client->dev);
 
 	ret = t4ka3_s_config(&dev->sd, client->irq, pdata);
 	if (ret) {
@@ -1433,6 +1458,7 @@ static struct i2c_driver t4ka3_driver = {
 	.driver = {
 		.name = T4KA3_NAME,
 		.acpi_match_table = ACPI_PTR(T4KA3_acpi_match),
+		.pm = pm_sleep_ptr(&t4ka3_pm_ops),
 	},
 	.probe = t4ka3_probe,
 	.remove = t4ka3_remove,
