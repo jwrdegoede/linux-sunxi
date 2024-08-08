@@ -38,18 +38,19 @@ static inline struct t4ka3_device *ctrl_to_t4ka3(struct v4l2_ctrl *ctrl)
 	return container_of(ctrl->handler, struct t4ka3_device, ctrls.handler);
 }
 
-/* the bayer order mapping table
- *          hflip=0			hflip=1
- * vflip=0  atomisp_bayer_order_grbg atomisp_bayer_order_rggb
- * vflip=1  atomisp_bayer_order_bggr atomisp_bayer_order_gbrg
- *
- * usage: t4ka3_bayer_order_mapping[vflip][hflip]
- */
-
 /* T4KA3 default GRBG */
-static const int t4ka3_bayer_order_mapping[2][2] = {
-	{ atomisp_bayer_order_grbg, atomisp_bayer_order_rggb },
-	{ atomisp_bayer_order_bggr, atomisp_bayer_order_gbrg }
+static const int t4ka3_atomisp_hv_flip_bayer_order[] = {
+	atomisp_bayer_order_grbg,
+	atomisp_bayer_order_bggr,
+	atomisp_bayer_order_rggb,
+	atomisp_bayer_order_gbrg,
+};
+
+static const int t4ka3_hv_flip_bayer_order[] = {
+	MEDIA_BUS_FMT_SGRBG10_1X10,
+	MEDIA_BUS_FMT_SBGGR10_1X10,
+	MEDIA_BUS_FMT_SRGGB10_1X10,
+	MEDIA_BUS_FMT_SGBRG10_1X10,
 };
 
 static int t4ka3_detect(struct i2c_client *client, u16 *id);
@@ -507,6 +508,25 @@ static int __t4ka3_s_power(struct v4l2_subdev *sd, int power)
 	}
 }
 
+static void t4ka3_set_bayer_order(struct t4ka3_device *sensor,
+				  struct v4l2_mbus_framefmt *fmt)
+{
+	struct camera_mipi_info *info = v4l2_get_subdev_hostdata(&sensor->sd);
+	int hv_flip = 0;
+
+	if (sensor->ctrls.vflip && sensor->ctrls.vflip->val)
+		hv_flip += 1;
+
+	if (sensor->ctrls.hflip && sensor->ctrls.hflip->val)
+		hv_flip += 2;
+
+	fmt->code = t4ka3_hv_flip_bayer_order[hv_flip];
+	if (info) {
+		info->input_format = ATOMISP_INPUT_FORMAT_RAW_10;
+		info->raw_bayer_order = t4ka3_atomisp_hv_flip_bayer_order[hv_flip];
+	}
+}
+
 static void t4ka3_fill_format(struct t4ka3_device *sensor,
 			      struct v4l2_mbus_framefmt *fmt,
 			      unsigned int width, unsigned int height)
@@ -516,7 +536,7 @@ static void t4ka3_fill_format(struct t4ka3_device *sensor,
 	fmt->height = height;
 	fmt->field = V4L2_FIELD_NONE;
 	fmt->colorspace = V4L2_COLORSPACE_SRGB;
-	fmt->code = MEDIA_BUS_FMT_SGRBG10_1X10;
+	t4ka3_set_bayer_order(sensor, fmt);
 }
 
 static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
@@ -526,18 +546,11 @@ static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
 	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
 	const struct t4ka3_reg *t4ka3_def_reg;
 	const struct t4ka3_resolution *res;
-	struct camera_mipi_info *t4ka3_info = NULL;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct v4l2_mbus_framefmt *fmt = &format->format;
 	int ret;
-	u8 tmp;
-	int vflip, hflip;
 
 	dev_info(&client->dev, "enter t4ka3_set_mbus_fmt\n");
-
-	t4ka3_info = v4l2_get_subdev_hostdata(sd);
-	if (t4ka3_info == NULL)
-		return -EINVAL;
 
 	res = v4l2_find_nearest_size(t4ka3_res, ARRAY_SIZE(t4ka3_res),
 				     width, height, fmt->width, fmt->height);
@@ -554,7 +567,6 @@ static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
 
 	t4ka3_def_reg = dev->res->regs;
 
-	t4ka3_info->input_format = ATOMISP_INPUT_FORMAT_RAW_10;
 	/* enable group hold */
 	ret = t4ka3_write_reg_array(client, t4ka3_param_hold);
 	if (ret) {
@@ -577,22 +589,6 @@ static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
 	dev->coarse_itg = 0;
 	dev->gain = 0;
 
-	ret = t4ka3_read_reg(client, T4KA3_8BIT,
-				T4KA3_REG_IMG_ORIENTATION, (u16 *)&tmp);
-	if (ret) {
-		mutex_unlock(&dev->input_lock);
-		return ret;
-	}
-	hflip = tmp & T4KA3_HFLIP_BIT;
-	vflip = (tmp & T4KA3_VFLIP_BIT) >> T4KA3_VFLIP_OFFSET;
-	t4ka3_info->raw_bayer_order =
-				t4ka3_bayer_order_mapping[vflip][hflip];
-	dev_info(&client->dev, "bayer order %d\n",
-		t4ka3_info->raw_bayer_order);
-
-	/*t4ka3_write_reg(client, T4KA3_16BIT,
-			T4KA3_REG_TEST_PATTERN_MODE, 0x0304);*/
-
 	mutex_unlock(&dev->input_lock);
 	return 0;
 }
@@ -601,7 +597,7 @@ static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
 static int t4ka3_t_hflip(struct v4l2_subdev *sd, int value)
 {
 	struct i2c_client *c = v4l2_get_subdevdata(sd);
-	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
+	struct t4ka3_device *sensor = to_t4ka3_sensor(sd);
 	int ret;
 	u16 val;
 
@@ -623,8 +619,9 @@ static int t4ka3_t_hflip(struct v4l2_subdev *sd, int value)
 
 	ret = t4ka3_write_reg_array(c, t4ka3_param_update);
 
-	dev->flip = val;
+	sensor->flip = val;
 
+	t4ka3_set_bayer_order(sensor, &sensor->format);
 	return ret;
 }
 
@@ -632,7 +629,7 @@ static int t4ka3_t_hflip(struct v4l2_subdev *sd, int value)
 static int t4ka3_t_vflip(struct v4l2_subdev *sd, int value)
 {
 	struct i2c_client *c = v4l2_get_subdevdata(sd);
-	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
+	struct t4ka3_device *sensor = to_t4ka3_sensor(sd);
 	int ret;
 	u16 val;
 
@@ -654,8 +651,9 @@ static int t4ka3_t_vflip(struct v4l2_subdev *sd, int value)
 
 	ret = t4ka3_write_reg_array(c, t4ka3_param_update);
 
-	dev->flip = val;
+	sensor->flip = val;
 
+	t4ka3_set_bayer_order(sensor, &sensor->format);
 	return ret;
 }
 
