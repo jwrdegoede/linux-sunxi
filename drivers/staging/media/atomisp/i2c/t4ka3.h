@@ -33,12 +33,12 @@
 #define T4KA3_RES_WIDTH_MAX	3280
 #define T4KA3_RES_HEIGHT_MAX	2464
 
-#define T4K3A_PIXELS_PER_LINE	3440
-#define T4K3A_LINES_PER_FRAME	2492
+#define T4KA3_PIXELS_PER_LINE	3440
+#define T4KA3_LINES_PER_FRAME	2492
 
-#define T4K3A_FPS		30
+#define T4KA3_FPS		30
 
-#define T4K3A_PIXEL_RATE	(T4K3A_PIXELS_PER_LINE * T4K3A_LINES_PER_FRAME * T4K3A_FPS)
+#define T4KA3_PIXEL_RATE	(T4KA3_PIXELS_PER_LINE * T4KA3_LINES_PER_FRAME * T4KA3_FPS)
 
 /*
  * TODO this really should be derived from the 19.2 MHz xvclk combined
@@ -49,7 +49,7 @@
  * (lanes * 2) because CSI lanes use double-data-rate (DDR) signalling.
  * bpp = 10 and lanes = 4
  */
-#define T4K3A_LINK_FREQ		((s64)T4K3A_PIXEL_RATE * 10 / 8)
+#define T4KA3_LINK_FREQ		((s64)T4KA3_PIXEL_RATE * 10 / 8)
 
 #define T4KA3_REG_PRODUCT_ID			0x0000
 #define T4KA3_PRODUCT_ID				0x1490

@@ -573,7 +573,7 @@ static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
 
 	/* vblank range is height dependent adjust and reset to default */
 	max = T4KA3_MAX_VBLANK - res->height;
-	def = T4K3A_LINES_PER_FRAME - res->height;
+	def = T4KA3_LINES_PER_FRAME - res->height;
 	ret = __v4l2_ctrl_modify_range(sensor->ctrls.vblank, T4KA3_MIN_VBLANK,
 				       max, 1, def);
 	if (ret)
@@ -683,12 +683,12 @@ static long __t4ka3_set_exposure(struct v4l2_subdev *sd,
 					T4KA3_MAX_GLOBAL_GAIN_SUPPORTED);
 
 	/* check coarse integration time margin */
-	if (coarse_itg > T4K3A_LINES_PER_FRAME -
+	if (coarse_itg > T4KA3_LINES_PER_FRAME -
 					T4KA3_COARSE_INTEGRATION_TIME_MARGIN)
 		lines_per_frame = coarse_itg +
 					T4KA3_COARSE_INTEGRATION_TIME_MARGIN;
 	else
-		lines_per_frame = T4K3A_LINES_PER_FRAME;
+		lines_per_frame = T4KA3_LINES_PER_FRAME;
 
 	ret = t4ka3_write_reg(client, T4KA3_16BIT,
 				T4KA3_REG_FRAME_LENGTH_LINES,
@@ -1103,7 +1103,7 @@ static int t4ka3_get_frame_interval(struct v4l2_subdev *sd,
 				    struct v4l2_subdev_frame_interval *interval)
 {
 	interval->interval.numerator = 1;
-	interval->interval.denominator = T4K3A_FPS;
+	interval->interval.denominator = T4KA3_FPS;
 	return 0;
 }
 
@@ -1196,12 +1196,12 @@ static int t4ka3_init_controls(struct t4ka3_device *sensor)
 	ctrls->link_freq = v4l2_ctrl_new_int_menu(hdl, NULL, V4L2_CID_LINK_FREQ,
 						  0, 0, sensor->link_freq);
 
-	def = T4K3A_LINES_PER_FRAME - T4KA3_RES_HEIGHT_MAX;
+	def = T4KA3_LINES_PER_FRAME - T4KA3_RES_HEIGHT_MAX;
 	max = T4KA3_MAX_VBLANK - T4KA3_RES_HEIGHT_MAX;
 	ctrls->vblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_VBLANK,
 					  T4KA3_MIN_VBLANK, max, 1, def);
 
-	max = T4K3A_LINES_PER_FRAME - T4KA3_COARSE_INTEGRATION_TIME_MARGIN;
+	max = T4KA3_LINES_PER_FRAME - T4KA3_COARSE_INTEGRATION_TIME_MARGIN;
 	ctrls->exposure = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_EXPOSURE,
 					    0, max, 1, max);
 
@@ -1245,7 +1245,7 @@ static int t4ka3_probe(struct i2c_client *client)
 
 	mutex_init(&dev->input_lock);
 
-	dev->link_freq[0] = T4K3A_LINK_FREQ;
+	dev->link_freq[0] = T4KA3_LINK_FREQ;
 	dev->res = &t4ka3_res[0];
 	t4ka3_fill_format(dev, &dev->format, dev->res->width, dev->res->height);
 	iddir = NULL;
