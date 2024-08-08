@@ -293,22 +293,11 @@ static int t4ka3_write_reg_array(struct i2c_client *client,
 	return __t4ka3_flush_reg_array(client, &ctrl);
 }
 
-static int __t4ka3_init(struct v4l2_subdev *sd, u32 val)
-{
-
-	/* restore settings */
-	t4ka3_res = t4ka3_res_preview;
-	N_RES = N_RES_PREVIEW;
-
-	return 0;
-}
-
 static int t4ka3_init(struct v4l2_subdev *sd, u32 val)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret = 0;
 
-	ret = __t4ka3_init(sd, val);
 	dev_info(&client->dev, "t4ka3_init_config\n");
 
 	ret = t4ka3_write_reg_array(client, t4ka3_init_config);
@@ -518,99 +507,12 @@ static int __t4ka3_s_power(struct v4l2_subdev *sd, int power)
 	}
 }
 
-/*
- * distance - calculate the distance
- * @res: resolution
- * @w: width
- * @h: height
- *
- * Get the gap between resolution and w/h.
- * res->width/height smaller than w/h wouldn't be considered.
- * Returns the value of gap or -1 if fail.
- */
-#define LARGEST_ALLOWED_RATIO_MISMATCH 600
-static int distance(struct t4ka3_resolution *res, u32 w, u32 h)
-{
-	unsigned int w_ratio = ((res->width << 13) / w);
-	unsigned int h_ratio;
-	int match;
-
-	if (h == 0)
-		return -EPERM;
-	h_ratio = ((res->height << 13) / h);
-	if (h_ratio == 0)
-		return -EPERM;
-	match   = abs(((w_ratio << 13) / h_ratio) - ((int)8192));
-
-	if ((w_ratio < (int)8192) || (h_ratio < (int)8192)  ||
-		(match > LARGEST_ALLOWED_RATIO_MISMATCH))
-		return -EPERM;
-
-	return w_ratio + h_ratio;
-}
-
-/* Return the nearest higher resolution index */
-static int nearest_resolution_index(int w, int h)
-{
-	int i;
-	int idx = -1;
-	int dist;
-	int min_dist = INT_MAX;
-	struct t4ka3_resolution *tmp_res = NULL;
-
-	for (i = 0; i < N_RES; i++) {
-		tmp_res = &t4ka3_res[i];
-		dist = distance(tmp_res, w, h);
-		if (dist == -1)
-			continue;
-		if (dist < min_dist) {
-			min_dist = dist;
-			idx = i;
-		}
-	}
-
-	return idx;
-}
-
-static int __t4ka3_try_mbus_fmt(struct v4l2_subdev *sd,
-				struct v4l2_mbus_framefmt *fmt)
-{
-	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
-	int idx;
-
-	mutex_lock(&dev->input_lock);
-
-	if ((fmt->width > T4KA3_RES_WIDTH_MAX) ||
-		(fmt->height > T4KA3_RES_HEIGHT_MAX)) {
-		fmt->width = T4KA3_RES_WIDTH_MAX;
-		fmt->height = T4KA3_RES_HEIGHT_MAX;
-		fmt->code = MEDIA_BUS_FMT_SGRBG10_1X10;
-	} else {
-		idx = nearest_resolution_index(fmt->width, fmt->height);
-
-		/*
-		 * nearest_resolution_index() doesn't return smaller
-		 *  resolutions. If it fails, it means the requested
-		 *  resolution is higher than wecan support. Fallback
-		 *  to highest possible resolution in this case.
-		 */
-		if (idx == -1)
-			idx = N_RES - 1;
-
-		fmt->width = t4ka3_res[idx].width;
-		fmt->height = t4ka3_res[idx].height;
-		fmt->code = t4ka3_res[idx].code;
-	}
-
-	mutex_unlock(&dev->input_lock);
-	return 0;
-}
-
 static int __t4ka3_set_mbus_fmt(struct v4l2_subdev *sd,
 			        struct v4l2_mbus_framefmt *fmt)
 {
 	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
 	const struct t4ka3_reg *t4ka3_def_reg;
+	const struct t4ka3_resolution *res;
 	struct camera_mipi_info *t4ka3_info = NULL;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
@@ -623,24 +525,18 @@ static int __t4ka3_set_mbus_fmt(struct v4l2_subdev *sd,
 	if (t4ka3_info == NULL)
 		return -EINVAL;
 
-	ret = __t4ka3_try_mbus_fmt(sd, fmt);
-	if (ret) {
-		v4l2_err(sd, "try fmt fail\n");
-		return ret;
-	}
+	res = v4l2_find_nearest_size(t4ka3_res, ARRAY_SIZE(t4ka3_res),
+				     width, height, fmt->width, fmt->height);
+	fmt->width = res->width;
+	fmt->height = res->height;
+	fmt->code = res->code;
 
 	mutex_lock(&dev->input_lock);
-	dev->fmt_idx = nearest_resolution_index(fmt->width, fmt->height);
-	dev_info(&client->dev, "fmt_idx %d, width %d , height %d\n",
-		dev->fmt_idx, fmt->width, fmt->height);
-	/* Sanity check */
-	if (unlikely(dev->fmt_idx == -1)) {
-		mutex_unlock(&dev->input_lock);
-		v4l2_err(sd, "get resolution fail\n");
-		return -EINVAL;
-	}
+	dev->res = res;
 
-	t4ka3_def_reg = t4ka3_res[dev->fmt_idx].regs;
+	dev_info(&client->dev, "width %d , height %d\n", res->width, res->height);
+
+	t4ka3_def_reg = dev->res->regs;
 
 	t4ka3_info->input_format = ATOMISP_INPUT_FORMAT_RAW_10;
 	/* enable group hold */
@@ -1073,7 +969,7 @@ static int t4ka3_recovery(struct v4l2_subdev *sd)
 	if (ret)
 		return ret;
 
-	ret = t4ka3_write_reg_array(client, t4ka3_res[dev->fmt_idx].regs);
+	ret = t4ka3_write_reg_array(client, dev->res->regs);
 	if (ret)
 		return ret;
 
@@ -1174,7 +1070,7 @@ t4ka3_enum_frame_size(struct v4l2_subdev *sd,
 {
 	int index = fse->index;
 
-	if (index >= N_RES)
+	if (index >= ARRAY_SIZE(t4ka3_res))
 		return -EINVAL;
 
 	fse->min_width = t4ka3_res[index].width;
@@ -1245,7 +1141,7 @@ static int t4ka3_g_skip_frames(struct v4l2_subdev *sd, u32 *frames)
 	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
 
 	mutex_lock(&dev->input_lock);
-	*frames = t4ka3_res[dev->fmt_idx].skip_frames;
+	*frames = dev->res->skip_frames;
 	mutex_unlock(&dev->input_lock);
 
 	return 0;
@@ -1380,7 +1276,7 @@ static int t4ka3_probe(struct i2c_client *client)
 	mutex_init(&dev->input_lock);
 
 	dev->link_freq[0] = T4K3A_LINK_FREQ;
-	dev->fmt_idx = 0;
+	dev->res = &t4ka3_res[0];
 	iddir = NULL;
 	idfile = NULL;
 

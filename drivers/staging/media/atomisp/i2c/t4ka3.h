@@ -106,6 +106,16 @@ enum t4ka3_tok_type {
 	T4KA3_TOK_MASK = 0xfff0
 };
 
+struct t4ka3_resolution {
+	u8 *desc;
+	const struct t4ka3_reg *regs;
+	int res;
+	int width;
+	int height;
+	u32 skip_frames;
+	u32 code;
+};
+
 struct t4ka3_ctrls {
 	struct v4l2_ctrl_handler handler;
 	struct v4l2_ctrl *hflip;
@@ -124,7 +134,7 @@ struct t4ka3_device {
 	struct mutex input_lock; /* serialize sensor's ioctl */
 	struct t4ka3_ctrls ctrls;
 	s64 link_freq[1];
-	int fmt_idx;
+	const struct t4ka3_resolution *res;
 	int streaming;
 	int power;
 	u16 coarse_itg;
@@ -164,16 +174,6 @@ struct t4ka3_format_struct {
 	u8 *desc;
 	struct regval_list *regs;
 	u32 pixelformat;
-};
-
-struct t4ka3_resolution {
-	u8 *desc;
-	const struct t4ka3_reg *regs;
-	int res;
-	int width;
-	int height;
-	u32 skip_frames;
-	u32 code;
 };
 
 /* init settings */
@@ -772,7 +772,7 @@ static struct t4ka3_reg const t4ka3_3280x2464_30fps[] = {
 	{T4KA3_TOK_TERM, 0, 0 }
 };
 
-struct t4ka3_resolution t4ka3_res_preview[] = {
+const struct t4ka3_resolution t4ka3_res[] = {
 
 	{
 		.desc = "t4ka3_736x496_30fps",
@@ -806,9 +806,5 @@ struct t4ka3_resolution t4ka3_res_preview[] = {
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
 };
-#define N_RES_PREVIEW (ARRAY_SIZE(t4ka3_res_preview))
-
-struct t4ka3_resolution *t4ka3_res = t4ka3_res_preview;
-static int N_RES = N_RES_PREVIEW;
 
 #endif
