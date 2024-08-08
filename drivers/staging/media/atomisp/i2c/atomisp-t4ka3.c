@@ -1030,6 +1030,8 @@ static int t4ka3_s_ctrl(struct v4l2_ctrl *ctrl)
 		dev_dbg(&client->dev, "%s: V4L2_CID_VBLANK: %d\n",
 			__func__, ctrl->val);
 		t4ka3_update_exposure_range(dev);
+		ret = t4ka3_write_reg(client, T4KA3_16BIT, T4KA3_REG_FRAME_LENGTH_LINES,
+				      dev->format.height + ctrl->val);
 		break;
 	default:
 		ret = -EINVAL;
