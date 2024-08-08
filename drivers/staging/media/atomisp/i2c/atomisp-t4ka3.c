@@ -507,7 +507,9 @@ static int __t4ka3_s_power(struct v4l2_subdev *sd, int power)
 	}
 }
 
-static int __t4ka3_set_mbus_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_format *format)
+static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
+				struct v4l2_subdev_state *sd_state,
+				struct v4l2_subdev_format *format)
 {
 	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
 	const struct t4ka3_reg *t4ka3_def_reg;
@@ -536,6 +538,7 @@ static int __t4ka3_set_mbus_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_forma
 
 	mutex_lock(&dev->input_lock);
 	dev->res = res;
+	dev->format = *fmt;
 
 	dev_info(&client->dev, "width %d , height %d\n", res->width, res->height);
 
@@ -1112,21 +1115,6 @@ t4ka3_get_pad_format(struct v4l2_subdev *sd,
 	fmt->format = *format;
 
 	return 0;
-}
-
-static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
-				struct v4l2_subdev_state *sd_state,
-				struct v4l2_subdev_format *fmt)
-{
-	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
-
-	if (fmt->pad)
-		return -EINVAL;
-
-	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE)
-		dev->format = fmt->format;
-
-	return __t4ka3_set_mbus_fmt(sd, fmt);
 }
 
 static int t4ka3_get_frame_interval(struct v4l2_subdev *sd,
