@@ -544,11 +544,9 @@ static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
 				struct v4l2_subdev_format *format)
 {
 	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
-	const struct t4ka3_reg *t4ka3_def_reg;
 	const struct t4ka3_resolution *res;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct v4l2_mbus_framefmt *fmt = &format->format;
-	int ret;
 
 	dev_info(&client->dev, "enter t4ka3_set_mbus_fmt\n");
 
@@ -564,28 +562,6 @@ static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
 	dev->format = *fmt;
 
 	dev_info(&client->dev, "width %d , height %d\n", res->width, res->height);
-
-	t4ka3_def_reg = dev->res->regs;
-
-	/* enable group hold */
-	ret = t4ka3_write_reg_array(client, t4ka3_param_hold);
-	if (ret) {
-		mutex_unlock(&dev->input_lock);
-		return ret;
-	}
-
-	ret = t4ka3_write_reg_array(client, t4ka3_def_reg);
-	if (ret) {
-		mutex_unlock(&dev->input_lock);
-		return ret;
-	}
-
-	/* disable group hold */
-	ret = t4ka3_write_reg_array(client, t4ka3_param_update);
-	if (ret) {
-		mutex_unlock(&dev->input_lock);
-		return ret;
-	}
 	dev->coarse_itg = 0;
 	dev->gain = 0;
 
@@ -949,83 +925,45 @@ static int t4ka3_s_ctrl(struct v4l2_ctrl *ctrl)
 	return ret;
 }
 
-static int t4ka3_recovery(struct v4l2_subdev *sd)
-{
-	int ret;
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
-
-	dev_info(&client->dev, "Start recovering T4KA3.\n");
-
-	ret = pm_runtime_put(sd->dev);
-	if (ret) {
-		dev_err(&client->dev, "power-down err.\n");
-		return ret;
-	}
-
-	ret = pm_runtime_get_sync(sd->dev);
-	if (ret) {
-		dev_err(&client->dev, "power-up err.\n");
-		return ret;
-	}
-
-	/* enable group hold */
-	ret = t4ka3_write_reg_array(client, t4ka3_param_hold);
-	if (ret)
-		return ret;
-
-	ret = t4ka3_write_reg(client, T4KA3_8BIT,
-			T4KA3_REG_IMG_ORIENTATION, dev->flip);
-	if (ret)
-		return ret;
-
-	ret = t4ka3_write_reg_array(client, dev->res->regs);
-	if (ret)
-		return ret;
-
-	/* disable group hold */
-	ret = t4ka3_write_reg_array(client, t4ka3_param_update);
-	if (ret)
-		return ret;
-
-	return ret;
-}
-
-
 static int t4ka3_s_stream(struct v4l2_subdev *sd, int enable)
 {
-	int ret;
-	u16 id;
-
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
+	struct t4ka3_device *sensor = to_t4ka3_sensor(sd);
+	int ret;
 
-	mutex_lock(&dev->input_lock);
+	mutex_lock(&sensor->input_lock);
 
-	if (dev->streaming == enable) {
+	if (sensor->streaming == enable) {
 		dev_warn (&client->dev, "Stream aleady %s\n", enable ? "started" : "stopped");
 		goto error_unlock;
 	}
 
 	if (enable) {
-
 		dev_info (&client->dev, "power on while streaming set on t4ka3");
 
-		ret = pm_runtime_get_sync(dev->sd.dev);
+		ret = pm_runtime_get_sync(sensor->sd.dev);
 		if (ret) {
 			dev_err(&client->dev, "power-up err.\n");
 			goto error_unlock;
 		}
 
-		dev_info (&client->dev, "Detect t4ka3\n");
-		ret = t4ka3_detect(client, &id);
-		if (ret) {
-			ret = t4ka3_recovery(sd);
-			if (ret) {
-				dev_err(&client->dev, "recovery err.\n");
-				goto error_powerdown;
-			}
-		}
+		ret = t4ka3_write_reg_array(client, t4ka3_init_config);
+		if (ret)
+			goto error_powerdown;
+
+		/* enable group hold */
+		ret = t4ka3_write_reg_array(client, t4ka3_param_hold);
+		if (ret)
+			goto error_powerdown;
+
+		ret = t4ka3_write_reg_array(client, sensor->res->regs);
+		if (ret)
+			goto error_powerdown;
+
+		/* disable group hold */
+		ret = t4ka3_write_reg_array(client, t4ka3_param_update);
+		if (ret)
+			goto error_powerdown;
 
 		ret = t4ka3_write_reg_array(client,
 					    t4ka3_streaming);
@@ -1034,7 +972,7 @@ static int t4ka3_s_stream(struct v4l2_subdev *sd, int enable)
 			goto error_powerdown;
 		}
 
-		dev->streaming = 1;
+		sensor->streaming = 1;
 	} else {
 
 		ret = t4ka3_write_reg_array(client,
@@ -1044,20 +982,20 @@ static int t4ka3_s_stream(struct v4l2_subdev *sd, int enable)
 			goto error_powerdown;
 		}
 
-		ret = pm_runtime_put(dev->sd.dev);
+		ret = pm_runtime_put(sensor->sd.dev);
 		if (ret)
 			goto error_unlock;
 
-		dev->streaming = 0;
+		sensor->streaming = 0;
 	}
 
-	mutex_unlock(&dev->input_lock);
+	mutex_unlock(&sensor->input_lock);
 	return ret;
 
 error_powerdown:
-	ret = pm_runtime_put(dev->sd.dev);
+	ret = pm_runtime_put(sensor->sd.dev);
 error_unlock:
-	mutex_unlock(&dev->input_lock);
+	mutex_unlock(&sensor->input_lock);
 	return ret;
 }
 
