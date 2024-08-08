@@ -507,14 +507,14 @@ static int __t4ka3_s_power(struct v4l2_subdev *sd, int power)
 	}
 }
 
-static int __t4ka3_set_mbus_fmt(struct v4l2_subdev *sd,
-			        struct v4l2_mbus_framefmt *fmt)
+static int __t4ka3_set_mbus_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_format *format)
 {
 	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
 	const struct t4ka3_reg *t4ka3_def_reg;
 	const struct t4ka3_resolution *res;
 	struct camera_mipi_info *t4ka3_info = NULL;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct v4l2_mbus_framefmt *fmt = &format->format;
 	int ret;
 	u8 tmp;
 	int vflip, hflip;
@@ -530,6 +530,9 @@ static int __t4ka3_set_mbus_fmt(struct v4l2_subdev *sd,
 	fmt->width = res->width;
 	fmt->height = res->height;
 	fmt->code = MEDIA_BUS_FMT_SGRBG10_1X10;
+
+	if (format->which == V4L2_SUBDEV_FORMAT_TRY)
+		return 0;
 
 	mutex_lock(&dev->input_lock);
 	dev->res = res;
@@ -1123,8 +1126,7 @@ static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
 	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE)
 		dev->format = fmt->format;
 
-	/* This calls __t4ka3_try_mbus_fmt() internally */
-	return __t4ka3_set_mbus_fmt(sd, &fmt->format);
+	return __t4ka3_set_mbus_fmt(sd, fmt);
 }
 
 static int t4ka3_get_frame_interval(struct v4l2_subdev *sd,
