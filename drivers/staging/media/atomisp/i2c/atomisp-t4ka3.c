@@ -849,17 +849,10 @@ static long t4ka3_s_exposure(struct v4l2_subdev *sd,
 	return t4ka3_set_exposure(sd, coarse_itg, analog_gain, digital_gain);
 }
 
-static int t4ka3_update_exposure_range (struct v4l2_subdev *sd)
+static int t4ka3_update_exposure_range(struct t4ka3_device *sensor)
 {
-	int exp_max;
-	struct t4ka3_device *sensor;
-
-	if (sd == NULL)
-		return -1;
-	
-	sensor = to_t4ka3_sensor (sd);
-
-	exp_max = sensor->format.height + sensor->ctrls.vblank->val - T4KA3_COARSE_INTEGRATION_TIME_MARGIN;
+	int exp_max = sensor->format.height + sensor->ctrls.vblank->val -
+		      T4KA3_COARSE_INTEGRATION_TIME_MARGIN;
 
 	return __v4l2_ctrl_modify_range(sensor->ctrls.exposure, 0, exp_max,
 					1, exp_max);
@@ -1036,7 +1029,7 @@ static int t4ka3_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_VBLANK:
 		dev_dbg(&client->dev, "%s: V4L2_CID_VBLANK: %d\n",
 			__func__, ctrl->val);
-		t4ka3_update_exposure_range (&dev->sd);
+		t4ka3_update_exposure_range(dev);
 		break;
 	default:
 		ret = -EINVAL;
