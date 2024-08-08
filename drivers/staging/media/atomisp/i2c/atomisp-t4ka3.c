@@ -29,7 +29,6 @@
 #include <asm/intel-mid.h>
 #include <linux/firmware.h>
 #include <linux/acpi.h>
-#include <linux/proc_fs.h>
 
 #include "t4ka3.h"
 
@@ -772,53 +771,6 @@ static long t4ka3_ioctl(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static u8 vid;
-static struct proc_dir_entry *iddir;
-static struct proc_dir_entry *idfile;
-static int vendorid_proc_show(struct seq_file *m, void *v)
-{
-	seq_printf(m, "%d\n", vid);
-	return 0;
-}
-
-static int vendorid_proc_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, vendorid_proc_show, NULL);
-}
-static const struct proc_ops vendorid_proc_ops = {
-	.proc_open = vendorid_proc_open,
-	.proc_read = seq_read,
-	.proc_lseek = seq_lseek,
-	.proc_release = single_release,
- };
-
-static int t4ka3_vendorid_procfs_init(struct i2c_client *client)
-{
-	iddir = proc_mkdir("camera", NULL);
-	if (!iddir) {
-		dev_err(&client->dev, "can't create /proc/camera/\n");
-		return -EPERM;
-	}
-
-	idfile = proc_create("backvid", 0644, iddir,
-				&vendorid_proc_ops);
-	if (!idfile) {
-		dev_err(&client->dev, "Can't create file /proc/camera/backvid\n");
-		remove_proc_entry("camera", iddir);
-		return -EPERM;
-	}
-
-	return 0;
-}
-static int t4ka3_vendorid_procfs_uninit(void)
-{
-	if (idfile != NULL)
-		proc_remove(idfile);
-	if (iddir != NULL)
-		proc_remove(iddir);
-	return 0;
-}
-
 static int t4ka3_detect(struct i2c_client *client, u16 *id)
 {
 	struct i2c_adapter *adapter = client->adapter;
@@ -1161,7 +1113,6 @@ static void t4ka3_remove(struct i2c_client *client)
 	v4l2_device_unregister_subdev(sd);
 	media_entity_cleanup(&dev->sd.entity);
 	atomisp_gmin_remove_subdev(sd);
-	t4ka3_vendorid_procfs_uninit();
 	v4l2_ctrl_handler_free(&dev->ctrls.handler);
 	pm_runtime_disable(&client->dev);
 	kfree(dev);
@@ -1248,8 +1199,6 @@ static int t4ka3_probe(struct i2c_client *client)
 	dev->link_freq[0] = T4KA3_LINK_FREQ;
 	dev->res = &t4ka3_res[0];
 	t4ka3_fill_format(dev, &dev->format, dev->res->width, dev->res->height);
-	iddir = NULL;
-	idfile = NULL;
 
 	v4l2_i2c_subdev_init(&(dev->sd), client, &t4ka3_ops);
 
@@ -1289,12 +1238,6 @@ static int t4ka3_probe(struct i2c_client *client)
 	ret = media_entity_pads_init(&dev->sd.entity, 1, &dev->pad);
 	if (ret)
 		t4ka3_remove(client);
-
-	ret = t4ka3_vendorid_procfs_init(client);
-	if (ret) {
-		dev_err(&client->dev, "%s Failed to proc fs\n", __func__);
-		t4ka3_vendorid_procfs_uninit();
-	}
 
 	v4l2_info(client, "%s: done!! with ret %d\n", __func__, ret);
 
