@@ -107,9 +107,7 @@ enum t4ka3_tok_type {
 };
 
 struct t4ka3_resolution {
-	u8 *desc;
 	const struct t4ka3_reg *regs;
-	int res;
 	int width;
 	int height;
 	u32 skip_frames;
@@ -168,12 +166,6 @@ struct t4ka3_write_buffer {
 struct t4ka3_write_ctrl {
 	int index;
 	struct t4ka3_write_buffer buffer;
-};
-
-struct t4ka3_format_struct {
-	u8 *desc;
-	struct regval_list *regs;
-	u32 pixelformat;
 };
 
 /* init settings */
@@ -775,7 +767,6 @@ static struct t4ka3_reg const t4ka3_3280x2464_30fps[] = {
 const struct t4ka3_resolution t4ka3_res[] = {
 
 	{
-		.desc = "t4ka3_736x496_30fps",
 		.regs = t4ka3_736x496_30fps,
 		.width = 736,
 		.height = 496,
@@ -783,7 +774,6 @@ const struct t4ka3_resolution t4ka3_res[] = {
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
 	{
-		.desc = "t4ka3_896x736_30fps",
 		.regs = t4ka3_896x736_30fps,
 		.width = 896,
 		.height = 736,
@@ -791,7 +781,6 @@ const struct t4ka3_resolution t4ka3_res[] = {
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
 	{
-		.desc = "t4ka3_1936x1096_30fps",
 		.regs = t4ka3_1936x1096_30fps,
 		.width = 1936,
 		.height = 1096,
@@ -799,7 +788,6 @@ const struct t4ka3_resolution t4ka3_res[] = {
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
 	{
-		.desc = "t4ka3_3280x2464_30fps",
 		.regs = t4ka3_3280x2464_30fps,
 		.width = 3280,
 		.height = 2464,
