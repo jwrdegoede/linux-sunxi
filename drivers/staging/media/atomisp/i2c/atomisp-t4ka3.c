@@ -601,8 +601,8 @@ static int t4ka3_t_hflip(struct v4l2_subdev *sd, int value)
 	int ret;
 	u16 val;
 
-	/* enable group hold */
-	ret = t4ka3_write_reg_array(c, t4ka3_param_hold);
+	if (sensor->streaming)
+		return -EBUSY;
 
 	ret = t4ka3_read_reg(c, T4KA3_8BIT,
 				T4KA3_REG_IMG_ORIENTATION, &val);
@@ -617,12 +617,10 @@ static int t4ka3_t_hflip(struct v4l2_subdev *sd, int value)
 	if (ret)
 		return ret;
 
-	ret = t4ka3_write_reg_array(c, t4ka3_param_update);
-
 	sensor->flip = val;
 
 	t4ka3_set_bayer_order(sensor, &sensor->format);
-	return ret;
+	return 0;
 }
 
 /* Vertically flip the image */
@@ -633,8 +631,8 @@ static int t4ka3_t_vflip(struct v4l2_subdev *sd, int value)
 	int ret;
 	u16 val;
 
-	/* enable group hold */
-	ret = t4ka3_write_reg_array(c, t4ka3_param_hold);
+	if (sensor->streaming)
+		return -EBUSY;
 
 	ret = t4ka3_read_reg(c, T4KA3_8BIT,
 				T4KA3_REG_IMG_ORIENTATION, &val);
@@ -649,12 +647,10 @@ static int t4ka3_t_vflip(struct v4l2_subdev *sd, int value)
 	if (ret)
 		return ret;
 
-	ret = t4ka3_write_reg_array(c, t4ka3_param_update);
-
 	sensor->flip = val;
 
 	t4ka3_set_bayer_order(sensor, &sensor->format);
-	return ret;
+	return 0;
 }
 
 static int t4ka3_test_pattern(struct v4l2_subdev *sd, s32 value)
