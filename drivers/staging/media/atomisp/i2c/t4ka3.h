@@ -111,7 +111,6 @@ struct t4ka3_resolution {
 	int width;
 	int height;
 	u32 skip_frames;
-	u32 code;
 };
 
 struct t4ka3_ctrls {
@@ -771,27 +770,23 @@ const struct t4ka3_resolution t4ka3_res[] = {
 		.width = 736,
 		.height = 496,
 		.skip_frames = 2,
-		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
 	{
 		.regs = t4ka3_896x736_30fps,
 		.width = 896,
 		.height = 736,
 		.skip_frames = 2,
-		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
 	{
 		.regs = t4ka3_1936x1096_30fps,
 		.width = 1936,
 		.height = 1096,
 		.skip_frames = 2,
-		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
 	{
 		.regs = t4ka3_3280x2464_30fps,
 		.width = 3280,
 		.height = 2464,
-		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 	},
 };
 

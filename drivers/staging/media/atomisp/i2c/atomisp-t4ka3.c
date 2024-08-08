@@ -529,7 +529,7 @@ static int __t4ka3_set_mbus_fmt(struct v4l2_subdev *sd,
 				     width, height, fmt->width, fmt->height);
 	fmt->width = res->width;
 	fmt->height = res->height;
-	fmt->code = res->code;
+	fmt->code = MEDIA_BUS_FMT_SGRBG10_1X10;
 
 	mutex_lock(&dev->input_lock);
 	dev->res = res;
