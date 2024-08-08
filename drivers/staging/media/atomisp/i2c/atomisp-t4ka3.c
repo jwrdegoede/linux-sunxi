@@ -527,6 +527,15 @@ static void t4ka3_set_bayer_order(struct t4ka3_device *sensor,
 	}
 }
 
+static int t4ka3_update_exposure_range(struct t4ka3_device *sensor)
+{
+	int exp_max = sensor->format.height + sensor->ctrls.vblank->val -
+		      T4KA3_COARSE_INTEGRATION_TIME_MARGIN;
+
+	return __v4l2_ctrl_modify_range(sensor->ctrls.exposure, 0, exp_max,
+					1, exp_max);
+}
+
 static void t4ka3_fill_format(struct t4ka3_device *sensor,
 			      struct v4l2_mbus_framefmt *fmt,
 			      unsigned int width, unsigned int height)
@@ -543,30 +552,49 @@ static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
 				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_format *format)
 {
-	struct t4ka3_device *dev = to_t4ka3_sensor(sd);
-	const struct t4ka3_resolution *res;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct t4ka3_device *sensor = to_t4ka3_sensor(sd);
 	struct v4l2_mbus_framefmt *fmt = &format->format;
+	const struct t4ka3_resolution *res;
+	int def, max, ret;
 
 	dev_info(&client->dev, "enter t4ka3_set_mbus_fmt\n");
 
 	res = v4l2_find_nearest_size(t4ka3_res, ARRAY_SIZE(t4ka3_res),
 				     width, height, fmt->width, fmt->height);
-	t4ka3_fill_format(dev, fmt, res->width, res->height);
+	t4ka3_fill_format(sensor, fmt, res->width, res->height);
 
 	if (format->which == V4L2_SUBDEV_FORMAT_TRY)
 		return 0;
 
-	mutex_lock(&dev->input_lock);
-	dev->res = res;
-	dev->format = *fmt;
+	mutex_lock(&sensor->input_lock);
+	sensor->res = res;
+	sensor->format = *fmt;
+
+	/* vblank range is height dependent adjust and reset to default */
+	max = T4KA3_MAX_VBLANK - res->height;
+	def = T4K3A_LINES_PER_FRAME - res->height;
+	ret = __v4l2_ctrl_modify_range(sensor->ctrls.vblank, T4KA3_MIN_VBLANK,
+				       max, 1, def);
+	if (ret)
+		goto unlock;
+
+	ret = __v4l2_ctrl_s_ctrl(sensor->ctrls.vblank, def);
+	if (ret)
+		goto unlock;
+
+	/* exposure range depends on vts which may have changed */
+	ret = t4ka3_update_exposure_range(sensor);
+	if (ret)
+		goto unlock;
 
 	dev_info(&client->dev, "width %d , height %d\n", res->width, res->height);
-	dev->coarse_itg = 0;
-	dev->gain = 0;
+	sensor->coarse_itg = 0;
+	sensor->gain = 0;
 
-	mutex_unlock(&dev->input_lock);
-	return 0;
+unlock:
+	mutex_unlock(&sensor->input_lock);
+	return ret;
 }
 
 /* Horizontal flip the image. */
@@ -729,15 +757,6 @@ static long t4ka3_s_exposure(struct v4l2_subdev *sd,
 	digital_gain = exposure->gain[1];
 
 	return t4ka3_set_exposure(sd, coarse_itg, analog_gain, digital_gain);
-}
-
-static int t4ka3_update_exposure_range(struct t4ka3_device *sensor)
-{
-	int exp_max = sensor->format.height + sensor->ctrls.vblank->val -
-		      T4KA3_COARSE_INTEGRATION_TIME_MARGIN;
-
-	return __v4l2_ctrl_modify_range(sensor->ctrls.exposure, 0, exp_max,
-					1, exp_max);
 }
 
 static long t4ka3_ioctl(struct v4l2_subdev *sd,
@@ -1178,10 +1197,9 @@ static int t4ka3_init_controls(struct t4ka3_device *sensor)
 						  0, 0, sensor->link_freq);
 
 	def = T4K3A_LINES_PER_FRAME - T4KA3_RES_HEIGHT_MAX;
-	max = 0xffff - T4KA3_RES_HEIGHT_MAX;
-	/* FIXME: need a datasheet to verify the min VBI */
+	max = T4KA3_MAX_VBLANK - T4KA3_RES_HEIGHT_MAX;
 	ctrls->vblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_VBLANK,
-					  4, max, 1, def);
+					  T4KA3_MIN_VBLANK, max, 1, def);
 
 	max = T4K3A_LINES_PER_FRAME - T4KA3_COARSE_INTEGRATION_TIME_MARGIN;
 	ctrls->exposure = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_EXPOSURE,

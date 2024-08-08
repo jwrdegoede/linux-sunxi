@@ -97,6 +97,10 @@
 
 #define T4KA3_REG_TEST_PATTERN_MODE		0x0601
 
+/* FIXME: need a datasheet to verify the min + max vblank values */
+#define T4KA3_MIN_VBLANK			4
+#define T4KA3_MAX_VBLANK			0xffff
+
 enum t4ka3_tok_type {
 	T4KA3_8BIT  = 0x0001,
 	T4KA3_16BIT = 0x0002,
