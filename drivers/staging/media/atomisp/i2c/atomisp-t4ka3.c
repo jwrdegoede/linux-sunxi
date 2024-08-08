@@ -507,6 +507,18 @@ static int __t4ka3_s_power(struct v4l2_subdev *sd, int power)
 	}
 }
 
+static void t4ka3_fill_format(struct t4ka3_device *sensor,
+			      struct v4l2_mbus_framefmt *fmt,
+			      unsigned int width, unsigned int height)
+{
+	memset(fmt, 0, sizeof(*fmt));
+	fmt->width = width;
+	fmt->height = height;
+	fmt->field = V4L2_FIELD_NONE;
+	fmt->colorspace = V4L2_COLORSPACE_SRGB;
+	fmt->code = MEDIA_BUS_FMT_SGRBG10_1X10;
+}
+
 static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
 				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_format *format)
@@ -529,9 +541,7 @@ static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
 
 	res = v4l2_find_nearest_size(t4ka3_res, ARRAY_SIZE(t4ka3_res),
 				     width, height, fmt->width, fmt->height);
-	fmt->width = res->width;
-	fmt->height = res->height;
-	fmt->code = MEDIA_BUS_FMT_SGRBG10_1X10;
+	t4ka3_fill_format(dev, fmt, res->width, res->height);
 
 	if (format->which == V4L2_SUBDEV_FORMAT_TRY)
 		return 0;
@@ -1267,6 +1277,7 @@ static int t4ka3_probe(struct i2c_client *client)
 
 	dev->link_freq[0] = T4K3A_LINK_FREQ;
 	dev->res = &t4ka3_res[0];
+	t4ka3_fill_format(dev, &dev->format, dev->res->width, dev->res->height);
 	iddir = NULL;
 	idfile = NULL;
 
@@ -1296,7 +1307,6 @@ static int t4ka3_probe(struct i2c_client *client)
 
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
-	dev->format.code = MEDIA_BUS_FMT_SGRBG10_1X10;
 	dev->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 	dev->flip = 0;
 
