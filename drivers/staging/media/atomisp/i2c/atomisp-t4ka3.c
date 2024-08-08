@@ -1033,6 +1033,10 @@ static int t4ka3_s_ctrl(struct v4l2_ctrl *ctrl)
 		ret = t4ka3_write_reg(client, T4KA3_16BIT, T4KA3_REG_FRAME_LENGTH_LINES,
 				      dev->format.height + ctrl->val);
 		break;
+	case V4L2_CID_EXPOSURE:
+		ret = t4ka3_write_reg(client, T4KA3_16BIT, T4KA3_REG_COARSE_INTEGRATION_TIME,
+				      ctrl->val);
+		break;
 	default:
 		ret = -EINVAL;
 	}
