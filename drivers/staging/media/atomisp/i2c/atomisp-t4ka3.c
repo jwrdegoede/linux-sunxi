@@ -888,32 +888,44 @@ fail_detect:
 
 static int t4ka3_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct t4ka3_device *dev = ctrl_to_t4ka3(ctrl);
-	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
-	int ret = 0;
+	struct t4ka3_device *sensor = ctrl_to_t4ka3(ctrl);
+	struct i2c_client *client = v4l2_get_subdevdata(&sensor->sd);
+	int ret;
+
+	/* Update exposure range on vblank changes */
+	if (ctrl->id == V4L2_CID_VBLANK) {
+		ret = t4ka3_update_exposure_range(sensor);
+		if (ret)
+			return ret;
+	}
+
+	/* Only apply changes to the controls if the device is powered up */
+	if (!pm_runtime_get_if_in_use(sensor->sd.dev)) {
+		t4ka3_set_bayer_order(sensor, &sensor->format);
+		return 0;
+	}
 
 	switch (ctrl->id) {
 	case V4L2_CID_TEST_PATTERN:
 		dev_dbg(&client->dev, "%s: V4L2_CID_TEST_PATTERN: %d\n",
 			__func__, ctrl->val);
-		ret = t4ka3_test_pattern(&dev->sd, ctrl->val);
+		ret = t4ka3_test_pattern(&sensor->sd, ctrl->val);
 		break;
 	case V4L2_CID_VFLIP:
 		dev_dbg(&client->dev, "%s: V4L2_CID_VFLIP: %d\n",
 			__func__, ctrl->val);
-		ret = t4ka3_t_vflip(&dev->sd, ctrl->val);
+		ret = t4ka3_t_vflip(&sensor->sd, ctrl->val);
 		break;
 	case V4L2_CID_HFLIP:
 		dev_dbg(&client->dev, "%s: V4L2_CID_HFLIP: %d\n",
 			__func__, ctrl->val);
-		ret = t4ka3_t_hflip(&dev->sd, ctrl->val);
+		ret = t4ka3_t_hflip(&sensor->sd, ctrl->val);
 		break;
 	case V4L2_CID_VBLANK:
 		dev_dbg(&client->dev, "%s: V4L2_CID_VBLANK: %d\n",
 			__func__, ctrl->val);
-		t4ka3_update_exposure_range(dev);
 		ret = t4ka3_write_reg(client, T4KA3_16BIT, T4KA3_REG_FRAME_LENGTH_LINES,
-				      dev->format.height + ctrl->val);
+				      sensor->format.height + ctrl->val);
 		break;
 	case V4L2_CID_EXPOSURE:
 		ret = t4ka3_write_reg(client, T4KA3_16BIT, T4KA3_REG_COARSE_INTEGRATION_TIME,
@@ -921,7 +933,10 @@ static int t4ka3_s_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	default:
 		ret = -EINVAL;
+		break;
 	}
+
+	pm_runtime_put(sensor->sd.dev);
 	return ret;
 }
 
@@ -957,6 +972,11 @@ static int t4ka3_s_stream(struct v4l2_subdev *sd, int enable)
 			goto error_powerdown;
 
 		ret = t4ka3_write_reg_array(client, sensor->res->regs);
+		if (ret)
+			goto error_powerdown;
+
+		/* Restore value of all ctrls */
+		ret = __v4l2_ctrl_handler_setup(&sensor->ctrls.handler);
 		if (ret)
 			goto error_powerdown;
 
