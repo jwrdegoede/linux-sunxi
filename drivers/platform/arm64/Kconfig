@@ -5,7 +5,6 @@
 
 menuconfig ARM64_PLATFORM_DEVICES
 	bool "ARM64 Platform-Specific Device Drivers"
-	depends on ARM64 || COMPILE_TEST
 	default y
 	help
 	  Say Y here to get to see options for platform-specific device drivers
@@ -18,7 +17,6 @@ if ARM64_PLATFORM_DEVICES
 
 config EC_ACER_ASPIRE1
 	tristate "Acer Aspire 1 Embedded Controller driver"
-	depends on ARCH_QCOM || COMPILE_TEST
 	depends on I2C
 	depends on DRM
 	depends on POWER_SUPPLY
@@ -35,7 +33,6 @@ config EC_ACER_ASPIRE1
 
 config EC_LENOVO_YOGA_C630
 	tristate "Lenovo Yoga C630 Embedded Controller driver"
-	depends on ARCH_QCOM || COMPILE_TEST
 	depends on I2C
 	select AUXILIARY_BUS
 	help

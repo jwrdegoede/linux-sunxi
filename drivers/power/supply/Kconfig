@@ -169,7 +169,6 @@ config BATTERY_LEGO_EV3
 
 config BATTERY_LENOVO_YOGA_C630
 	tristate "Lenovo Yoga C630 battery"
-	depends on EC_LENOVO_YOGA_C630
 	help
 	  This driver enables battery support on the Lenovo Yoga C630 laptop.
 
@@ -335,8 +334,6 @@ config BATTERY_DA9150
 
 config CHARGER_AXP20X
 	tristate "X-Powers AXP20X and AXP22X AC power supply driver"
-	depends on MFD_AXP20X
-	depends on AXP20X_ADC
 	depends on IIO
 	help
 	  Say Y here to enable support for X-Powers AXP20X and AXP22X PMICs' AC
@@ -595,15 +592,12 @@ config CHARGER_MAX8997
 
 config CHARGER_MAX8998
 	tristate "Maxim MAX8998/LP3974 PMIC battery charger driver"
-	depends on MFD_MAX8998 && REGULATOR_MAX8998
 	help
 	  Say Y to enable support for the battery charger control sysfs and
 	  platform data of MAX8998/LP3974 PMICs.
 
 config CHARGER_MP2629
 	tristate "Monolithic power system MP2629 Battery charger"
-	depends on MFD_MP2629
-	depends on MP2629_ADC
 	depends on IIO
 	help
 	  Select this option to enable support for Monolithic power system
@@ -612,7 +606,6 @@ config CHARGER_MP2629
 
 config CHARGER_MT6360
 	tristate "Mediatek MT6360 Charger Driver"
-	depends on MFD_MT6360
 	depends on REGULATOR
 	select LINEAR_RANGES
 	help
@@ -623,7 +616,6 @@ config CHARGER_MT6360
 
 config CHARGER_MT6370
 	tristate "MediaTek MT6370 Charger Driver"
-	depends on MFD_MT6370
 	depends on REGULATOR
 	depends on IIO
 	select LINEAR_RANGES
@@ -750,7 +742,6 @@ config CHARGER_BQ256XX
 
 config CHARGER_RK817
 	tristate "Rockchip RK817 PMIC Battery Charger"
-	depends on MFD_RK8XX
 	help
 	  Say Y to include support for Rockchip RK817 Battery Charger.
 
@@ -911,7 +902,6 @@ config FUEL_GAUGE_SC27XX
 config CHARGER_UCS1002
 	tristate "Microchip UCS1002 USB Port Power Controller"
 	depends on I2C
-	depends on OF
 	depends on REGULATOR
 	select REGMAP_I2C
 	help
@@ -938,8 +928,6 @@ config CHARGER_WILCO
 
 config RN5T618_POWER
 	tristate "RN5T618 charger/fuel gauge support"
-	depends on MFD_RN5T618
-	depends on RN5T618_ADC
 	depends on IIO
 	help
 	  Say Y here to have support for RN5T618 PMIC family fuel gauge and charger.
