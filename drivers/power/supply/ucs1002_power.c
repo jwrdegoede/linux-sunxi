@@ -308,10 +308,7 @@ static int ucs1002_set_usb_type(struct ucs1002_info *info, int val)
 {
 	unsigned int mode;
 
-	if (val < 0 || val >= ARRAY_SIZE(ucs1002_usb_types))
-		return -EINVAL;
-
-	switch (ucs1002_usb_types[val]) {
+	switch (val) {
 	case POWER_SUPPLY_USB_TYPE_PD:
 		mode = V_SET_ACTIVE_MODE_DEDICATED;
 		break;
