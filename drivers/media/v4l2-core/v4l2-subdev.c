@@ -148,17 +148,33 @@ static int subdev_close(struct file *file)
 }
 #endif /* CONFIG_VIDEO_V4L2_SUBDEV_API */
 
-static void v4l2_subdev_enable_privacy_led(struct v4l2_subdev *sd)
+static void v4l2_subdev_enable_privacy_led_and_vcm(struct v4l2_subdev *sd)
 {
 #if IS_REACHABLE(CONFIG_LEDS_CLASS)
 	if (!IS_ERR_OR_NULL(sd->privacy_led))
 		led_set_brightness(sd->privacy_led,
 				   sd->privacy_led->max_brightness);
 #endif
+
+	if (sd->vcm && !sd->vcm_enabled &&
+	    v4l2_subdev_has_op(sd->vcm, video, s_stream)) {
+		int ret;
+
+		ret = v4l2_subdev_call(sd->vcm, video, s_stream, 1);
+		if (ret)
+			dev_err(sd->vcm->dev, "Error powering on VCM: %d\n", ret);
+		else
+			sd->vcm_enabled = true;
+	}
 }
 
-static void v4l2_subdev_disable_privacy_led(struct v4l2_subdev *sd)
+static void v4l2_subdev_disable_privacy_led_and_vcm(struct v4l2_subdev *sd)
 {
+	if (sd->vcm && sd->vcm_enabled) {
+		v4l2_subdev_call(sd->vcm, video, s_stream, 0);
+		sd->vcm_enabled = false;
+	}
+
 #if IS_REACHABLE(CONFIG_LEDS_CLASS)
 	if (!IS_ERR_OR_NULL(sd->privacy_led))
 		led_set_brightness(sd->privacy_led, 0);
@@ -471,9 +487,9 @@ static int call_s_stream(struct v4l2_subdev *sd, int enable)
 		sd->s_stream_enabled = enable;
 
 		if (enable)
-			v4l2_subdev_enable_privacy_led(sd);
+			v4l2_subdev_enable_privacy_led_and_vcm(sd);
 		else
-			v4l2_subdev_disable_privacy_led(sd);
+			v4l2_subdev_disable_privacy_led_and_vcm(sd);
 	}
 
 	return ret;
@@ -2349,7 +2365,7 @@ int v4l2_subdev_enable_streams(struct v4l2_subdev *sd, u32 pad,
 	 * for all cases.
 	 */
 	if (!use_s_stream && !already_streaming)
-		v4l2_subdev_enable_privacy_led(sd);
+		v4l2_subdev_enable_privacy_led_and_vcm(sd);
 
 done:
 	if (!use_s_stream)
@@ -2442,7 +2458,7 @@ int v4l2_subdev_disable_streams(struct v4l2_subdev *sd, u32 pad,
 done:
 	if (!use_s_stream) {
 		if (!v4l2_subdev_is_streaming(sd))
-			v4l2_subdev_disable_privacy_led(sd);
+			v4l2_subdev_disable_privacy_led_and_vcm(sd);
 
 		v4l2_subdev_unlock_state(state);
 	}
