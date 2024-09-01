@@ -407,9 +407,24 @@ Description:
 
 		Access: Read, Write
 
+		Reading this returns the current active value, e.g. 'Standard'.
+
 		Valid values:
 			      "Unknown", "N/A", "Trickle", "Fast", "Standard",
 			      "Adaptive", "Custom", "Long Life", "Bypass"
+
+What:		/sys/class/power_supply/<supply_name>/charge_types
+Date:		September 2024
+Contact:	linux-pm@vger.kernel.org
+Description:
+		Identical to charge_type but reading returns a list of supported
+		charge-types with the currently active type surrounded by square
+		brackets, e.g.: 'Fast [Standard] "Long Life"'.
+
+		power_supply class devices may support both charge_type and
+		charge_types for backward compatibility. In this case both will
+		always have the same active value and the active value can be
+		changed by writing either property.
 
 What:		/sys/class/power_supply/<supply_name>/charge_term_current
 Date:		July 2014
