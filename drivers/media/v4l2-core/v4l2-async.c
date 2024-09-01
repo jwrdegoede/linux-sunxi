@@ -330,6 +330,11 @@ static int v4l2_async_create_ancillary_links(struct v4l2_async_notifier *n,
 		return 0;
 	}
 
+	if (sd->entity.function == MEDIA_ENT_F_LENS) {
+		dev_dbg(n->sd->dev, "Using %s VCM\n", dev_name(sd->dev));
+		n->sd->vcm = sd;
+	}
+
 	link = media_create_ancillary_link(&n->sd->entity, &sd->entity);
 
 	return IS_ERR(link) ? PTR_ERR(link) : 0;
@@ -870,6 +875,21 @@ void v4l2_async_unregister_subdev(struct v4l2_subdev *sd)
 
 	if (!sd->async_list.next)
 		return;
+
+#if defined(CONFIG_MEDIA_CONTROLLER)
+	if (sd->entity.function == MEDIA_ENT_F_LENS && sd->v4l2_dev && sd->v4l2_dev->mdev) {
+		struct media_entity *entity;
+
+		media_device_for_each_entity(entity, sd->v4l2_dev->mdev) {
+			struct v4l2_subdev *it = media_entity_to_v4l2_subdev(entity);
+
+			if (it->vcm == sd) {
+				dev_dbg(it->dev, "Clearing VCM\n");
+				it->vcm = NULL;
+			}
+		}
+	}
+#endif
 
 	v4l2_subdev_put_privacy_led(sd);
 
