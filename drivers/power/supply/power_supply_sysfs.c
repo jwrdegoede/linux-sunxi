@@ -253,7 +253,10 @@ static ssize_t power_supply_show_enum_with_available(
 			count += sysfs_emit_at(buf, count, "[%s] ", labels[i]);
 			match = true;
 		} else if (available) {
-			count += sysfs_emit_at(buf, count, "%s ", labels[i]);
+			if (strchr(labels[i], ' '))
+				count += sysfs_emit_at(buf, count, "\"%s\" ", labels[i]);
+			else
+				count += sysfs_emit_at(buf, count, "%s ", labels[i]);
 		}
 	}
 
