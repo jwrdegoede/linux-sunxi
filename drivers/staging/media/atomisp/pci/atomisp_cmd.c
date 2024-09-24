@@ -3795,9 +3795,14 @@ int atomisp_try_fmt(struct atomisp_device *isp, struct v4l2_pix_format *f,
 			return -EINVAL;
 	}
 
-	/* The preview pipeline does not support width > 1920 */
-	if (asd->run_mode->val == ATOMISP_RUN_MODE_PREVIEW)
+	/*
+	 * The preview pipeline does not support width > 1920. Also limit height
+	 * to avoid sensor drivers still picking a too wide resolution.
+	 */
+	if (asd->run_mode->val == ATOMISP_RUN_MODE_PREVIEW) {
 		f->width = min_t(u32, f->width, 1920);
+		f->height = min_t(u32, f->height, 1440);
+	}
 
 	/*
 	 * atomisp_set_fmt() will set the sensor resolution to the requested
