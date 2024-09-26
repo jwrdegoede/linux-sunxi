@@ -538,6 +538,7 @@ static char *atomisp_csi2_get_vcm_type(struct acpi_device *adev)
 
 static const struct acpi_device_id atomisp_sensor_configs[] = {
 	ATOMISP_SENSOR_CONFIG("INT33BE", 2, true),	/* OV5693 */
+	ATOMISP_SENSOR_CONFIG("XMCC0003", 4, true),	/* T4KA3 */
 	{}
 };
 
