@@ -2,8 +2,10 @@
 // Copyright (c) 2012 Intel Corporation
 
 /*
- * Based on linux/modules/camera/drivers/media/i2c/imx/dw9719.c in this repo:
- * https://github.com/ZenfoneArea/android_kernel_asus_zenfone5
+ * Based on linux/modules/camera/drivers/media/i2c/imx/dw9719.c from:
+ * https://github.com/ZenfoneArea/android_kernel_asus_zenfone5 and
+ * latte-l-oss/drivers/external_drivers/camera/drivers/media/i2c/micam/dw9761.c
+ * from: https://github.com/MiCode/Xiaomi_Kernel_OpenSource/
  */
 
 #include <linux/delay.h>
@@ -23,26 +25,43 @@
 
 #define DW9719_INFO			CCI_REG8(0)
 #define DW9719_ID			0xF1
+#define DW9761_ID 			0xF4
 
 #define DW9719_CONTROL			CCI_REG8(2)
 #define DW9719_ENABLE_RINGING		0x02
 
 #define DW9719_VCM_CURRENT		CCI_REG16(3)
 
+#define DW9719_STATUS			CCI_REG16(5)
+#define DW9719_STATUS_BUSY		BIT(0)
+
 #define DW9719_MODE			CCI_REG8(6)
 #define DW9719_MODE_SAC_SHIFT		4
-#define DW9719_MODE_SAC3		4
+#define DW9719_DEFAULT_SAC		4
+#define DW9761_DEFAULT_SAC		6
 
 #define DW9719_VCM_FREQ			CCI_REG8(7)
 #define DW9719_DEFAULT_VCM_FREQ		0x60
+#define DW9761_DEFAULT_VCM_FREQ		0x3E
+
+#define DW9761_VCM_PRELOAD		CCI_REG8(8)
+#define DW9761_DEFAULT_VCM_PRELOAD	0x73
+
 
 #define to_dw9719_device(x) container_of(x, struct dw9719_device, sd)
+
+enum dw9719_model {
+	DW9719,
+	DW9761,
+};
 
 struct dw9719_device {
 	struct v4l2_subdev sd;
 	struct device *dev;
 	struct regmap *regmap;
 	struct regulator *regulator;
+	enum dw9719_model model;
+	u32 mode_low_bits;
 	u32 sac_mode;
 	u32 vcm_freq;
 
@@ -52,30 +71,14 @@ struct dw9719_device {
 	} ctrls;
 };
 
-static int dw9719_detect(struct dw9719_device *dw9719)
-{
-	int ret;
-	u64 val;
-
-	ret = cci_read(dw9719->regmap, DW9719_INFO, &val, NULL);
-	if (ret < 0)
-		return ret;
-
-	if (val != DW9719_ID) {
-		dev_err(dw9719->dev, "Failed to detect correct id\n");
-		return -ENXIO;
-	}
-
-	return 0;
-}
-
 static int dw9719_power_down(struct dw9719_device *dw9719)
 {
 	return regulator_disable(dw9719->regulator);
 }
 
-static int dw9719_power_up(struct dw9719_device *dw9719)
+static int dw9719_power_up(struct dw9719_device *dw9719, bool detect)
 {
+	u64 val;
 	int ret;
 
 	ret = regulator_enable(dw9719->regulator);
@@ -88,10 +91,47 @@ static int dw9719_power_up(struct dw9719_device *dw9719)
 	/* Need 100us to transit from SHUTDOWN to STANDBY */
 	fsleep(100);
 
+	if (detect) {
+		ret = cci_read(dw9719->regmap, DW9719_INFO, &val, NULL);
+		if (ret < 0)
+			return ret;
+
+		switch (val) {
+		case DW9719_ID:
+			dw9719->model = DW9719;
+			dw9719->mode_low_bits = 0x00;
+			dw9719->sac_mode = DW9719_DEFAULT_SAC;
+			dw9719->vcm_freq = DW9719_DEFAULT_VCM_FREQ;
+			break;
+		case DW9761_ID:
+			dw9719->model = DW9761;
+			dw9719->mode_low_bits = 0x01;
+			dw9719->sac_mode = DW9761_DEFAULT_SAC;
+			dw9719->vcm_freq = DW9761_DEFAULT_VCM_FREQ;
+			break;
+		default:
+			dev_err(dw9719->dev,
+				"Error unknown device id 0x%02llx\n", val);
+			return -ENXIO;
+		}
+
+		/* Optional indication of SAC mode select */
+		device_property_read_u32(dw9719->dev, "dongwoon,sac-mode",
+					 &dw9719->sac_mode);
+
+		/* Optional indication of VCM frequency */
+		device_property_read_u32(dw9719->dev, "dongwoon,vcm-freq",
+					 &dw9719->vcm_freq);
+	}
+
 	cci_write(dw9719->regmap, DW9719_CONTROL, DW9719_ENABLE_RINGING, &ret);
-	cci_write(dw9719->regmap, DW9719_MODE,
-		  dw9719->sac_mode << DW9719_MODE_SAC_SHIFT, &ret);
+	cci_write(dw9719->regmap, DW9719_MODE, dw9719->mode_low_bits |
+			  (dw9719->sac_mode << DW9719_MODE_SAC_SHIFT), &ret);
 	cci_write(dw9719->regmap, DW9719_VCM_FREQ, dw9719->vcm_freq, &ret);
+
+	if (dw9719->model == DW9761)
+		cci_write(dw9719->regmap, DW9761_VCM_PRELOAD,
+			  DW9761_DEFAULT_VCM_PRELOAD, &ret);
 
 	if (ret)
 		dw9719_power_down(dw9719);
@@ -99,7 +139,7 @@ static int dw9719_power_up(struct dw9719_device *dw9719)
 	return ret;
 }
 
-static int dw9719_t_focus_abs(struct dw9719_device *dw9719, s32 value)
+static int dw9719_set_focus_abs(struct dw9719_device *dw9719, s32 value)
 {
 	return cci_write(dw9719->regmap, DW9719_VCM_CURRENT, value, NULL);
 }
@@ -117,7 +157,7 @@ static int dw9719_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_FOCUS_ABSOLUTE:
-		ret = dw9719_t_focus_abs(dw9719, ctrl->val);
+		ret = dw9719_set_focus_abs(dw9719, ctrl->val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -141,11 +181,11 @@ static int dw9719_suspend(struct device *dev)
 
 	for (val = dw9719->ctrls.focus->val; val >= 0;
 	     val -= DW9719_CTRL_STEPS) {
-		ret = dw9719_t_focus_abs(dw9719, val);
+		ret = dw9719_set_focus_abs(dw9719, val);
 		if (ret)
 			return ret;
 
-		usleep_range(DW9719_CTRL_DELAY_US, DW9719_CTRL_DELAY_US + 10);
+		fsleep(DW9719_CTRL_DELAY_US);
 	}
 
 	return dw9719_power_down(dw9719);
@@ -159,17 +199,17 @@ static int dw9719_resume(struct device *dev)
 	int ret;
 	int val;
 
-	ret = dw9719_power_up(dw9719);
+	ret = dw9719_power_up(dw9719, false);
 	if (ret)
 		return ret;
 
 	for (val = current_focus % DW9719_CTRL_STEPS; val < current_focus;
 	     val += DW9719_CTRL_STEPS) {
-		ret = dw9719_t_focus_abs(dw9719, val);
+		ret = dw9719_set_focus_abs(dw9719, val);
 		if (ret)
 			goto err_power_down;
 
-		usleep_range(DW9719_CTRL_DELAY_US, DW9719_CTRL_DELAY_US + 10);
+		fsleep(DW9719_CTRL_DELAY_US);
 	}
 
 	return 0;
@@ -237,16 +277,6 @@ static int dw9719_probe(struct i2c_client *client)
 		return PTR_ERR(dw9719->regmap);
 
 	dw9719->dev = &client->dev;
-	dw9719->sac_mode = DW9719_MODE_SAC3;
-	dw9719->vcm_freq = DW9719_DEFAULT_VCM_FREQ;
-
-	/* Optional indication of SAC mode select */
-	device_property_read_u32(&client->dev, "dongwoon,sac-mode",
-				 &dw9719->sac_mode);
-
-	/* Optional indication of VCM frequency */
-	device_property_read_u32(&client->dev, "dongwoon,vcm-freq",
-				 &dw9719->vcm_freq);
 
 	dw9719->regulator = devm_regulator_get(&client->dev, "vdd");
 	if (IS_ERR(dw9719->regulator))
@@ -274,13 +304,9 @@ static int dw9719_probe(struct i2c_client *client)
 	 * will work.
 	 */
 
-	ret = dw9719_power_up(dw9719);
+	ret = dw9719_power_up(dw9719, true);
 	if (ret)
 		goto err_cleanup_media;
-
-	ret = dw9719_detect(dw9719);
-	if (ret)
-		goto err_powerdown;
 
 	pm_runtime_set_active(&client->dev);
 	pm_runtime_get_noresume(&client->dev);
@@ -299,7 +325,6 @@ static int dw9719_probe(struct i2c_client *client)
 err_pm_runtime:
 	pm_runtime_disable(&client->dev);
 	pm_runtime_put_noidle(&client->dev);
-err_powerdown:
 	dw9719_power_down(dw9719);
 err_cleanup_media:
 	media_entity_cleanup(&dw9719->sd.entity);
