@@ -2087,14 +2087,14 @@ static int ov08x40_check_hwcfg(struct device *dev)
 	}
 
 	if (bus_cfg.bus.mipi_csi2.num_data_lanes != OV08X40_DATA_LANES) {
-		dev_err(dev, "number of CSI2 data lanes %d is not supported",
+		dev_err(dev, "number of CSI2 data lanes %d is not supported\n",
 			bus_cfg.bus.mipi_csi2.num_data_lanes);
 		ret = -EINVAL;
 		goto out_err;
 	}
 
 	if (!bus_cfg.nr_of_link_frequencies) {
-		dev_err(dev, "no link frequencies defined");
+		dev_err(dev, "no link frequencies defined\n");
 		ret = -EINVAL;
 		goto out_err;
 	}
@@ -2107,7 +2107,7 @@ static int ov08x40_check_hwcfg(struct device *dev)
 		}
 
 		if (j == bus_cfg.nr_of_link_frequencies) {
-			dev_err(dev, "no link frequency %lld supported",
+			dev_err(dev, "no link frequency %lld supported\n",
 				link_freq_menu_items[i]);
 			ret = -EINVAL;
 			goto out_err;
@@ -2129,7 +2129,7 @@ static int ov08x40_probe(struct i2c_client *client)
 	/* Check HW config */
 	ret = ov08x40_check_hwcfg(&client->dev);
 	if (ret) {
-		dev_err(&client->dev, "failed to check hwcfg: %d", ret);
+		dev_err(&client->dev, "failed to check hwcfg: %d\n", ret);
 		return ret;
 	}
 
