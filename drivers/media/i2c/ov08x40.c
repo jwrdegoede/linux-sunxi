@@ -2060,30 +2060,31 @@ static int ov08x40_check_hwcfg(struct device *dev)
 	int ret;
 	u32 ext_clk;
 
-	if (!fwnode)
-		return -ENXIO;
-
-	ret = fwnode_property_read_u32(dev_fwnode(dev), "clock-frequency",
-				       &ext_clk);
-	if (ret) {
-		dev_err(dev, "can't get clock frequency");
-		return ret;
-	}
-
-	if (ext_clk != OV08X40_EXT_CLK) {
-		dev_err(dev, "external clock %d is not supported",
-			ext_clk);
-		return -EINVAL;
-	}
-
+	/*
+	 * Sometimes the fwnode graph is initialized by the bridge driver.
+	 * Bridge drivers doing this also add sensor properties, wait for this.
+	 */
 	ep = fwnode_graph_get_next_endpoint(fwnode, NULL);
 	if (!ep)
-		return -ENXIO;
+		return dev_err_probe(dev, -EPROBE_DEFER,
+				     "waiting for fwnode graph endpoint\n");
 
 	ret = v4l2_fwnode_endpoint_alloc_parse(ep, &bus_cfg);
 	fwnode_handle_put(ep);
 	if (ret)
 		return ret;
+
+	ret = fwnode_property_read_u32(fwnode, "clock-frequency", &ext_clk);
+	if (ret) {
+		dev_err_probe(dev, ret, "reading clock-frequency\n");
+		goto out_err;
+	}
+
+	if (ext_clk != OV08X40_EXT_CLK) {
+		dev_err(dev, "external clock %u is not supported\n", ext_clk);
+		ret = -EINVAL;
+		goto out_err;
+	}
 
 	if (bus_cfg.bus.mipi_csi2.num_data_lanes != OV08X40_DATA_LANES) {
 		dev_err(dev, "number of CSI2 data lanes %d is not supported",
