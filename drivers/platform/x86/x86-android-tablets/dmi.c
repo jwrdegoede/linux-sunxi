@@ -190,6 +190,16 @@ const struct dmi_system_id x86_android_tablet_ids[] __initconst = {
 		.driver_data = (void *)&whitelabel_tm800a550l_info,
 	},
 	{
+		/* Vexia Edu Atla 10 tablet */
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "AMI Corporation"),
+			DMI_MATCH(DMI_BOARD_NAME, "Aptio CRB"),
+			/* Above strings are too generic, also match on BIOS date */
+			DMI_MATCH(DMI_BIOS_DATE, "08/25/2014"),
+		},
+		.driver_data = (void *)&vexia_edu_atla10_info,
+	},
+	{
 		/* Xiaomi Mi Pad 2 */
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Xiaomi Inc"),

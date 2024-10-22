@@ -9,9 +9,12 @@
  */
 
 #include <linux/acpi.h>
+#include <linux/device.h>
+#include <linux/device/bus.h>
 #include <linux/gpio/machine.h>
 #include <linux/input.h>
 #include <linux/leds.h>
+#include <linux/pci.h>
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
 
@@ -595,6 +598,132 @@ const struct x86_dev_info whitelabel_tm800a550l_info __initconst = {
 	.i2c_client_info = whitelabel_tm800a550l_i2c_clients,
 	.i2c_client_count = ARRAY_SIZE(whitelabel_tm800a550l_i2c_clients),
 	.gpiod_lookup_tables = whitelabel_tm800a550l_gpios,
+};
+
+/*
+ * Vexia EDU ATLA 10 tablet, Android 4.2 / 4.4 + Guadalinex Ubuntu tablet
+ * distributed to schools in the Spanish Andalucía region.
+ */
+static const char * const vexia_edu_atla10_accel_mount_matrix[] = {
+	"0", "-1", "0",
+	"1", "0", "0",
+	"0", "0", "1"
+};
+
+static const struct property_entry vexia_edu_atla10_accel_props[] = {
+	PROPERTY_ENTRY_STRING_ARRAY("mount-matrix", vexia_edu_atla10_accel_mount_matrix),
+	{ }
+};
+
+static const struct software_node vexia_edu_atla10_accel_node = {
+	.properties = vexia_edu_atla10_accel_props,
+};
+
+static const struct property_entry vexia_edu_atla10_touchscreen_props[] = {
+	PROPERTY_ENTRY_U32("hid-descr-addr", 0x0000),
+	PROPERTY_ENTRY_U32("post-reset-deassert-delay-ms", 120),
+	{ }
+};
+
+static const struct software_node vexia_edu_atla10_touchscreen_node = {
+	.properties = vexia_edu_atla10_touchscreen_props,
+};
+
+static const struct x86_i2c_client_info vexia_edu_atla10_i2c_clients[] __initconst = {
+	{	/* I2C attached embedded controller, used to access fuel-gauge */
+		.board_info = {
+			.type = "vexia_atla10_ec",
+			.addr = 0x76,
+			.dev_name = "ulpmc",
+		},
+		.adapter_path = "0000:00:18.1",
+	},
+	{	/* RT5642 audio codec */
+		.board_info = {
+			.type = "rt5640",
+			.addr = 0x1c,
+			.dev_name = "rt5640",
+		},
+		.adapter_path = "0000:00:18.2",
+		.irq_data = {
+			.type = X86_ACPI_IRQ_TYPE_GPIOINT,
+			.chip = "INT33FC:02",
+			.index = 4,
+			.trigger = ACPI_EDGE_SENSITIVE,
+			.polarity = ACPI_ACTIVE_HIGH,
+			.con_id = "rt5640_irq",
+		},
+	},
+	{
+		/* kxtj21009 accelerometer */
+		.board_info = {
+			.type = "kxtj21009",
+			.addr = 0x0f,
+			.dev_name = "kxtj21009",
+			.swnode = &vexia_edu_atla10_accel_node,
+		},
+		.adapter_path = "0000:00:18.5",
+	}, {
+		/* FT5416DQ9 touchscreen controller */
+		.board_info = {
+			.type = "hid-over-i2c",
+			.addr = 0x38,
+			.dev_name = "FTSC1000",
+			.swnode = &vexia_edu_atla10_touchscreen_node,
+		},
+		.adapter_path = "0000:00:18.6",
+		.irq_data = {
+			.type = X86_ACPI_IRQ_TYPE_APIC,
+			.index = 0x45,
+			.trigger = ACPI_LEVEL_SENSITIVE,
+			.polarity = ACPI_ACTIVE_HIGH,
+		},
+	}
+};
+
+static struct gpiod_lookup_table vexia_edu_atla10_ft5416_gpios = {
+	.dev_id = "i2c-FTSC1000",
+	.table = {
+		GPIO_LOOKUP("INT33FC:00", 60, "reset", GPIO_ACTIVE_LOW),
+		{ }
+	},
+};
+
+static struct gpiod_lookup_table * const vexia_edu_atla10_gpios[] = {
+	&vexia_edu_atla10_ft5416_gpios,
+	NULL
+};
+
+static int __init vexia_edu_atla10_init(struct device *dev)
+{
+	struct device *pdev;
+	int ret;
+
+	/* Enable the Wifi module by setting the wifi_enable pin to 1 */
+	ret = x86_android_tablet_get_gpiod("INT33FC:02", 20, "wifi_enable",
+					   false, GPIOD_OUT_HIGH, NULL);
+	if (ret)
+		return ret;
+
+	/* Reprobe the SDIO controller to enumerate the now enabled Wifi module */
+	pdev = bus_find_device_by_name(&pci_bus_type, NULL, "0000:00:11.0");
+	if (!pdev)
+		return -EPROBE_DEFER;
+
+	ret = device_reprobe(pdev);
+	if (ret)
+		dev_warn(pdev, "Reprobing 0000:00:11.0 error: %d\n", ret);
+
+	put_device(pdev);
+	return 0;
+}
+
+const struct x86_dev_info vexia_edu_atla10_info __initconst = {
+	.i2c_client_info = vexia_edu_atla10_i2c_clients,
+	.i2c_client_count = ARRAY_SIZE(vexia_edu_atla10_i2c_clients),
+	.gpiod_lookup_tables = vexia_edu_atla10_gpios,
+	.init = vexia_edu_atla10_init,
+	.use_pci_devname = true,
 };
 
 /*
