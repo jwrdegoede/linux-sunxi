@@ -126,6 +126,7 @@ static void int3472_get_func_and_polarity(u8 type, const char **func, u32 *polar
 {
 	switch (type) {
 	case INT3472_GPIO_TYPE_RESET:
+	case INT3472_GPIO_TYPE_HANDSHAKE:
 		*func = "reset";
 		*polarity = GPIO_ACTIVE_LOW;
 		break;
@@ -236,6 +237,7 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
 	switch (type) {
 	case INT3472_GPIO_TYPE_RESET:
 	case INT3472_GPIO_TYPE_POWERDOWN:
+	case INT3472_GPIO_TYPE_HANDSHAKE:
 		ret = skl_int3472_map_gpio_to_sensor(int3472, agpio, func, polarity);
 		if (ret)
 			err_msg = "Failed to map GPIO pin to sensor\n";
