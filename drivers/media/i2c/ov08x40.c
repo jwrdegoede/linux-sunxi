@@ -1251,21 +1251,6 @@ static const struct ov08x40_link_freq_config link_freq_configs[] = {
 /* Mode configs */
 static const struct ov08x40_mode supported_modes[] = {
 	{
-		.width = 3856,
-		.height = 2416,
-		.vts_def = OV08X40_VTS_30FPS,
-		.vts_min = OV08X40_VTS_30FPS,
-		.llp = 0x10aa, /* in normal mode, tline time = 2 * HTS / SCLK */
-		.lanes = 4,
-		.reg_list = {
-			.num_of_regs = ARRAY_SIZE(mode_3856x2416_regs),
-			.regs = mode_3856x2416_regs,
-		},
-		.link_freq_index = OV08X40_LINK_FREQ_400MHZ_INDEX,
-		.exposure_shift = 1,
-		.exposure_margin = OV08X40_EXPOSURE_MAX_MARGIN,
-	},
-	{
 		.width = 1928,
 		.height = 1208,
 		.vts_def = OV08X40_VTS_BIN_30FPS,
