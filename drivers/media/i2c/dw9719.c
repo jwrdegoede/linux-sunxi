@@ -222,21 +222,18 @@ err_power_down:
 	return ret;
 }
 
-static int dw9719_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+static int dw9719_s_stream(struct v4l2_subdev *sd, int enable)
 {
-	return pm_runtime_resume_and_get(sd->dev);
+	if (enable) {
+		return pm_runtime_resume_and_get(sd->dev);
+	} else {
+		pm_runtime_put(sd->dev);
+		return 0;
+	}
 }
 
-static int dw9719_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
-{
-	pm_runtime_put(sd->dev);
-
-	return 0;
-}
-
-static const struct v4l2_subdev_internal_ops dw9719_internal_ops = {
-	.open = dw9719_open,
-	.close = dw9719_close,
+static const struct v4l2_subdev_video_ops dw9719_video_ops = {
+	.s_stream = dw9719_s_stream,
 };
 
 static int dw9719_init_controls(struct dw9719_device *dw9719)
@@ -264,7 +261,9 @@ err_free_handler:
 	return ret;
 }
 
-static const struct v4l2_subdev_ops dw9719_ops = { };
+static const struct v4l2_subdev_ops dw9719_ops = {
+	.video	= &dw9719_video_ops,
+};
 
 static int dw9719_probe(struct i2c_client *client)
 {
@@ -288,7 +287,6 @@ static int dw9719_probe(struct i2c_client *client)
 
 	v4l2_i2c_subdev_init(&dw9719->sd, client, &dw9719_ops);
 	dw9719->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
-	dw9719->sd.internal_ops = &dw9719_internal_ops;
 
 	ret = dw9719_init_controls(dw9719);
 	if (ret)
