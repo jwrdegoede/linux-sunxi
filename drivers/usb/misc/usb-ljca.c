@@ -332,9 +332,6 @@ static int ljca_send(struct ljca_adapter *adap, u8 type, u8 cmd,
 
 	ret = usb_bulk_msg(adap->usb_dev, adap->tx_pipe, header,
 			   msg_len, &transferred, LJCA_WRITE_TIMEOUT_MS);
-
-	usb_autopm_put_interface(adap->intf);
-
 	if (ret < 0)
 		goto out;
 	if (transferred != msg_len) {
@@ -353,6 +350,8 @@ static int ljca_send(struct ljca_adapter *adap, u8 type, u8 cmd,
 	ret = adap->actual_length;
 
 out:
+	usb_autopm_put_interface(adap->intf);
+
 	spin_lock_irqsave(&adap->lock, flags);
 	adap->ex_buf = NULL;
 	adap->ex_buf_len = 0;
