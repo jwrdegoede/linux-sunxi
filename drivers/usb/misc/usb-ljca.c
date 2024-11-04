@@ -810,6 +810,7 @@ static int ljca_probe(struct usb_interface *interface,
 	if (ret)
 		goto err_free;
 
+	pm_runtime_set_autosuspend_delay(&usb_dev->dev, 10);
 	usb_enable_autosuspend(usb_dev);
 
 	return 0;
