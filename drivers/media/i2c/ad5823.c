@@ -148,23 +148,23 @@ static int ad5823_resume(struct device *dev)
 	return 0;
 }
 
-static int ad5823_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+static int ad5823_s_stream(struct v4l2_subdev *sd, int enable)
 {
-	return pm_runtime_resume_and_get(sd->dev);
+	if (enable) {
+		return pm_runtime_resume_and_get(sd->dev);
+	} else {
+		pm_runtime_put(sd->dev);
+		return 0;
+	}
 }
 
-static int ad5823_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
-{
-	pm_runtime_put(sd->dev);
-	return 0;
-}
-
-static const struct v4l2_subdev_internal_ops ad5823_internal_ops = {
-	.open = ad5823_open,
-	.close = ad5823_close,
+static const struct v4l2_subdev_video_ops ad5823_video_ops = {
+	.s_stream = ad5823_s_stream,
 };
 
-static const struct v4l2_subdev_ops ad5823_ops = { };
+static const struct v4l2_subdev_ops ad5823_ops = {
+	.video	= &ad5823_video_ops,
+};
 
 static int ad5823_init_controls(struct ad5823_device *ad5823)
 {
@@ -222,7 +222,6 @@ static int ad5823_probe(struct i2c_client *client)
 
 	v4l2_i2c_subdev_init(&ad5823->sd, client, &ad5823_ops);
 	ad5823->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
-	ad5823->sd.internal_ops = &ad5823_internal_ops;
 
 	ret = ad5823_init_controls(ad5823);
 	if (ret)
