@@ -743,6 +743,18 @@ config VIDEO_VGXY61
 	  This is a Video4Linux2 sensor driver for the ST VGXY61
 	  camera sensor.
 
+config VIDEO_T4KA3
+	tristate "Toshiba T4KA3 sensor support"
+	depends on ACPI || COMPILE_TEST
+	depends on GPIOLIB
+	select V4L2_CCI_I2C
+	help
+	  This is a Video4Linux2 sensor driver for the Toshiba T4KA3 8 MP
+	  camera sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called t4ka3.
+
 source "drivers/media/i2c/ccs/Kconfig"
 source "drivers/media/i2c/et8ek8/Kconfig"
 
