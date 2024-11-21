@@ -71,10 +71,8 @@ static int __power_supply_changed_work(struct device *dev, void *data)
 	struct power_supply *psy = data;
 	struct power_supply *pst = dev_get_drvdata(dev);
 
-	if (__power_supply_is_supplied_by(psy, pst)) {
-		if (pst->desc->external_power_changed)
-			pst->desc->external_power_changed(pst);
-	}
+	if (__power_supply_is_supplied_by(psy, pst))
+		power_supply_external_power_changed(pst);
 
 	return 0;
 }
