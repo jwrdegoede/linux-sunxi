@@ -115,7 +115,7 @@ static int adc_battery_helper_get_capacity(struct adc_battery_helper *help)
 		4250000,
 		4300000,
 	};
-	int i, ocv_diff, ocv_step;
+	int i, array_len, ocv_diff, ocv_step;
 
 	if (help->ocv_avg_uv < ocv_capacity_tbl[0])
 		return 0;
@@ -123,7 +123,16 @@ static int adc_battery_helper_get_capacity(struct adc_battery_helper *help)
 	if (help->status == POWER_SUPPLY_STATUS_FULL)
 		return 100;
 
-	for (i = 1; i < ARRAY_SIZE(ocv_capacity_tbl); i++) {
+	/*
+	 * Ignore the array-entries with voltages > 4200000 for non High-Voltage
+	 * batteries to avoid reporting values > 100% in the non HV case.
+	 */
+	if (help->psy->battery_info->constant_charge_voltage_max_uv >= 4300000)
+		array_len = ARRAY_SIZE(ocv_capacity_tbl);
+	else
+		array_len = ARRAY_SIZE(ocv_capacity_tbl) - 2;
+
+	for (i = 1; i < array_len; i++) {
 		if (help->ocv_avg_uv > ocv_capacity_tbl[i])
 			continue;
 
