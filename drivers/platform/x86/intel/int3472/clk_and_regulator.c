@@ -210,12 +210,12 @@ void skl_int3472_unregister_clock(struct int3472_discrete_device *int3472)
  *
  * Do not forget to update GPIO_REGULATOR_SUPPLY_MAP_COUNT when changing this.
  */
-static const char * const skl_int3472_regulator_map_supplies[] = {
+static const char * const skl_int3472_regulator_supply_map[] = {
 	"avdd",
 	"AVDD",
 };
 
-static_assert(ARRAY_SIZE(skl_int3472_regulator_map_supplies) ==
+static_assert(ARRAY_SIZE(skl_int3472_regulator_supply_map) ==
 	      GPIO_REGULATOR_SUPPLY_MAP_COUNT);
 
 int skl_int3472_register_regulator(struct int3472_discrete_device *int3472,
@@ -233,14 +233,14 @@ int skl_int3472_register_regulator(struct int3472_discrete_device *int3472,
 
 	regulator = &int3472->regulators[int3472->n_regulators];
 
-	for (i = 0, j = 0; i < ARRAY_SIZE(skl_int3472_regulator_map_supplies); i++) {
-		regulator->supply_map[j].supply = skl_int3472_regulator_map_supplies[i];
+	for (i = 0, j = 0; i < ARRAY_SIZE(skl_int3472_regulator_supply_map); i++) {
+		regulator->supply_map[j].supply = skl_int3472_regulator_supply_map[i];
 		regulator->supply_map[j].dev_name = int3472->sensor_name;
 		j++;
 
 		if (int3472->quirks.regulator_second_sensor) {
 			regulator->supply_map[j].supply =
-				skl_int3472_regulator_map_supplies[i];
+				skl_int3472_regulator_supply_map[i];
 			regulator->supply_map[j].dev_name =
 				int3472->quirks.regulator_second_sensor;
 			j++;
