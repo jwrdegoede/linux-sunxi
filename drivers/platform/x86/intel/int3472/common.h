@@ -74,6 +74,8 @@ struct int3472_cldb {
 struct int3472_discrete_quirks {
 	/* For models where GPIO regulators are shared between sensors */
 	const char *regulator_second_sensor;
+	/* For models where the clock is shared between sensors */
+	const char *clk_second_sensor;
 };
 
 struct int3472_discrete_device {
@@ -98,6 +100,8 @@ struct int3472_discrete_device {
 		struct clk *clk;
 		struct clk_hw clk_hw;
 		struct clk_lookup *cl;
+		/* For clocks shared with a second sensor */
+		struct clk_lookup *cl2;
 		struct gpio_desc *ena_gpio;
 		u32 frequency;
 		u8 imgclk_index;

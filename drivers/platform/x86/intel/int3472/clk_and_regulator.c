@@ -144,9 +144,20 @@ static int skl_int3472_register_clock(struct int3472_discrete_device *int3472)
 		goto err_unregister_clk;
 	}
 
+	if (int3472->quirks.clk_second_sensor) {
+		int3472->clock.cl2 = clkdev_create(int3472->clock.clk, NULL,
+						   int3472->quirks.clk_second_sensor);
+		if (!int3472->clock.cl2) {
+			ret = -ENOMEM;
+			goto err_drop_clkdev;
+		}
+	}
+
 	kfree(init.name);
 	return 0;
 
+err_drop_clkdev:
+	clkdev_drop(int3472->clock.cl);
 err_unregister_clk:
 	clk_unregister(int3472->clock.clk);
 out_free_init_name:
@@ -180,6 +191,9 @@ void skl_int3472_unregister_clock(struct int3472_discrete_device *int3472)
 {
 	if (!int3472->clock.cl)
 		return;
+
+	if (int3472->clock.cl2)
+		clkdev_drop(int3472->clock.cl2);
 
 	clkdev_drop(int3472->clock.cl);
 	clk_unregister(int3472->clock.clk);
