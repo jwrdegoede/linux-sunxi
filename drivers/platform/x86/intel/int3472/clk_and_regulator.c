@@ -219,12 +219,14 @@ static_assert(ARRAY_SIZE(skl_int3472_regulator_supply_map) ==
 	      GPIO_REGULATOR_SUPPLY_MAP_COUNT);
 
 int skl_int3472_register_regulator(struct int3472_discrete_device *int3472,
-				   struct gpio_desc *gpio)
+				   struct gpio_desc *gpio,
+				   const char *supply_map_override)
 {
 	struct regulator_init_data init_data = { };
 	struct int3472_gpio_regulator *regulator;
 	struct regulator_config cfg = { };
-	int i, j;
+	const char * const *supply_map;
+	int i, j, supply_map_len;
 
 	if (int3472->n_regulators >= INT3472_MAX_REGULATORS) {
 		dev_err(int3472->dev, "Too many regulators mapped\n");
@@ -233,14 +235,21 @@ int skl_int3472_register_regulator(struct int3472_discrete_device *int3472,
 
 	regulator = &int3472->regulators[int3472->n_regulators];
 
-	for (i = 0, j = 0; i < ARRAY_SIZE(skl_int3472_regulator_supply_map); i++) {
-		regulator->supply_map[j].supply = skl_int3472_regulator_supply_map[i];
+	if (supply_map_override) {
+		supply_map = &supply_map_override;
+		supply_map_len = 1;
+	} else {
+		supply_map = skl_int3472_regulator_supply_map;
+		supply_map_len = ARRAY_SIZE(skl_int3472_regulator_supply_map);
+	}
+
+	for (i = 0, j = 0; i < supply_map_len; i++) {
+		regulator->supply_map[j].supply = supply_map[i];
 		regulator->supply_map[j].dev_name = int3472->sensor_name;
 		j++;
 
 		if (int3472->quirks.regulator_second_sensor) {
-			regulator->supply_map[j].supply =
-				skl_int3472_regulator_supply_map[i];
+			regulator->supply_map[j].supply = supply_map[i];
 			regulator->supply_map[j].dev_name =
 				int3472->quirks.regulator_second_sensor;
 			j++;

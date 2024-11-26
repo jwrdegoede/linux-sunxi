@@ -75,6 +75,10 @@ struct int3472_discrete_quirks {
 	const char *regulator_second_sensor;
 	/* For models where the clock is shared between sensors */
 	const char *clk_second_sensor;
+	/* When set map function to a regulator providing *_map as supply-name */
+	const char *reset_supply_map;
+	const char *powerdown_supply_map;
+	const char *powerenable_supply_map;
 };
 
 struct int3472_gpio_regulator {
@@ -136,7 +140,7 @@ int skl_int3472_register_dsm_clock(struct int3472_discrete_device *int3472);
 void skl_int3472_unregister_clock(struct int3472_discrete_device *int3472);
 
 int skl_int3472_register_regulator(struct int3472_discrete_device *int3472,
-				   struct gpio_desc *gpio);
+				   struct gpio_desc *gpio, const char *supply_map);
 void skl_int3472_unregister_regulator(struct int3472_discrete_device *int3472);
 
 int skl_int3472_register_pled(struct int3472_discrete_device *int3472, struct gpio_desc *gpio);

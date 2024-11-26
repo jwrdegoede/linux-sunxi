@@ -123,16 +123,32 @@ skl_int3472_gpiod_get_from_temp_lookup(struct int3472_discrete_device *int3472,
 	return desc;
 }
 
-static void int3472_get_func_and_polarity(u8 type, const char **func, u32 *polarity)
+static void int3472_get_func_and_polarity(struct int3472_discrete_device *int3472,
+					  u8 type, const char **func, u32 *polarity,
+					  const char **supply_map)
 {
+	*supply_map = NULL;
+
 	switch (type) {
 	case INT3472_GPIO_TYPE_RESET:
-		*func = "reset";
-		*polarity = GPIO_ACTIVE_LOW;
+		*supply_map = int3472->quirks.reset_supply_map;
+		if (*supply_map) {
+			*func = "reset-as-regulator";
+			*polarity = GPIO_ACTIVE_HIGH;
+		} else {
+			*func = "reset";
+			*polarity = GPIO_ACTIVE_LOW;
+		}
 		break;
 	case INT3472_GPIO_TYPE_POWERDOWN:
-		*func = "powerdown";
-		*polarity = GPIO_ACTIVE_LOW;
+		*supply_map = int3472->quirks.powerdown_supply_map;
+		if (*supply_map) {
+			*func = "powerdown-as-regulator";
+			*polarity = GPIO_ACTIVE_HIGH;
+		} else {
+			*func = "powerdown";
+			*polarity = GPIO_ACTIVE_LOW;
+		}
 		break;
 	case INT3472_GPIO_TYPE_CLK_ENABLE:
 		*func = "clk-enable";
@@ -143,6 +159,7 @@ static void int3472_get_func_and_polarity(u8 type, const char **func, u32 *polar
 		*polarity = GPIO_ACTIVE_HIGH;
 		break;
 	case INT3472_GPIO_TYPE_POWER_ENABLE:
+		*supply_map = int3472->quirks.powerenable_supply_map;
 		*func = "power-enable";
 		*polarity = GPIO_ACTIVE_HIGH;
 		break;
@@ -189,12 +206,11 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
 					     void *data)
 {
 	struct int3472_discrete_device *int3472 = data;
+	const char *err_msg, *func, *supply_map;
 	struct acpi_resource_gpio *agpio;
 	union acpi_object *obj;
 	struct gpio_desc *gpio;
 	u8 active_value, type;
-	const char *err_msg;
-	const char *func;
 	u32 polarity;
 	int ret;
 
@@ -218,7 +234,7 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
 
 	type = FIELD_GET(INT3472_GPIO_DSM_TYPE, obj->integer.value);
 
-	int3472_get_func_and_polarity(type, &func, &polarity);
+	int3472_get_func_and_polarity(int3472, type, &func, &polarity, &supply_map);
 
 	active_value = FIELD_GET(INT3472_GPIO_DSM_SENSOR_ON_VAL, obj->integer.value);
 	if (!active_value)
@@ -231,11 +247,16 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
 	switch (type) {
 	case INT3472_GPIO_TYPE_RESET:
 	case INT3472_GPIO_TYPE_POWERDOWN:
-		ret = skl_int3472_map_gpio_to_sensor(int3472, agpio, func, polarity);
-		if (ret)
-			err_msg = "Failed to map GPIO pin to sensor\n";
+		if (!supply_map) {
+			ret = skl_int3472_map_gpio_to_sensor(int3472, agpio, func, polarity);
+			if (ret)
+				err_msg = "Failed to map GPIO pin to sensor\n";
 
-		break;
+			break;
+		}
+		/* Quirk: Map to regulator */
+		type = INT3472_GPIO_TYPE_POWER_ENABLE;
+		fallthrough;
 	case INT3472_GPIO_TYPE_CLK_ENABLE:
 	case INT3472_GPIO_TYPE_PRIVACY_LED:
 	case INT3472_GPIO_TYPE_POWER_ENABLE:
@@ -260,7 +281,7 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
 
 			break;
 		case INT3472_GPIO_TYPE_POWER_ENABLE:
-			ret = skl_int3472_register_regulator(int3472, gpio);
+			ret = skl_int3472_register_regulator(int3472, gpio, supply_map);
 			if (ret)
 				err_msg = "Failed to map regulator to sensor\n";
 
