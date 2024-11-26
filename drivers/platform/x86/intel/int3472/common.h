@@ -50,6 +50,7 @@
 	container_of(clk, struct int3472_discrete_device, clock)
 
 struct acpi_device;
+struct dmi_system_id;
 struct i2c_client;
 struct platform_device;
 
@@ -68,6 +69,11 @@ struct int3472_cldb {
 	u8 reserved[10];
 	u8 clock_source;
 	u8 reserved2[17];
+};
+
+struct int3472_discrete_quirks {
+	/* For models where GPIO regulators are shared between sensors */
+	const char *regulator_second_sensor;
 };
 
 struct int3472_discrete_device {
@@ -104,10 +110,14 @@ struct int3472_discrete_device {
 		struct gpio_desc *gpio;
 	} pled;
 
+	struct int3472_discrete_quirks quirks;
+
 	unsigned int ngpios; /* how many GPIOs have we seen */
 	unsigned int n_sensor_gpios; /* how many have we mapped to sensor */
 	struct gpiod_lookup_table gpios;
 };
+
+extern const struct dmi_system_id skl_int3472_discrete_quirks[];
 
 union acpi_object *skl_int3472_get_acpi_buffer(struct acpi_device *adev,
 					       char *id);
