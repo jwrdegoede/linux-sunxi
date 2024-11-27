@@ -79,6 +79,8 @@ struct int3472_discrete_quirks {
 	const char *reset_supply_map;
 	const char *powerdown_supply_map;
 	const char *powerenable_supply_map;
+	/* Skip INT3472 ACPI device with UID 1 (for models where only UID 0 is used) */
+	bool skip_uid1;
 };
 
 struct int3472_gpio_regulator {

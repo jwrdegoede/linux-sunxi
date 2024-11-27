@@ -360,6 +360,9 @@ static int skl_int3472_discrete_probe(struct platform_device *pdev)
 	if (id)
 		quirks = id->driver_data;
 
+	if (quirks && quirks->skip_uid1 && acpi_dev_uid_match(adev, 1))
+		return -ENODEV;
+
 	ret = skl_int3472_fill_cldb(adev, &cldb);
 	if (ret) {
 		dev_err(&pdev->dev, "Couldn't fill CLDB structure\n");
