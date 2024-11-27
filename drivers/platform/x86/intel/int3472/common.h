@@ -52,6 +52,7 @@ struct acpi_device;
 struct dmi_system_id;
 struct i2c_client;
 struct platform_device;
+struct int3472_discrete_device;
 
 struct int3472_cldb {
 	u8 version;
@@ -81,6 +82,8 @@ struct int3472_discrete_quirks {
 	const char *powerenable_supply_map;
 	/* Skip INT3472 ACPI device with UID 1 (for models where only UID 0 is used) */
 	bool skip_uid1;
+	/* Called at the end of probe() just before acpi_dev_clear_dependencies() */
+	int (*post)(struct int3472_discrete_device *int3472);
 };
 
 struct int3472_gpio_regulator {

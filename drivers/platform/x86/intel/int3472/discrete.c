@@ -401,13 +401,21 @@ static int skl_int3472_discrete_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&int3472->gpios.list);
 
 	ret = skl_int3472_parse_crs(int3472);
-	if (ret) {
-		skl_int3472_discrete_remove(pdev);
-		return ret;
+	if (ret)
+		goto error_remove;
+
+	if (quirks->post) {
+		ret = quirks->post(int3472);
+		if (ret)
+			goto error_remove;
 	}
 
 	acpi_dev_clear_dependencies(adev);
 	return 0;
+
+error_remove:
+	skl_int3472_discrete_remove(pdev);
+	return ret;
 }
 
 static const struct acpi_device_id int3472_device_id[] = {
