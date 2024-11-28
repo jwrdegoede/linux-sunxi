@@ -316,6 +316,8 @@ int ipu_bridge_parse_ssdb(struct acpi_device *adev, struct ipu_sensor *sensor)
 		return -EINVAL;
 	}
 
+	dev_dbg(ADEV_DEV(adev), "link %d lanes %d\n", ssdb.link, ssdb.lanes);
+
 	sensor->link = ssdb.link;
 	sensor->lanes = ssdb.lanes;
 	sensor->mclkspeed = ssdb.mclkspeed;
