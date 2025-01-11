@@ -375,6 +375,15 @@ struct mt9m114 {
 
 	struct clk *clk;
 	struct gpio_desc *reset;
+	/*
+	 * The actual sensor chip does not have a powerdown pin, but some
+	 * camera connectors have both a reset and a powerdown pin and
+	 * depending on firmware tables and/or the sensor-module the sensor's
+	 * reset pin may be connected to a powerdown GPIO instead.
+	 * Since both GPIOs may be available, requests and control both.
+	 */
+	struct gpio_desc *powerdown;
+
 	struct regulator_bulk_data supplies[3];
 	struct v4l2_fwnode_endpoint bus_cfg;
 	u32 clk_freq;
@@ -2122,7 +2131,7 @@ static int mt9m114_power_on(struct mt9m114 *sensor)
 		goto error_regulator;
 
 	/* Perform a hard reset if available, or a soft reset otherwise. */
-	if (sensor->reset) {
+	if (sensor->reset || sensor->powerdown) {
 		unsigned int duration;
 
 		/*
@@ -2132,8 +2141,10 @@ static int mt9m114_power_on(struct mt9m114 *sensor)
 		duration = DIV_ROUND_UP(2 * 50 * 1000000, sensor->clk_freq);
 
 		gpiod_set_value(sensor->reset, 1);
+		gpiod_set_value(sensor->powerdown, 1);
 		fsleep(duration);
 		gpiod_set_value(sensor->reset, 0);
+		gpiod_set_value(sensor->powerdown, 0);
 	} else {
 		/*
 		 * The power may have just been turned on, we need to wait for
@@ -2386,6 +2397,13 @@ static int mt9m114_probe(struct i2c_client *client)
 	if (IS_ERR(sensor->reset)) {
 		ret = PTR_ERR(sensor->reset);
 		dev_err_probe(dev, ret, "Failed to get reset GPIO\n");
+		goto error_ep_free;
+	}
+
+	sensor->powerdown = devm_gpiod_get_optional(dev, "powerdown", GPIOD_OUT_HIGH);
+	if (IS_ERR(sensor->powerdown)) {
+		ret = PTR_ERR(sensor->powerdown);
+		dev_err_probe(dev, ret, "Failed to get powerdown GPIO\n");
 		goto error_ep_free;
 	}
 
