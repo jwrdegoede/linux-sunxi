@@ -328,9 +328,9 @@
  * Set the default to achieve 1280x960 at 30fps.
  */
 #define MT9M114_MIN_HBLANK				303
-#define MT9M114_MIN_VBLANK				38
-#define MT9M114_DEF_HBLANK				323
-#define MT9M114_DEF_VBLANK				39
+#define MT9M114_MIN_VBLANK				20
+#define MT9M114_DEF_HBLANK				308
+#define MT9M114_DEF_VBLANK				20
 
 #define MT9M114_DEF_FRAME_RATE				30
 #define MT9M114_MAX_FRAME_RATE				120
@@ -473,7 +473,8 @@ static const struct mt9m114_format_info mt9m114_format_infos[] = {
 		/* Keep the format compatible with the IFP sink pad last. */
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 		.output_format = MT9M114_CAM_OUTPUT_FORMAT_BAYER_FORMAT_RAWR10
-			| MT9M114_CAM_OUTPUT_FORMAT_FORMAT_BAYER,
+			| MT9M114_CAM_OUTPUT_FORMAT_FORMAT_BAYER
+			| MT9M114_CAM_OUTPUT_FORMAT_BT656_CROP_SCALE_DISABLE,
 		.flags = MT9M114_FMT_FLAG_PARALLEL | MT9M114_FMT_FLAG_CSI2,
 	}
 };
@@ -862,9 +863,9 @@ static int mt9m114_configure(struct mt9m114 *sensor,
 	 * not in the hardware.
 	 */
 	cci_write(sensor->regmap, MT9M114_CAM_CROP_WINDOW_XOFFSET,
-		  ifp_crop->left - 4, &ret);
+		  ifp_crop->left, &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_CROP_WINDOW_YOFFSET,
-		  ifp_crop->top - 4, &ret);
+		  ifp_crop->top, &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_CROP_WINDOW_WIDTH,
 		  ifp_crop->width, &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_CROP_WINDOW_HEIGHT,
@@ -903,7 +904,8 @@ static int mt9m114_configure(struct mt9m114 *sensor,
 			   MT9M114_CAM_OUTPUT_FORMAT_BAYER_FORMAT_MASK |
 			   MT9M114_CAM_OUTPUT_FORMAT_FORMAT_MASK |
 			   MT9M114_CAM_OUTPUT_FORMAT_SWAP_BYTES |
-			   MT9M114_CAM_OUTPUT_FORMAT_SWAP_RED_BLUE);
+			   MT9M114_CAM_OUTPUT_FORMAT_SWAP_RED_BLUE |
+			   MT9M114_CAM_OUTPUT_FORMAT_BT656_CROP_SCALE_DISABLE);
 	output_format |= ifp_info->output_format;
 
 	cci_write(sensor->regmap, MT9M114_CAM_OUTPUT_FORMAT,
@@ -923,6 +925,16 @@ static int mt9m114_set_frame_rate(struct mt9m114 *sensor)
 		  frame_rate, &ret);
 
 	return ret;
+}
+
+static void mt9m114_debug_log_reg(struct mt9m114 *sensor, int reg)
+{
+	u64 value;
+	int ret;
+
+	ret = cci_read(sensor->regmap, CCI_REG8(reg), &value, NULL);
+	if (ret >= 0)
+		dev_info(&sensor->client->dev, "reg 0x%04x val 0x%04x\n", reg, (unsigned int)value);
 }
 
 static int mt9m114_start_streaming(struct mt9m114 *sensor,
@@ -958,6 +970,33 @@ static int mt9m114_start_streaming(struct mt9m114 *sensor,
 	ret = mt9m114_set_state(sensor, MT9M114_SYS_STATE_ENTER_CONFIG_CHANGE);
 	if (ret)
 		goto error;
+
+	msleep(10);
+
+	mt9m114_debug_log_reg(sensor, 0x001a);
+	mt9m114_debug_log_reg(sensor, 0x001e);
+	mt9m114_debug_log_reg(sensor, 0x0032);
+	mt9m114_debug_log_reg(sensor, 0x0080);
+
+	mt9m114_debug_log_reg(sensor, 0x0982);	
+	mt9m114_debug_log_reg(sensor, 0x098a);	
+	mt9m114_debug_log_reg(sensor, 0x098e);	
+	mt9m114_debug_log_reg(sensor, 0x0990);
+	mt9m114_debug_log_reg(sensor, 0x0992);
+
+/*	
+	mt9m114_debug_log_reg(sensor, );	
+	mt9m114_debug_log_reg(sensor, );	
+	mt9m114_debug_log_reg(sensor, );	
+	mt9m114_debug_log_reg(sensor, );	
+	mt9m114_debug_log_reg(sensor, );	
+	mt9m114_debug_log_reg(sensor, );	
+	mt9m114_debug_log_reg(sensor, );	
+	mt9m114_debug_log_reg(sensor, );	
+*/
+
+	for (int i = 0xc800; i < 0xc990; i++)
+		mt9m114_debug_log_reg(sensor, i);
 
 	sensor->streaming = true;
 
@@ -1675,10 +1714,10 @@ static int mt9m114_ifp_init_state(struct v4l2_subdev *sd,
 
 	crop = v4l2_subdev_state_get_crop(state, 0);
 
-	crop->left = 4;
-	crop->top = 4;
-	crop->width = format->width - 8;
-	crop->height = format->height - 8;
+	crop->left = 0;
+	crop->top = 0;
+	crop->width = format->width;
+	crop->height = format->height;
 
 	compose = v4l2_subdev_state_get_compose(state, 0);
 
@@ -1860,10 +1899,10 @@ static int mt9m114_ifp_get_selection(struct v4l2_subdev *sd,
 		 */
 		format = v4l2_subdev_state_get_format(state, 0);
 
-		sel->r.left = 4;
-		sel->r.top = 4;
-		sel->r.width = format->width - 8;
-		sel->r.height = format->height - 8;
+		sel->r.left = 0;
+		sel->r.top = 0;
+		sel->r.width = format->width;
+		sel->r.height = format->height;
 		break;
 
 	case V4L2_SEL_TGT_COMPOSE:
@@ -1916,18 +1955,18 @@ static int mt9m114_ifp_set_selection(struct v4l2_subdev *sd,
 		 * Clamp the crop rectangle. Demosaicing removes 4 pixels on
 		 * each side of the image.
 		 */
-		crop->left = clamp_t(unsigned int, ALIGN(sel->r.left, 2), 4,
-				     format->width - 4 -
+		crop->left = clamp_t(unsigned int, ALIGN(sel->r.left, 2), 0,
+				     format->width -
 				     MT9M114_SCALER_CROPPED_INPUT_WIDTH);
-		crop->top = clamp_t(unsigned int, ALIGN(sel->r.top, 2), 4,
-				    format->height - 4 -
+		crop->top = clamp_t(unsigned int, ALIGN(sel->r.top, 2), 0,
+				    format->height -
 				    MT9M114_SCALER_CROPPED_INPUT_HEIGHT);
 		crop->width = clamp_t(unsigned int, ALIGN(sel->r.width, 2),
 				      MT9M114_SCALER_CROPPED_INPUT_WIDTH,
-				      format->width - 4 - crop->left);
+				      format->width - crop->left);
 		crop->height = clamp_t(unsigned int, ALIGN(sel->r.height, 2),
 				       MT9M114_SCALER_CROPPED_INPUT_HEIGHT,
-				       format->height - 4 - crop->top);
+				       format->height - crop->top);
 
 		sel->r = *crop;
 
