@@ -914,7 +914,7 @@ static int mt9m114_set_frame_rate(struct mt9m114 *sensor)
 	int ret = 0;
 
 	cci_write(sensor->regmap, MT9M114_CAM_AET_MIN_FRAME_RATE,
-		  frame_rate, &ret);
+		  frame_rate / 2, &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_AET_MAX_FRAME_RATE,
 		  frame_rate, &ret);
 
@@ -1062,6 +1062,8 @@ static int mt9m114_pa_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_VBLANK:
 		cci_write(sensor->regmap, MT9M114_CAM_SENSOR_CFG_FRAME_LENGTH_LINES,
 			  ctrl->val + format->height, &ret);
+		if (!ret && sensor->streaming)
+			ret = mt9m114_set_state(sensor, MT9M114_SYS_STATE_ENTER_CONFIG_CHANGE);
 		break;
 
 	case V4L2_CID_EXPOSURE:
@@ -1077,7 +1079,7 @@ static int mt9m114_pa_s_ctrl(struct v4l2_ctrl *ctrl)
 		 * values by the sensor firmware.
 		 */
 		cci_write(sensor->regmap, MT9M114_CAM_SENSOR_CONTROL_ANALOG_GAIN,
-			  ctrl->val, &ret);
+			  /* 0x1000 | */ ctrl->val, &ret);
 		break;
 
 	case V4L2_CID_HFLIP:
@@ -2217,6 +2219,8 @@ error_regulator:
 
 static void mt9m114_power_off(struct mt9m114 *sensor)
 {
+	gpiod_set_value(sensor->reset, 1);
+	gpiod_set_value(sensor->powerdown, 1);
 	clk_disable_unprepare(sensor->clk);
 	regulator_bulk_disable(ARRAY_SIZE(sensor->supplies), sensor->supplies);
 }
@@ -2244,8 +2248,12 @@ static int __maybe_unused mt9m114_runtime_suspend(struct device *dev)
 {
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct mt9m114 *sensor = ifp_to_mt9m114(sd);
+	int ret;
+	
+	ret = mt9m114_set_state(sensor, MT9M114_SYS_STATE_ENTER_SUSPEND);
+	if (ret)
+		dev_err(dev, "mt9m114_set_state(MT9M114_SYS_STATE_ENTER_SUSPEND) err %d\n", ret);
 
-	mt9m114_set_state(sensor, MT9M114_SYS_STATE_ENTER_SUSPEND);
 	mt9m114_power_off(sensor);
 
 	return 0;
@@ -2264,7 +2272,7 @@ static int mt9m114_clk_init(struct mt9m114 *sensor)
 	unsigned int link_freq;
 
 	/* Hardcode the PLL multiplier and dividers to default settings. */
-	sensor->pll.m = 32;
+	sensor->pll.m = 40;
 	sensor->pll.n = 1;
 	sensor->pll.p = 7;
 
