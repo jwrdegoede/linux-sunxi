@@ -328,9 +328,9 @@
  * Set the default to achieve 1280x960 at 30fps.
  */
 #define MT9M114_MIN_HBLANK				303
-#define MT9M114_MIN_VBLANK				38
-#define MT9M114_DEF_HBLANK				323
-#define MT9M114_DEF_VBLANK				39
+#define MT9M114_MIN_VBLANK				21
+#define MT9M114_DEF_HBLANK				308
+#define MT9M114_DEF_VBLANK				21
 
 #define MT9M114_DEF_FRAME_RATE				30
 #define MT9M114_MAX_FRAME_RATE				120
@@ -659,6 +659,39 @@ static const struct cci_reg_sequence mt9m114_init[] = {
 	{ MT9M114_PAD_SLEW,				0x0777 },
 };
 
+static const struct cci_reg_sequence mt9m114_config_regs[] = {
+	// unknown try commenting out
+	{ CCI_REG16(0x3C5A), 0x0009},
+
+	// overwritten by AUTO_EXPOSURE control, try commenting out
+	{ CCI_REG16(0xA804), 0x0000},
+	{ CCI_REG16(0x3012), 0x0110},
+
+	{ CCI_REG16(0xC800), 0x0000},
+	{ CCI_REG16(0xC802), 0x0000},
+	{ CCI_REG16(0xC804), 0x03CF},
+	{ CCI_REG16(0xC806), 0x050F},
+	{ CCI_REG16(0xC808), 0x02DC},
+	{ CCI_REG16(0xC80A), 0x6C00},
+	{ CCI_REG16(0xC80C), 0x0001},
+	{ CCI_REG16(0xC80E), 0x00DB},
+	{ CCI_REG16(0xC810), 0x05B3},
+	{ CCI_REG16(0xC812), 0x03E5},
+	{ CCI_REG16(0xC814), 0x0644},
+	{ CCI_REG16(0xC816), 0x0060},
+	{ CCI_REG16(0xC818), 0x03C3},
+	{ CCI_REG16(0xC826), 0x0020},
+	{ CCI_REG16(0xC834), 0x0000},
+	{ CCI_REG16(0xC854), 0x0000},
+	{ CCI_REG16(0xC856), 0x0000},
+	{ CCI_REG16(0xC858), 0x0508},
+	{ CCI_REG16(0xC85A), 0x03C8},
+	{ CCI_REG8(0xC85C), 0x03},
+	{ CCI_REG16(0xC868), 0x0508},
+	{ CCI_REG16(0xC86A), 0x03C8},
+	{ CCI_REG8(0xC878), 0x00},
+};
+
 /* -----------------------------------------------------------------------------
  * Hardware Configuration
  */
@@ -799,6 +832,14 @@ static int mt9m114_configure(struct mt9m114 *sensor,
 	u64 read_mode;
 	int ret = 0;
 
+	ret = cci_multi_reg_write(sensor->regmap, mt9m114_config_regs,
+				  ARRAY_SIZE(mt9m114_config_regs), NULL);
+	if (ret < 0) {
+		dev_err(&sensor->client->dev,
+			"Failed to initialize the sensor\n");
+		return ret;
+	}
+
 	pa_format = v4l2_subdev_state_get_format(pa_state, 0);
 	pa_crop = v4l2_subdev_state_get_crop(pa_state, 0);
 
@@ -820,6 +861,7 @@ static int mt9m114_configure(struct mt9m114 *sensor,
 	hratio = pa_crop->width / pa_format->width;
 	vratio = pa_crop->height / pa_format->height;
 
+#if 0
 	/*
 	 * Pixel array crop and binning. The CAM_SENSOR_CFG_CPIPE_LAST_ROW
 	 * register isn't clearly documented, but is always set to the number
@@ -835,7 +877,7 @@ static int mt9m114_configure(struct mt9m114 *sensor,
 	cci_write(sensor->regmap, MT9M114_CAM_SENSOR_CFG_Y_ADDR_END,
 		  pa_crop->height + pa_crop->top - 1, &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_SENSOR_CFG_CPIPE_LAST_ROW,
-		  (pa_crop->height - 4) / vratio - 1, &ret);
+		  (pa_crop->height - 12) / vratio - 1, &ret);
 
 	read_mode &= ~(MT9M114_CAM_SENSOR_CONTROL_X_READ_OUT_MASK |
 		       MT9M114_CAM_SENSOR_CONTROL_Y_READ_OUT_MASK);
@@ -861,14 +903,14 @@ static int mt9m114_configure(struct mt9m114 *sensor,
 	cci_write(sensor->regmap, MT9M114_CAM_CROP_WINDOW_YOFFSET,
 		  ifp_crop->top - border, &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_CROP_WINDOW_WIDTH,
-		  ifp_crop->width, &ret);
+		  ifp_crop->width - 8, &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_CROP_WINDOW_HEIGHT,
-		  ifp_crop->height, &ret);
+		  ifp_crop->height - 8, &ret);
 
 	cci_write(sensor->regmap, MT9M114_CAM_OUTPUT_WIDTH,
-		  ifp_compose->width, &ret);
+		  ifp_compose->width - 8, &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_OUTPUT_HEIGHT,
-		  ifp_compose->height, &ret);
+		  ifp_compose->height - 8, &ret);
 
 	/* AWB and AE windows, use the full frame. */
 	cci_write(sensor->regmap, MT9M114_CAM_STAT_AWB_CLIP_WINDOW_XSTART,
@@ -893,6 +935,8 @@ static int mt9m114_configure(struct mt9m114 *sensor,
 		  MT9M114_CAM_CROP_MODE_AWB_AUTO_CROP_EN |
 		  MT9M114_CAM_CROP_MODE_AE_AUTO_CROP_EN, &ret);
 
+#endif
+
 	/* Set the media bus code. */
 	output_format &= ~(MT9M114_CAM_OUTPUT_FORMAT_RGB_FORMAT_MASK |
 			   MT9M114_CAM_OUTPUT_FORMAT_BAYER_FORMAT_MASK |
@@ -914,7 +958,7 @@ static int mt9m114_set_frame_rate(struct mt9m114 *sensor)
 	int ret = 0;
 
 	cci_write(sensor->regmap, MT9M114_CAM_AET_MIN_FRAME_RATE,
-		  frame_rate, &ret);
+		  frame_rate / 2, &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_AET_MAX_FRAME_RATE,
 		  frame_rate, &ret);
 
@@ -1062,6 +1106,8 @@ static int mt9m114_pa_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_VBLANK:
 		cci_write(sensor->regmap, MT9M114_CAM_SENSOR_CFG_FRAME_LENGTH_LINES,
 			  ctrl->val + format->height, &ret);
+		if (!ret && sensor->streaming)
+			ret = mt9m114_set_state(sensor, MT9M114_SYS_STATE_ENTER_CONFIG_CHANGE);
 		break;
 
 	case V4L2_CID_EXPOSURE:
@@ -1077,7 +1123,7 @@ static int mt9m114_pa_s_ctrl(struct v4l2_ctrl *ctrl)
 		 * values by the sensor firmware.
 		 */
 		cci_write(sensor->regmap, MT9M114_CAM_SENSOR_CONTROL_ANALOG_GAIN,
-			  ctrl->val, &ret);
+			  /* 0x1000 | */ ctrl->val, &ret);
 		break;
 
 	case V4L2_CID_HFLIP:
@@ -2217,6 +2263,8 @@ error_regulator:
 
 static void mt9m114_power_off(struct mt9m114 *sensor)
 {
+	gpiod_set_value(sensor->reset, 1);
+	gpiod_set_value(sensor->powerdown, 1);
 	clk_disable_unprepare(sensor->clk);
 	regulator_bulk_disable(ARRAY_SIZE(sensor->supplies), sensor->supplies);
 }
@@ -2264,7 +2312,7 @@ static int mt9m114_clk_init(struct mt9m114 *sensor)
 	unsigned int link_freq;
 
 	/* Hardcode the PLL multiplier and dividers to default settings. */
-	sensor->pll.m = 32;
+	sensor->pll.m = 40;
 	sensor->pll.n = 1;
 	sensor->pll.p = 7;
 
