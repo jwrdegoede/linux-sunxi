@@ -16,9 +16,7 @@
 #include <media/v4l2-fwnode.h>
 
 #define OV02C10_LINK_FREQ_400MHZ	400000000ULL
-#define OV02C10_SCLK			80000000LL
 #define OV02C10_MCLK			19200000
-#define OV02C10_DATA_LANES		1
 #define OV02C10_RGB_DEPTH		10
 
 #define OV02C10_REG_CHIP_ID		CCI_REG16(0x300a)
@@ -77,9 +75,6 @@ struct ov02c10_mode {
 
 	/* Min vertical timining size */
 	u32 vts_min;
-
-	/* Link frequency needed for this resolution */
-	u32 link_freq_index;
 
 	/* MIPI lanes used */
 	u8 mipi_lanes;
@@ -409,7 +404,8 @@ struct ov02c10 {
 	/* To serialize asynchronous callbacks */
 	struct mutex mutex;
 
-	/* MIPI lanes used */
+	/* MIPI lane info */
+	u32 link_freq_index;
 	u8 mipi_lanes;
 
 	/* Streaming on/off */
@@ -506,9 +502,8 @@ static int ov02c10_init_controls(struct ov02c10 *ov02c10)
 {
 	struct v4l2_ctrl_handler *ctrl_hdlr;
 	const struct ov02c10_mode *cur_mode;
-	s64 exposure_max, h_blank;
+	s64 exposure_max, h_blank, pixel_rate;
 	u32 vblank_min, vblank_max, vblank_default;
-	int size;
 	int ret = 0;
 
 	ctrl_hdlr = &ov02c10->ctrl_handler;
@@ -518,19 +513,22 @@ static int ov02c10_init_controls(struct ov02c10 *ov02c10)
 
 	ctrl_hdlr->lock = &ov02c10->mutex;
 	cur_mode = ov02c10->cur_mode;
-	size = ARRAY_SIZE(link_freq_menu_items);
 
 	ov02c10->link_freq = v4l2_ctrl_new_int_menu(ctrl_hdlr,
 						    &ov02c10_ctrl_ops,
 						    V4L2_CID_LINK_FREQ,
-						    size - 1, 0,
+						    ov02c10->link_freq_index, 0,
 						    link_freq_menu_items);
 	if (ov02c10->link_freq)
 		ov02c10->link_freq->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
+	/* MIPI lanes are DDR -> use link-freq * 2 */
+	pixel_rate = link_freq_menu_items[ov02c10->link_freq_index] * 2 *
+		     ov02c10->mipi_lanes / OV02C10_RGB_DEPTH;
+
 	ov02c10->pixel_rate = v4l2_ctrl_new_std(ctrl_hdlr, &ov02c10_ctrl_ops,
 						V4L2_CID_PIXEL_RATE, 0,
-						OV02C10_SCLK, 1, OV02C10_SCLK);
+						pixel_rate, 1, pixel_rate);
 
 	vblank_min = cur_mode->vts_min - cur_mode->height;
 	vblank_max = OV02C10_VTS_MAX - cur_mode->height;
@@ -801,8 +799,6 @@ static int ov02c10_set_format(struct v4l2_subdev *sd,
 		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
 	} else {
 		ov02c10->cur_mode = mode;
-		__v4l2_ctrl_s_ctrl(ov02c10->link_freq, mode->link_freq_index);
-		__v4l2_ctrl_s_ctrl_int64(ov02c10->pixel_rate, OV02C10_SCLK);
 
 		/* Update limits and set FPS to default */
 		vblank_def = mode->vts_def - mode->height;
@@ -959,17 +955,21 @@ static int ov02c10_check_hwcfg(struct device *dev, struct ov02c10 *ov02c10)
 	for (i = 0; i < ARRAY_SIZE(link_freq_menu_items); i++) {
 		for (j = 0; j < bus_cfg.nr_of_link_frequencies; j++) {
 			if (link_freq_menu_items[i] ==
-				bus_cfg.link_frequencies[j])
+			    bus_cfg.link_frequencies[j])
 				break;
 		}
 
-		if (j == bus_cfg.nr_of_link_frequencies) {
-			dev_err(dev, "no link frequency %lld supported",
-				link_freq_menu_items[i]);
-			ret = -EINVAL;
-			goto out_err;
-		}
+		if (j < bus_cfg.nr_of_link_frequencies)
+			break; /* Found a link frequency match */
 	}
+
+	if (i == ARRAY_SIZE(link_freq_menu_items)) {
+		ret = dev_err_probe(dev, -EINVAL,
+				    "no supported link frequencies\n");
+		goto out_err;
+	}
+
+	ov02c10->link_freq_index = i;
 
 	if (bus_cfg.bus.mipi_csi2.num_data_lanes != 2 &&
 	    bus_cfg.bus.mipi_csi2.num_data_lanes != 4) {
