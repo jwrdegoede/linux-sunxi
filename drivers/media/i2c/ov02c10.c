@@ -921,35 +921,42 @@ static int ov02c10_check_hwcfg(struct device *dev, struct ov02c10 *ov02c10)
 	struct v4l2_fwnode_endpoint bus_cfg = {
 		.bus_type = V4L2_MBUS_CSI2_DPHY
 	};
-	struct fwnode_handle *ep;
-	struct fwnode_handle *fwnode = dev_fwnode(dev);
+	struct fwnode_handle *ep, *fwnode = dev_fwnode(dev);
 	unsigned int i, j;
+	u32 mclk;
 	int ret;
-	u32 ext_clk;
 
-	if (!fwnode)
-		return -ENXIO;
-
+	/*
+	 * Sometimes the fwnode graph is initialized by the bridge driver,
+	 * wait for this.
+	 */
 	ep = fwnode_graph_get_next_endpoint(fwnode, NULL);
 	if (!ep)
-		return -EPROBE_DEFER;
+		return dev_err_probe(dev, -EPROBE_DEFER,
+				     "waiting for fwnode graph endpoint\n");
 
-	ret = fwnode_property_read_u32(dev_fwnode(dev), "clock-frequency",
-				       &ext_clk);
+	ret = fwnode_property_read_u32(fwnode, "clock-frequency", &mclk);
 	if (ret) {
-		dev_err(dev, "can't get clock frequency");
-		return ret;
+		fwnode_handle_put(ep);
+		return dev_err_probe(dev, ret,
+				     "reading clock-frequency property\n");
+	}
+
+	if (mclk != OV02C10_MCLK) {
+		fwnode_handle_put(ep);
+		return dev_err_probe(dev, -EINVAL,
+				     "external clock %d is not supported\n",
+				     mclk);
 	}
 
 	ret = v4l2_fwnode_endpoint_alloc_parse(ep, &bus_cfg);
 	fwnode_handle_put(ep);
 	if (ret)
-		return ret;
+		return dev_err_probe(dev, ret, "parsing endpoint failed\n");
 
 	if (!bus_cfg.nr_of_link_frequencies) {
-		dev_err(dev, "no link frequencies defined");
-		ret = -EINVAL;
-		goto out_err;
+		ret = dev_err_probe(dev, -EINVAL, "no link frequencies\n");
+		goto check_hwcfg_error;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(link_freq_menu_items); i++) {
@@ -966,22 +973,23 @@ static int ov02c10_check_hwcfg(struct device *dev, struct ov02c10 *ov02c10)
 	if (i == ARRAY_SIZE(link_freq_menu_items)) {
 		ret = dev_err_probe(dev, -EINVAL,
 				    "no supported link frequencies\n");
-		goto out_err;
+		goto check_hwcfg_error;
 	}
 
 	ov02c10->link_freq_index = i;
 
-	if (bus_cfg.bus.mipi_csi2.num_data_lanes != 2 &&
-	    bus_cfg.bus.mipi_csi2.num_data_lanes != 4) {
-		dev_err(dev, "number of CSI2 data lanes %d is not supported",
-			bus_cfg.bus.mipi_csi2.num_data_lanes);
-		return(-EINVAL);
+	if (bus_cfg.bus.mipi_csi2.num_data_lanes != 1 &&
+	    bus_cfg.bus.mipi_csi2.num_data_lanes != 2) {
+		ret = dev_err_probe(dev, -EINVAL,
+				    "number of CSI2 data lanes %d is not supported\n",
+				    bus_cfg.bus.mipi_csi2.num_data_lanes);
+		goto check_hwcfg_error;
 	}
+
 	ov02c10->mipi_lanes = bus_cfg.bus.mipi_csi2.num_data_lanes;
 
-out_err:
+check_hwcfg_error:
 	v4l2_fwnode_endpoint_free(&bus_cfg);
-
 	return ret;
 }
 
@@ -1008,10 +1016,8 @@ static int ov02c10_probe(struct i2c_client *client)
 
 	/* Check HW config */
 	ret = ov02c10_check_hwcfg(&client->dev, ov02c10);
-	if (ret) {
-		dev_err(&client->dev, "failed to check hwcfg: %d", ret);
+	if (ret)
 		return ret;
-	}
 
 	v4l2_i2c_subdev_init(&ov02c10->sd, client, &ov02c10_subdev_ops);
 	ov02c10_get_pm_resources(&client->dev);
