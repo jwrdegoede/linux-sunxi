@@ -26,6 +26,8 @@
 
 #define OV02C10_REG_STREAM_CONTROL	CCI_REG8(0x0100)
 
+#define OV02C10_REG_HTS			CCI_REG16(0x380c)
+
 /* vertical-timings from sensor */
 #define OV02C10_REG_VTS			CCI_REG16(0x380e)
 #define OV02C10_VTS_MAX			0xffff
@@ -372,7 +374,7 @@ static const struct ov02c10_mode supported_modes[] = {
 	{
 		.width = 1928,
 		.height = 1092,
-		.hts = 1140,
+		.hts = 2280,
 		.vts_def = 2328,
 		.vts_min = 2328,
 		.mipi_lanes = 2,
