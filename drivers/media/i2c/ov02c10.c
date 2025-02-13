@@ -423,16 +423,12 @@ static int ov02c10_test_pattern(struct ov02c10 *ov02c10, int pattern)
 
 	if (!pattern)
 		return cci_update_bits(ov02c10->regmap, OV02C10_REG_TEST_PATTERN,
-			BIT(7), 0, NULL);
+				       BIT(7), 0, NULL);
 
 	cci_update_bits(ov02c10->regmap, OV02C10_REG_TEST_PATTERN,
 			0x03, pattern - 1, &ret);
-	if (ret)
-		return ret;
-
 	cci_update_bits(ov02c10->regmap, OV02C10_REG_TEST_PATTERN,
 			BIT(7), OV02C10_TEST_PATTERN_ENABLE, &ret);
-
 	return ret;
 }
 
@@ -590,7 +586,7 @@ static int ov02c10_start_streaming(struct ov02c10 *ov02c10)
 	ret = regmap_multi_reg_write(ov02c10->regmap,
 				     reg_sequence, sequence_length);
 	if (ret) {
-		dev_err(&client->dev, "failed to set mode");
+		dev_err(&client->dev, "failed to set mode\n");
 		return ret;
 	}
 
@@ -607,21 +603,12 @@ static int ov02c10_start_streaming(struct ov02c10 *ov02c10)
 	if (ret)
 		return ret;
 
-	ret = cci_write(ov02c10->regmap, OV02C10_REG_STREAM_CONTROL, 1, NULL);
-	if (ret)
-		dev_err(&client->dev, "failed to start streaming");
-
-	return ret;
+	return cci_write(ov02c10->regmap, OV02C10_REG_STREAM_CONTROL, 1, NULL);
 }
 
 static void ov02c10_stop_streaming(struct ov02c10 *ov02c10)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(&ov02c10->sd);
-	int ret = 0;
-
-	ret = cci_write(ov02c10->regmap, OV02C10_REG_STREAM_CONTROL, 0, NULL);
-	if (ret)
-		dev_err(&client->dev, "failed to stop streaming");
+	cci_write(ov02c10->regmap, OV02C10_REG_STREAM_CONTROL, 0, NULL);
 }
 
 static int ov02c10_set_stream(struct v4l2_subdev *sd, int enable)
@@ -900,10 +887,9 @@ static int ov02c10_identify_module(struct ov02c10 *ov02c10)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&ov02c10->sd);
 	u64 chip_id;
-	u32 ret = 0;
+	int ret;
 
-	ov02c10->regmap = devm_cci_regmap_init_i2c(client, 16);
-	cci_read(ov02c10->regmap, OV02C10_REG_CHIP_ID, &chip_id, &ret);
+	ret = cci_read(ov02c10->regmap, OV02C10_REG_CHIP_ID, &chip_id, NULL);
 	if (ret)
 		return ret;
 
@@ -1021,6 +1007,10 @@ static int ov02c10_probe(struct i2c_client *client)
 
 	v4l2_i2c_subdev_init(&ov02c10->sd, client, &ov02c10_subdev_ops);
 	ov02c10_get_pm_resources(&client->dev);
+
+	ov02c10->regmap = devm_cci_regmap_init_i2c(client, 16);
+	if (IS_ERR(ov02c10->regmap))
+		return PTR_ERR(ov02c10->regmap);
 
 	ret = ov02c10_power_on(&client->dev);
 	if (ret) {
