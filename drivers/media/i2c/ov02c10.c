@@ -70,21 +70,15 @@ struct ov02c10_mode {
 	/* Horizontal timining size */
 	u32 hts;
 
-	/* Default vertical timining size */
-	u32 vts_def;
-
 	/* Min vertical timining size */
 	u32 vts_min;
-
-	/* MIPI lanes used */
-	u8 mipi_lanes;
 
 	/* Sensor register settings for this resolution */
 	const struct reg_sequence *reg_sequence;
 	const int sequence_length;
 	/* Sensor register settings for 1 or 2 lane config */
-	const struct reg_sequence *lane_settings;
-	const int lane_settings_length;
+	const struct reg_sequence *lane_settings[2];
+	const int lane_settings_length[2];
 };
 
 static const struct reg_sequence sensor_1928x1092_30fps_setting[] = {
@@ -358,25 +352,17 @@ static const struct ov02c10_mode supported_modes[] = {
 		.width = 1928,
 		.height = 1092,
 		.hts = 2280,
-		.vts_def = 1164,
 		.vts_min = 1164,
-		.mipi_lanes = 1,
 		.reg_sequence = sensor_1928x1092_30fps_setting,
 		.sequence_length = ARRAY_SIZE(sensor_1928x1092_30fps_setting),
-		.lane_settings = sensor_1928x1092_30fps_1lane_setting,
-		.lane_settings_length = ARRAY_SIZE(sensor_1928x1092_30fps_1lane_setting),
-	},
-	{
-		.width = 1928,
-		.height = 1092,
-		.hts = 2280,
-		.vts_def = 2328,
-		.vts_min = 1164,
-		.mipi_lanes = 2,
-		.reg_sequence = sensor_1928x1092_30fps_setting,
-		.sequence_length = ARRAY_SIZE(sensor_1928x1092_30fps_setting),
-		.lane_settings = sensor_1928x1092_30fps_2lane_setting,
-		.lane_settings_length = ARRAY_SIZE(sensor_1928x1092_30fps_2lane_setting),
+		.lane_settings = {
+			sensor_1928x1092_30fps_1lane_setting,
+			sensor_1928x1092_30fps_2lane_setting
+		},
+		.lane_settings_length = {
+			ARRAY_SIZE(sensor_1928x1092_30fps_1lane_setting),
+			ARRAY_SIZE(sensor_1928x1092_30fps_2lane_setting),
+		},
 	},
 };
 
@@ -499,7 +485,7 @@ static int ov02c10_init_controls(struct ov02c10 *ov02c10)
 	struct v4l2_ctrl_handler *ctrl_hdlr;
 	const struct ov02c10_mode *cur_mode;
 	s64 exposure_max, h_blank, pixel_rate;
-	u32 vblank_min, vblank_max, vblank_default;
+	u32 vblank_min, vblank_max, vblank_default, vts_def;
 	int ret = 0;
 
 	ctrl_hdlr = &ov02c10->ctrl_handler;
@@ -526,9 +512,15 @@ static int ov02c10_init_controls(struct ov02c10 *ov02c10)
 						V4L2_CID_PIXEL_RATE, 0,
 						pixel_rate, 1, pixel_rate);
 
+	/*
+	 * For default multiple min by number of lanes to keep the default
+	 * FPS the same indepenedent of the lane count.
+	 */
+	vts_def = cur_mode->vts_min * ov02c10->mipi_lanes;
+
 	vblank_min = cur_mode->vts_min - cur_mode->height;
 	vblank_max = OV02C10_VTS_MAX - cur_mode->height;
-	vblank_default = cur_mode->vts_def - cur_mode->height;
+	vblank_default = vts_def - cur_mode->height;
 	ov02c10->vblank = v4l2_ctrl_new_std(ctrl_hdlr, &ov02c10_ctrl_ops,
 					    V4L2_CID_VBLANK, vblank_min,
 					    vblank_max, 1, vblank_default);
@@ -546,7 +538,7 @@ static int ov02c10_init_controls(struct ov02c10 *ov02c10)
 	v4l2_ctrl_new_std(ctrl_hdlr, &ov02c10_ctrl_ops, V4L2_CID_DIGITAL_GAIN,
 			  OV02C10_DGTL_GAIN_MIN, OV02C10_DGTL_GAIN_MAX,
 			  OV02C10_DGTL_GAIN_STEP, OV02C10_DGTL_GAIN_DEFAULT);
-	exposure_max = cur_mode->vts_def - OV02C10_EXPOSURE_MAX_MARGIN;
+	exposure_max = vts_def - OV02C10_EXPOSURE_MAX_MARGIN;
 	ov02c10->exposure = v4l2_ctrl_new_std(ctrl_hdlr, &ov02c10_ctrl_ops,
 					      V4L2_CID_EXPOSURE,
 					      OV02C10_EXPOSURE_MIN,
@@ -590,8 +582,8 @@ static int ov02c10_start_streaming(struct ov02c10 *ov02c10)
 		return ret;
 	}
 
-	reg_sequence = ov02c10->cur_mode->lane_settings;
-	sequence_length = ov02c10->cur_mode->lane_settings_length;
+	reg_sequence = ov02c10->cur_mode->lane_settings[ov02c10->mipi_lanes - 1];
+	sequence_length = ov02c10->cur_mode->lane_settings_length[ov02c10->mipi_lanes - 1];
 	ret = regmap_multi_reg_write(ov02c10->regmap,
 				     reg_sequence, sequence_length);
 	if (ret) {
@@ -775,10 +767,10 @@ static int ov02c10_set_format(struct v4l2_subdev *sd,
 	const struct ov02c10_mode *mode;
 	s32 vblank_def, h_blank;
 
-	if (ov02c10->mipi_lanes == 1)
-		mode = &supported_modes[0];
-	else
-		mode = &supported_modes[1];
+	mode = v4l2_find_nearest_size(supported_modes,
+				      ARRAY_SIZE(supported_modes), width,
+				      height, fmt->format.width,
+				      fmt->format.height);
 
 	mutex_lock(&ov02c10->mutex);
 	ov02c10_update_pad_format(mode, &fmt->format);
@@ -788,7 +780,7 @@ static int ov02c10_set_format(struct v4l2_subdev *sd,
 		ov02c10->cur_mode = mode;
 
 		/* Update limits and set FPS to default */
-		vblank_def = mode->vts_def - mode->height;
+		vblank_def = mode->vts_min * ov02c10->mipi_lanes - mode->height;
 		__v4l2_ctrl_modify_range(ov02c10->vblank,
 					 mode->vts_min - mode->height,
 					 OV02C10_VTS_MAX - mode->height, 1,
@@ -1026,8 +1018,7 @@ static int ov02c10_probe(struct i2c_client *client)
 
 	mutex_init(&ov02c10->mutex);
 	ov02c10->cur_mode = &supported_modes[0];
-	if (ov02c10->mipi_lanes == 2)
-		ov02c10->cur_mode = &supported_modes[1];
+
 	ret = ov02c10_init_controls(ov02c10);
 	if (ret) {
 		dev_err(&client->dev, "failed to init controls: %d", ret);
