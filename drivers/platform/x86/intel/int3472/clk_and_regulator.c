@@ -224,6 +224,7 @@ int skl_int3472_register_regulator(struct int3472_discrete_device *int3472,
 	}
 
 	init_data.constraints.valid_ops_mask = REGULATOR_CHANGE_STATUS;
+	init_data.constraints.enable_time = enable_time;
 	init_data.consumer_supplies = regulator->supply_map;
 	init_data.num_consumer_supplies = j;
 
