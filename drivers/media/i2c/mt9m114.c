@@ -781,14 +781,6 @@ static int mt9m114_initialize(struct mt9m114 *sensor)
 	if (ret < 0)
 		return ret;
 
-	ret = mt9m114_set_state(sensor, MT9M114_SYS_STATE_ENTER_CONFIG_CHANGE);
-	if (ret < 0)
-		return ret;
-
-	ret = mt9m114_set_state(sensor, MT9M114_SYS_STATE_ENTER_SUSPEND);
-	if (ret < 0)
-		return ret;
-
 	return 0;
 }
 
@@ -2253,6 +2245,7 @@ static int __maybe_unused mt9m114_runtime_suspend(struct device *dev)
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct mt9m114 *sensor = ifp_to_mt9m114(sd);
 
+	mt9m114_set_state(sensor, MT9M114_SYS_STATE_ENTER_SUSPEND);
 	mt9m114_power_off(sensor);
 
 	return 0;
