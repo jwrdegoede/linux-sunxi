@@ -43,6 +43,7 @@ struct ipu6_isys_csi2 {
 	u32 receiver_errors;
 	unsigned int nlanes;
 	unsigned int port;
+	unsigned int stream_count;
 };
 
 struct ipu6_isys_csi2_timing {
@@ -73,6 +74,7 @@ void ipu6_isys_csi2_error(struct ipu6_isys_csi2 *csi2);
 int ipu6_isys_csi2_get_remote_desc(u32 source_stream,
 				   struct ipu6_isys_csi2 *csi2,
 				   struct media_entity *source_entity,
-				   struct v4l2_mbus_frame_desc_entry *entry);
+				   struct v4l2_mbus_frame_desc_entry *entry,
+				   int *nr_queues);
 
 #endif /* IPU6_ISYS_CSI2_H */
