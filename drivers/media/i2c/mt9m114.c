@@ -331,6 +331,10 @@
 #define MT9M114_MIN_VBLANK				21
 #define MT9M114_DEF_HBLANK				308
 #define MT9M114_DEF_VBLANK				21
+#define MT9M114_DEF_HTS					\
+	(MT9M114_PIXEL_ARRAY_WIDTH + MT9M114_DEF_HBLANK)
+#define MT9M114_DEF_VTS					\
+	(MT9M114_PIXEL_ARRAY_HEIGHT + MT9M114_DEF_VBLANK)
 
 #define MT9M114_DEF_FRAME_RATE				30
 #define MT9M114_MAX_FRAME_RATE				120
@@ -1137,18 +1141,22 @@ static void mt9m114_pa_ctrl_update_exposure(struct mt9m114 *sensor, bool manual)
 static void mt9m114_pa_ctrl_update_blanking(struct mt9m114 *sensor,
 					    const struct v4l2_mbus_framefmt *format)
 {
-	unsigned int max_blank;
+	unsigned int def_blank, max_blank;
 
 	/* Update the blanking controls ranges based on the output size. */
 	max_blank = MT9M114_CAM_SENSOR_CFG_LINE_LENGTH_PCK_MAX
 		  - format->width;
+	def_blank = MT9M114_DEF_HTS - format->width;
 	__v4l2_ctrl_modify_range(sensor->pa.hblank, MT9M114_MIN_HBLANK,
-				 max_blank, 1, MT9M114_DEF_HBLANK);
+				 max_blank, 1, def_blank);
+	__v4l2_ctrl_s_ctrl(sensor->pa.hblank, def_blank);
 
 	max_blank = MT9M114_CAM_SENSOR_CFG_FRAME_LENGTH_LINES_MAX
 		  - format->height;
+	def_blank = MT9M114_DEF_VTS - format->height;
 	__v4l2_ctrl_modify_range(sensor->pa.vblank, MT9M114_MIN_VBLANK,
-				 max_blank, 1, MT9M114_DEF_VBLANK);
+				 max_blank, 1, def_blank);
+	__v4l2_ctrl_s_ctrl(sensor->pa.vblank, def_blank);
 }
 
 /* -----------------------------------------------------------------------------
