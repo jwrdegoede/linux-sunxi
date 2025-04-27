@@ -31,6 +31,8 @@
 #include <media/v4l2-mediabus.h>
 #include <media/v4l2-subdev.h>
 
+#include "aptina-pll.h"
+
 /* Sysctl registers */
 #define MT9M114_CHIP_ID					CCI_REG16(0x0000)
 #define MT9M114_COMMAND_REGISTER			CCI_REG16(0x0080)
@@ -262,9 +264,9 @@
 #define MT9M114_CAM_SYSCTL_PLL_ENABLE			CCI_REG8(0xc97e)
 #define MT9M114_CAM_SYSCTL_PLL_ENABLE_VALUE			BIT(0)
 #define MT9M114_CAM_SYSCTL_PLL_DIVIDER_M_N		CCI_REG16(0xc980)
-#define MT9M114_CAM_SYSCTL_PLL_DIVIDER_VALUE(m, n)		(((n) << 8) | (m))
+#define MT9M114_CAM_SYSCTL_PLL_DIVIDER_VALUE(m, n)		((((n) - 1) << 8) | (m))
 #define MT9M114_CAM_SYSCTL_PLL_DIVIDER_P		CCI_REG16(0xc982)
-#define MT9M114_CAM_SYSCTL_PLL_DIVIDER_P_VALUE(p)		((p) << 8)
+#define MT9M114_CAM_SYSCTL_PLL_DIVIDER_P_VALUE(p)		(((p) - 1) << 8)
 #define MT9M114_CAM_PORT_OUTPUT_CONTROL			CCI_REG16(0xc984)
 #define MT9M114_CAM_PORT_PORT_SELECT_PARALLEL			(0 << 0)
 #define MT9M114_CAM_PORT_PORT_SELECT_MIPI			(1 << 0)
@@ -325,7 +327,7 @@
  * minimum values that have been seen in register lists are 303 and 38, use
  * them.
  *
- * Set the default to achieve 1280x960 at 30fps.
+ * Set the default to achieve 1280x960 at 30fps with a 48 MHz pixclock.
  */
 #define MT9M114_MIN_HBLANK				303
 #define MT9M114_MIN_VBLANK				38
@@ -334,6 +336,8 @@
 
 #define MT9M114_DEF_FRAME_RATE				30
 #define MT9M114_MAX_FRAME_RATE				120
+
+#define MT9M114_DEF_PIXCLOCK				48000000
 
 #define MT9M114_PIXEL_ARRAY_WIDTH			1296U
 #define MT9M114_PIXEL_ARRAY_HEIGHT			976U
@@ -379,11 +383,7 @@ struct mt9m114 {
 	struct v4l2_fwnode_endpoint bus_cfg;
 	u32 clk_freq;
 
-	struct {
-		unsigned int m;
-		unsigned int n;
-		unsigned int p;
-	} pll;
+	struct aptina_pll pll;
 
 	unsigned int pixrate;
 	bool streaming;
@@ -751,7 +751,7 @@ static int mt9m114_initialize(struct mt9m114 *sensor)
 						       sensor->pll.n),
 		  &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_SYSCTL_PLL_DIVIDER_P,
-		  MT9M114_CAM_SYSCTL_PLL_DIVIDER_P_VALUE(sensor->pll.p), &ret);
+		  MT9M114_CAM_SYSCTL_PLL_DIVIDER_P_VALUE(sensor->pll.p1), &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_SENSOR_CFG_PIXCLK,
 		  sensor->pixrate, &ret);
 
@@ -2238,11 +2238,36 @@ static const struct dev_pm_ops mt9m114_pm_ops = {
 static int mt9m114_clk_init(struct mt9m114 *sensor)
 {
 	unsigned int link_freq;
+	/*
+	 * TODO these limits have been copied from mt9p031.c, with out_clock_max
+	 * increased from 360000000 to 400000000 to get the same PLL settings as
+	 * in the static register lists for 24 MHz and 19.2 MHz ext clock freq.
+	 * These should be verified / adjusted by someone with access to
+	 * the full MT9M114 datasheet.
+	 */
+	static const struct aptina_pll_limits limits = {
+		.ext_clock_min = 6000000,
+		.ext_clock_max = 27000000,
+		.int_clock_min = 2000000,
+		.int_clock_max = 13500000,
+		.out_clock_min = 180000000,
+		.out_clock_max = 400000000,
+		.pix_clock_max = 96000000,
+		.n_min = 1,
+		.n_max = 64,
+		.m_min = 16,
+		.m_max = 255,
+		.p1_min = 1,
+		.p1_max = 128,
+	};
+	int ret;
 
-	/* Hardcode the PLL multiplier and dividers to default settings. */
-	sensor->pll.m = 32;
-	sensor->pll.n = 1;
-	sensor->pll.p = 7;
+	sensor->pll.ext_clock = sensor->clk_freq;
+	sensor->pll.pix_clock = MT9M114_DEF_PIXCLOCK;
+
+	ret = aptina_pll_calculate(&sensor->client->dev, &limits, &sensor->pll);
+	if (ret)
+		return ret;
 
 	/*
 	 * Calculate the pixel rate and link frequency. The CSI-2 bus is clocked
@@ -2250,7 +2275,7 @@ static int mt9m114_clk_init(struct mt9m114 *sensor)
 	 * parallel mode, the sensor ouputs one pixel in two PIXCLK cycles.
 	 */
 	sensor->pixrate = sensor->clk_freq * sensor->pll.m
-			/ ((sensor->pll.n + 1) * (sensor->pll.p + 1));
+			/ (sensor->pll.n * sensor->pll.p1);
 
 	link_freq = sensor->bus_cfg.bus_type == V4L2_MBUS_CSI2_DPHY
 		  ? sensor->pixrate * 8 : sensor->pixrate * 2;
