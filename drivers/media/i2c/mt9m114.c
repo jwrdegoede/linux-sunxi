@@ -2202,6 +2202,7 @@ error_regulator:
 
 static void mt9m114_power_off(struct mt9m114 *sensor)
 {
+	gpiod_set_value(sensor->reset, 1);
 	clk_disable_unprepare(sensor->clk);
 	regulator_bulk_disable(ARRAY_SIZE(sensor->supplies), sensor->supplies);
 }
