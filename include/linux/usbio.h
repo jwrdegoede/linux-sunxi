@@ -155,6 +155,42 @@ struct usbio_gpio_rw {
 	u32 value;
 } __packed;
 
+/* USBIO I2C commands */
+enum usbio_i2c_cmd {
+	USBIO_I2CCMD_UNINIT,
+	USBIO_I2CCMD_INIT,
+	USBIO_I2CCMD_READ,
+	USBIO_I2CCMD_WRITE,
+	USBIO_I2CCMD_END
+};
+
+#define USBIO_I2CCMD_VALID(cmd) (USBIO_I2CCMD_UNINIT <= cmd && \
+			cmd < USBIO_I2CCMD_END)
+
+/************************
+ * USBIO I2C Controller *
+ ************************/
+
+#define USBIO_MAX_I2CBUSES 5
+
+struct usbio_i2c_uninit {
+	u8 busid;
+	u16 config;
+} __packed;
+
+struct usbio_i2c_init {
+	u8 busid;
+	u16 config;
+	u32 speed;
+} __packed;
+
+struct usbio_i2c_rw {
+	u8 busid;
+	u16 config;
+	u16 size;
+	u8 data[] __counted_by(size);
+} __packed;
+
 int usbio_gpio_init(struct usbio_client *client,
 		struct usbio_gpio_bank *banks, unsigned int len);
 

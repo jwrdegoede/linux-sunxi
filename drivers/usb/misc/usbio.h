@@ -48,6 +48,7 @@ struct usbio_packet_header {
 } __packed;
 
 #define USBIO_CTRLXFER_TIMEOUT 0
+#define USBIO_BULKXFER_TIMEOUT 80
 
 /* USBIO Control Transfer Packet */
 struct usbio_ctrl_packet {
@@ -119,7 +120,6 @@ struct usbio_dev_info {
 	struct usbio_fwver fwver;
 };
 
-#define MAX_I2CBUSES	5
 #define MAX_SPIBUSES	5
 
 /**
@@ -134,10 +134,13 @@ struct usbio_dev_info {
  * @tx_pipe: the bulk out pipe
  * @txbuf_len: the size of the bulk out pipe
  * @txbuf: the buffer used for bulk out transfers
+ * @urb: the urb to read bulk pipe
  * @rx_pipe: the bulk in pipe
  * @rxbuf_len: the size of the bulk in pipe
+ * @rxdat_len: the data length at rx buffer
  * @rxbuf: the buffer used for bulk in transfers
  * @info: the device's protocol and firmware information
+ * @done: completion object as request is done
  * @mutex: protection against access concurrency
  * @cli_list: device's client list
  */
@@ -154,11 +157,15 @@ struct usbio_device {
 	u16 txbuf_len;
 	void *txbuf;
 
+	struct urb *urb;
 	unsigned int rx_pipe;
 	u16 rxbuf_len;
+	u16 rxdat_len;
 	void *rxbuf;
 
 	struct usbio_dev_info info;
+
+	struct completion done;
 	struct mutex mutex;
 
 	struct list_head cli_list;
@@ -167,13 +174,16 @@ struct usbio_device {
 	struct usbio_gpio_bank_desc gpios[USBIO_MAX_GPIOBANKS];
 
 	unsigned int nr_i2c_buses;
-	struct usbio_i2c_bus_desc i2cs[MAX_I2CBUSES];
+	struct usbio_i2c_bus_desc i2cs[USBIO_MAX_I2CBUSES];
 
 	unsigned int nr_spi_buses;
 	struct usbio_spi_bus_desc spis[MAX_SPIBUSES];
 };
 
 int usbio_gpio_handler(struct usbio_device *usbio, u8 cmd,
+		const void *obuf, u16 obuf_len, void *ibuf, u16 ibuf_len);
+
+int usbio_i2c_handler(struct usbio_device *usbio, u8 cmd,
 		const void *obuf, u16 obuf_len, void *ibuf, u16 ibuf_len);
 
 #endif
