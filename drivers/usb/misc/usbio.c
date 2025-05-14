@@ -151,6 +151,50 @@ static int usbio_ctrl_handshake(struct usbio_device *usbio)
 	return 0;
 }
 
+static void usbio_auxdev_release(struct device *dev)
+{
+	struct auxiliary_device *adev = to_auxiliary_dev(dev);
+	struct usbio_client *client = auxiliary_get_usbio_client(adev);
+
+	client->bridge = NULL;
+}
+
+static int usbio_add_client(struct usbio_device *usbio, char *name,
+				u8 type, u8 id, void *data)
+{
+	struct usbio_client *client;
+	struct auxiliary_device *adev;
+	int ret;
+
+	client = kzalloc(sizeof(*client), GFP_KERNEL);
+	if (!client)
+		return -ENOMEM;
+
+	client->type = type;
+	client->id = id;
+	client->bridge = (struct usbio_bridge *)usbio;
+	adev = &client->adev;
+	adev->name = name;
+	adev->id = id;
+
+	adev->dev.parent = usbio->dev;
+	adev->dev.platform_data = data;
+	adev->dev.release = usbio_auxdev_release;
+
+	ret = auxiliary_device_init(adev);
+	if (!ret) {
+		if (auxiliary_device_add(adev))
+			auxiliary_device_uninit(adev);
+	}
+
+	if (!ret)
+		list_add_tail(&client->link, &usbio->cli_list);
+	else
+		kfree(client);
+
+	return ret;
+}
+
 static int usbio_ctrl_enumgpios(struct usbio_device *usbio)
 {
 	struct usbio_packet_header pkt = {
@@ -173,6 +217,9 @@ static int usbio_ctrl_enumgpios(struct usbio_device *usbio)
 	for (i = 0; i < usbio->nr_gpio_banks; i++)
 		dev_info(usbio->dev, "\tBank%d[%d] map: %#08x",
 					gpio[i].id, gpio[i].pins, gpio[i].bmap);
+
+	if (usbio_add_client(usbio, USBIO_GPIO_CLIENT, USBIO_GPIO, 0, gpio))
+		dev_warn(usbio->dev, "Client %s add failed!", USBIO_GPIO_CLIENT);
 
 	return 0;
 }
@@ -227,10 +274,85 @@ static int usbio_ctrl_enumspis(struct usbio_device *usbio)
 	return 0;
 }
 
+int usbio_gpio_handler(struct usbio_device *usbio, u8 cmd,
+		const void *obuf, u16 obuf_len, void *ibuf, u16 ibuf_len)
+{
+	struct usbio_packet_header pkt = {
+		USBIO_PKTTYPE_GPIO,
+		cmd,
+		ibuf_len ? USBIO_PKTFLAGS_REQRESP : USBIO_PKTFLAG_CMP
+	};
+	int ret;
+
+	mutex_lock(&usbio->mutex);
+	ret = usbio_control_msg(usbio, &pkt, obuf, obuf_len, ibuf, ibuf_len);
+	if (ret > 0)
+		ret -= obuf_len;
+	mutex_unlock(&usbio->mutex);
+
+	return ret;
+}
+
+int usbio_gpio_init(struct usbio_client *client,
+		struct usbio_gpio_bank *banks, unsigned int len)
+{
+	struct usbio_device *usbio;
+	struct usbio_gpio_bank_desc *gpio;
+	int i;
+
+	if (!client || !banks || !len)
+		return -EINVAL;
+
+	if (!client->bridge)
+		return -ENODEV;
+
+	usbio = (struct usbio_device *)client->bridge;
+	gpio = usbio->gpios;
+	for (i = 0; i < len && i < usbio->nr_gpio_banks; i++)
+		banks[i].bitmap = gpio[i].bmap;
+
+	return usbio->nr_gpio_banks;
+}
+EXPORT_SYMBOL_NS_GPL(usbio_gpio_init, "USBIO");
+
+int usbio_transfer(struct usbio_client *client, u8 cmd,
+		const void *obuf, u16 obuf_len, void *ibuf, u16 ibuf_len)
+{
+	struct usbio_device *usbio;
+	int ret;
+
+	if (!client)
+		return -EINVAL;
+
+	if (!client->bridge)
+		return -ENODEV;
+
+	usbio = (struct usbio_device *)client->bridge;
+	switch (client->type) {
+	case USBIO_GPIO:
+		if (USBIO_GPIOCMD_VALID(cmd))
+			ret = usbio_gpio_handler(usbio, cmd, obuf, obuf_len,
+										ibuf, ibuf_len);
+		break;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_NS_GPL(usbio_transfer, "USBIO");
+
 static void usbio_disconnect(struct usb_interface *intf)
 {
 	struct device *dev = &intf->dev;
 	struct usbio_device *usbio = usb_get_intfdata(intf);
+	struct usbio_client *client, *prev;
+
+	list_for_each_entry_safe_reverse(client, prev, &usbio->cli_list, link) {
+		auxiliary_device_delete(&client->adev);
+		auxiliary_device_uninit(&client->adev);
+
+		list_del_init(&client->link);
+		kfree(client);
+	}
 
 	usb_set_intfdata(intf, NULL);
 	usb_put_intf(intf);
@@ -239,6 +361,7 @@ static void usbio_disconnect(struct usb_interface *intf)
 	kfree(usbio->txbuf);
 	kfree(usbio->rxbuf);
 
+	mutex_destroy(&usbio->mutex);
 	devm_kfree(dev, usbio);
 }
 
@@ -258,6 +381,8 @@ static int usbio_probe(struct usb_interface *intf,
 	usbio->dev = dev;
 	usbio->udev = udev;
 	usbio->intf = usb_get_intf(intf);
+	mutex_init(&usbio->mutex);
+	INIT_LIST_HEAD(&usbio->cli_list);
 	usb_set_intfdata(intf, usbio);
 
 	usbio->ctrl_pipe = usb_endpoint_num(&udev->ep0.desc);
