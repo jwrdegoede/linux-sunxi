@@ -93,6 +93,110 @@ static int usbio_control_msg(struct usbio_device *usbio,
 	return ret;
 }
 
+static void usbio_bulk_recv(struct urb *urb)
+{
+	struct usbio_bulk_packet *bpkt = urb->transfer_buffer;
+	struct usbio_device *usbio = urb->context;
+
+	if (!urb->status) {
+		if (bpkt->header.flags & USBIO_PKTFLAG_RSP) {
+			usbio->rxdat_len = urb->actual_length;
+			complete(&usbio->done);
+		}
+	} else
+		dev_err(usbio->dev, "URB error:%d", urb->status);
+
+	usb_submit_urb(usbio->urb, GFP_ATOMIC);
+}
+
+static int usbio_bulk_msg(struct usbio_device *usbio,
+		struct usbio_packet_header *pkt, bool last, const void *obuf,
+		u16 obuf_len, void *ibuf, u16 ibuf_len, int timeout)
+{
+	struct usbio_bulk_packet *bpkt;
+	u16 bpkt_len = sizeof(*bpkt) + obuf_len;
+	int ret, act;
+
+	if (!usbio || !pkt || (!obuf && obuf_len) || (!ibuf && ibuf_len))
+		return -EINVAL;
+
+	if (bpkt_len > usbio->txbuf_len) {
+		dev_err(usbio->dev, "Packet size error: %u > %u",
+				bpkt_len, usbio->txbuf_len);
+		return -EMSGSIZE;
+	}
+
+	if (!obuf_len)
+		goto read;
+
+	/* Prepare Bulk Packet Header */
+	bpkt = (struct usbio_bulk_packet *)usbio->txbuf;
+	bpkt->header.type = pkt->type;
+	bpkt->header.cmd = pkt->cmd;
+	bpkt->header.flags = last ? pkt->flags : 0;
+	bpkt->len = obuf_len;
+
+	/* Copy the data */
+	memcpy(bpkt->data, obuf, obuf_len);
+
+	reinit_completion(&usbio->done);
+	ret = usb_bulk_msg(usbio->udev, usbio->tx_pipe,
+						(void *)bpkt, bpkt_len, &act, timeout);
+	dev_dbg(usbio->dev, "usb bulk sent: %u", act);
+	dev_dbg(usbio->dev, "\thdr: %*phN data: %*phN", (int)sizeof(*bpkt), bpkt,
+				(int)bpkt->len, bpkt->data);
+
+	if (ret || act != bpkt_len)
+		return -EIO;
+
+read:
+	if (last && pkt->flags & USBIO_PKTFLAG_ACK) {
+		bpkt_len = sizeof(*bpkt) + ibuf_len;
+
+		if (bpkt_len > usbio->txbuf_len) {
+			dev_err(usbio->dev, "Packet size error: %u > %u",
+					bpkt_len, usbio->txbuf_len);
+			return -EMSGSIZE;
+		}
+
+		ret = wait_for_completion_timeout(&usbio->done, timeout);
+		if (!ret)
+			return -ETIMEDOUT;
+
+		act = usbio->rxdat_len;
+		bpkt = (struct usbio_bulk_packet *)usbio->rxbuf;
+		dev_dbg(usbio->dev, "usb bulk received: %u", act);
+		dev_dbg(usbio->dev, "\thdr: %*phN data: %*phN", (int)sizeof(*bpkt),
+				bpkt, (int)bpkt->len, bpkt->data);
+
+		if (act < sizeof(*bpkt))
+			return -EIO;
+
+		ret = -EINVAL;
+		if ((bpkt->header.type == pkt->type) &&
+				(bpkt->header.cmd == pkt->cmd) &&
+				(bpkt->header.flags & USBIO_PKTFLAG_RSP)) {
+			ret = -ENODEV;
+			if (!(bpkt->header.flags & USBIO_PKTFLAG_ERR)) {
+				if (ibuf_len < bpkt->len)
+					return -ENOBUFS;
+				/* Copy the data */
+				memcpy(ibuf, bpkt->data, bpkt->len);
+				ret = bpkt->len;
+			} else
+				dev_err(usbio->dev,
+						"Packet error type: %u, cmd: %u, flags: %u",
+						bpkt->header.type, bpkt->header.cmd,
+						bpkt->header.flags);
+		} else
+			dev_err(usbio->dev, "Unexpected reply type: %u, cmd: %u",
+					bpkt->header.type, bpkt->header.cmd);
+	} else
+		ret = bpkt_len - sizeof(*bpkt);
+
+	return ret;
+}
+
 static int usbio_ctrl_protver(struct usbio_device *usbio)
 {
 	struct usbio_packet_header pkt = {
@@ -243,8 +347,12 @@ static int usbio_ctrl_enumi2cs(struct usbio_device *usbio)
 
 	usbio->nr_i2c_buses = ret / sizeof(*i2c);
 	dev_info(usbio->dev, "I2C Buses: %d", usbio->nr_i2c_buses);
-	for (i = 0; i < usbio->nr_i2c_buses; i++)
+	for (i = 0; i < usbio->nr_i2c_buses; i++) {
 		dev_info(usbio->dev, "\tBus%d caps: %#02x", i2c[i].id, i2c[i].caps);
+		if (usbio_add_client(usbio, USBIO_I2C_CLIENT, USBIO_I2C, i, &i2c[i]))
+			dev_warn(usbio->dev, "Client %s.%d add failed!",
+						USBIO_GPIO_CLIENT, i);
+	}
 
 	return 0;
 }
@@ -277,6 +385,7 @@ static int usbio_ctrl_enumspis(struct usbio_device *usbio)
 int usbio_gpio_handler(struct usbio_device *usbio, u8 cmd,
 		const void *obuf, u16 obuf_len, void *ibuf, u16 ibuf_len)
 {
+	const struct usbio_gpio_init *init = obuf;
 	struct usbio_packet_header pkt = {
 		USBIO_PKTTYPE_GPIO,
 		cmd,
@@ -284,10 +393,141 @@ int usbio_gpio_handler(struct usbio_device *usbio, u8 cmd,
 	};
 	int ret;
 
+	if (!init || init->bankid > usbio->nr_gpio_banks)
+		return -EINVAL;
+
 	mutex_lock(&usbio->mutex);
 	ret = usbio_control_msg(usbio, &pkt, obuf, obuf_len, ibuf, ibuf_len);
 	if (ret > 0)
 		ret -= obuf_len;
+	mutex_unlock(&usbio->mutex);
+
+	return ret;
+}
+
+#define I2C_RW_OVERHEAD (sizeof(struct usbio_bulk_packet) + \
+			sizeof(struct usbio_i2c_rw))
+
+int usbio_i2c_handler(struct usbio_device *usbio, u8 cmd,
+		const void *obuf, u16 obuf_len, void *ibuf, u16 ibuf_len)
+{
+	const struct usbio_i2c_init *init = obuf;
+	struct usbio_packet_header pkt = {
+		USBIO_PKTTYPE_I2C,
+		cmd,
+		ibuf_len ? USBIO_PKTFLAGS_REQRESP : USBIO_PKTFLAG_CMP
+	};
+	int ret;
+
+	if (!usbio->tx_pipe || !usbio->rx_pipe)
+		return -ENXIO;
+
+	if (!init || init->busid > usbio->nr_i2c_buses)
+		return -EINVAL;
+
+	switch (cmd) {
+	case USBIO_I2CCMD_INIT:
+		struct usbio_i2c_bus_desc *i2c = &usbio->i2cs[init->busid];
+		unsigned int mode = i2c->caps & USBIO_I2C_BUS_MODE_CAP_MASK;
+		uint32_t max_speed = usbio_i2c_speeds[mode];
+
+		if (init->speed > max_speed) {
+			u32 *speed = (u32 *)&init->speed;
+
+			dev_warn(usbio->dev,
+						"Invalid speed %u, adjusting to bus max %u",
+						*speed, max_speed);
+			*speed = max_speed;
+		}
+		break;
+
+	case USBIO_I2CCMD_WRITE:
+		const struct usbio_i2c_rw *i2cwr = obuf;
+		u16 txchunk = usbio->txbuf_len - I2C_RW_OVERHEAD;
+		u16 wsize = i2cwr->size;
+
+		if (wsize > txchunk) {
+			/* Need to split the output buffer */
+			struct usbio_i2c_rw *wr;
+			u16 len = 0;
+
+			wr = kzalloc(sizeof(*wr) + txchunk, GFP_KERNEL);
+			if (!wr) {
+				dev_err(usbio->dev, "Failed to allocate i2c txchunk of %u",
+						(u16)sizeof(*wr) + txchunk);
+				return -ENOMEM;
+			}
+
+			memcpy(wr, i2cwr, sizeof(*wr));
+			mutex_lock(&usbio->mutex);
+			do {
+				memcpy(wr->data, &i2cwr->data[len], txchunk);
+				len += txchunk;
+
+				ret = usbio_bulk_msg(usbio, &pkt, wsize == len,
+										wr, sizeof(*wr) + txchunk, ibuf,
+										ibuf_len, USBIO_BULKXFER_TIMEOUT);
+				if (ret < 0)
+					break;
+
+				if (wsize - len < txchunk)
+					txchunk = wsize - len;
+			} while (wsize > len);
+			mutex_unlock(&usbio->mutex);
+
+			kfree(wr);
+
+			return ret;
+		}
+		break;
+
+	case USBIO_I2CCMD_READ:
+		struct usbio_i2c_rw *i2crd = ibuf;
+		u16 rxchunk = usbio->rxbuf_len - I2C_RW_OVERHEAD;
+		u16 rsize = i2crd->size;
+
+		if (rsize > rxchunk) {
+			/* Need to split the input buffer */
+			struct usbio_i2c_rw *rd;
+			u16 len = 0;
+
+			rd = kzalloc(sizeof(*rd) + rxchunk, GFP_KERNEL);
+			if (!rd) {
+				dev_err(usbio->dev, "Failed to allocate i2c rxchunk of %u",
+						(u16)sizeof(*rd) + rxchunk);
+				return -ENOMEM;
+			}
+
+			mutex_lock(&usbio->mutex);
+			do {
+				if (rsize - len < rxchunk)
+					rxchunk = rsize - len;
+
+				ret = usbio_bulk_msg(usbio, &pkt, true, obuf,
+									len == 0 ? obuf_len : 0, rd,
+									sizeof(*rd) + rxchunk,
+									USBIO_BULKXFER_TIMEOUT);
+				if (ret < 0)
+					break;
+
+				memcpy(&i2crd->data[len], rd->data, rxchunk);
+				len += rxchunk;
+			} while (rsize > len);
+			mutex_unlock(&usbio->mutex);
+
+			if (rsize == len)
+				i2crd->size = rd->size;
+
+			kfree(rd);
+
+			return ret < 0 ? ret : sizeof(*i2crd) + i2crd->size;
+		}
+		break;
+	}
+
+	mutex_lock(&usbio->mutex);
+	ret = usbio_bulk_msg(usbio, &pkt, true, obuf, obuf_len,
+						ibuf, ibuf_len, USBIO_BULKXFER_TIMEOUT);
 	mutex_unlock(&usbio->mutex);
 
 	return ret;
@@ -334,11 +574,32 @@ int usbio_transfer(struct usbio_client *client, u8 cmd,
 			ret = usbio_gpio_handler(usbio, cmd, obuf, obuf_len,
 										ibuf, ibuf_len);
 		break;
+	case USBIO_I2C:
+		if (USBIO_I2CCMD_VALID(cmd))
+			ret = usbio_i2c_handler(usbio, cmd, obuf, obuf_len,
+										ibuf, ibuf_len);
+		break;
 	}
 
 	return ret;
 }
 EXPORT_SYMBOL_NS_GPL(usbio_transfer, "USBIO");
+
+static int usbio_suspend(struct usb_interface *intf, pm_message_t msg)
+{
+	struct usbio_device *usbio = usb_get_intfdata(intf);
+
+	usb_kill_urb(usbio->urb);
+
+	return 0;
+}
+
+static int usbio_resume(struct usb_interface *intf)
+{
+	struct usbio_device *usbio = usb_get_intfdata(intf);
+
+	return usb_submit_urb(usbio->urb, GFP_KERNEL);
+}
 
 static void usbio_disconnect(struct usb_interface *intf)
 {
@@ -381,6 +642,7 @@ static int usbio_probe(struct usb_interface *intf,
 	usbio->dev = dev;
 	usbio->udev = udev;
 	usbio->intf = usb_get_intf(intf);
+	init_completion(&usbio->done);
 	mutex_init(&usbio->mutex);
 	INIT_LIST_HEAD(&usbio->cli_list);
 	usb_set_intfdata(intf, usbio);
@@ -423,6 +685,20 @@ static int usbio_probe(struct usb_interface *intf,
 		dev_dbg(dev, "ep_out: %#02x size: %u ep_in: %#02x size: %u",
 				ep_out->bEndpointAddress, usbio->txbuf_len,
 				ep_in->bEndpointAddress, usbio->rxbuf_len);
+
+		usbio->urb = usb_alloc_urb(0, GFP_KERNEL);
+		if (!usbio->urb) {
+			dev_err(dev, "Failed to allocate usb urb");
+			goto error;
+		}
+
+		usb_fill_bulk_urb(usbio->urb, udev, usbio->rx_pipe, usbio->rxbuf,
+				usbio->rxbuf_len, usbio_bulk_recv, usbio);
+		ret = usb_submit_urb(usbio->urb, GFP_KERNEL);
+		if (ret) {
+			dev_err(dev, "Failed to submit usb urb");
+			goto error;
+		}
 	} else
 		dev_warn(dev, "Couldn't find both bulk-in and bulk-out endpoints");
 
@@ -471,6 +747,8 @@ static struct usb_driver usbio_driver = {
 	.name = "usbio-bridge",
 	.probe = usbio_probe,
 	.disconnect = usbio_disconnect,
+	.suspend = usbio_suspend,
+	.resume = usbio_resume,
 	.id_table = usbio_table,
 	.supports_autosuspend = 1
 };
