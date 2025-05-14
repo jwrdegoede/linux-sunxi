@@ -7,8 +7,10 @@
 #ifndef _USBIO_H_
 #define _USBIO_H_
 
+#include <linux/mutex.h>
 #include <linux/i2c.h>
 #include <linux/usb.h>
+#include <linux/usbio.h>
 
 /*************************************
  * USBIO Bridge Protocol Definitions *
@@ -17,9 +19,9 @@
 /* USBIO Packet Type */
 #define USBIO_PKTTYPE_CTRL	1
 #define USBIO_PKTTYPE_DBG	2
-#define USBIO_PKTTYPE_GPIO	3
-#define USBIO_PKTTYPE_I2C	4
-#define USBIO_PKTTYPE_SPI	5
+#define USBIO_PKTTYPE_GPIO	USBIO_GPIO
+#define USBIO_PKTTYPE_I2C	USBIO_I2C
+#define USBIO_PKTTYPE_SPI	USBIO_SPI
 
 /* USBIO Control Commands */
 #define USBIO_CTRLCMD_PROTVER	0
@@ -117,7 +119,6 @@ struct usbio_dev_info {
 	struct usbio_fwver fwver;
 };
 
-#define MAX_GPIOBANKS	5
 #define MAX_I2CBUSES	5
 #define MAX_SPIBUSES	5
 
@@ -137,6 +138,8 @@ struct usbio_dev_info {
  * @rxbuf_len: the size of the bulk in pipe
  * @rxbuf: the buffer used for bulk in transfers
  * @info: the device's protocol and firmware information
+ * @mutex: protection against access concurrency
+ * @cli_list: device's client list
  */
 struct usbio_device {
 	struct device *dev;
@@ -156,9 +159,12 @@ struct usbio_device {
 	void *rxbuf;
 
 	struct usbio_dev_info info;
+	struct mutex mutex;
+
+	struct list_head cli_list;
 
 	unsigned int nr_gpio_banks;
-	struct usbio_gpio_bank_desc gpios[MAX_GPIOBANKS];
+	struct usbio_gpio_bank_desc gpios[USBIO_MAX_GPIOBANKS];
 
 	unsigned int nr_i2c_buses;
 	struct usbio_i2c_bus_desc i2cs[MAX_I2CBUSES];
@@ -166,5 +172,8 @@ struct usbio_device {
 	unsigned int nr_spi_buses;
 	struct usbio_spi_bus_desc spis[MAX_SPIBUSES];
 };
+
+int usbio_gpio_handler(struct usbio_device *usbio, u8 cmd,
+		const void *obuf, u16 obuf_len, void *ibuf, u16 ibuf_len);
 
 #endif
