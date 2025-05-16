@@ -398,6 +398,30 @@ static int gc0310_set_selection(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int gc0310_power_off(struct device *dev)
+{
+	struct v4l2_subdev *sd = dev_get_drvdata(dev);
+	struct gc0310_device *sensor = to_gc0310_sensor(sd);
+
+	gpiod_set_value_cansleep(sensor->powerdown, 1);
+	gpiod_set_value_cansleep(sensor->reset, 1);
+	return 0;
+}
+
+static int gc0310_power_on(struct device *dev)
+{
+	struct v4l2_subdev *sd = dev_get_drvdata(dev);
+	struct gc0310_device *sensor = to_gc0310_sensor(sd);
+
+	fsleep(10000);
+	gpiod_set_value_cansleep(sensor->reset, 0);
+	fsleep(10000);
+	gpiod_set_value_cansleep(sensor->powerdown, 0);
+	fsleep(10000);
+
+	return 0;
+}
+
 static int gc0310_detect(struct gc0310_device *sensor)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&sensor->sd);
@@ -779,31 +803,8 @@ static int gc0310_probe(struct i2c_client *client)
 	return 0;
 }
 
-static int gc0310_suspend(struct device *dev)
-{
-	struct v4l2_subdev *sd = dev_get_drvdata(dev);
-	struct gc0310_device *sensor = to_gc0310_sensor(sd);
-
-	gpiod_set_value_cansleep(sensor->powerdown, 1);
-	gpiod_set_value_cansleep(sensor->reset, 1);
-	return 0;
-}
-
-static int gc0310_resume(struct device *dev)
-{
-	struct v4l2_subdev *sd = dev_get_drvdata(dev);
-	struct gc0310_device *sensor = to_gc0310_sensor(sd);
-
-	fsleep(10000);
-	gpiod_set_value_cansleep(sensor->reset, 0);
-	fsleep(10000);
-	gpiod_set_value_cansleep(sensor->powerdown, 0);
-	fsleep(10000);
-
-	return 0;
-}
-
-static DEFINE_RUNTIME_DEV_PM_OPS(gc0310_pm_ops, gc0310_suspend, gc0310_resume, NULL);
+static DEFINE_RUNTIME_DEV_PM_OPS(gc0310_pm_ops, gc0310_power_off,
+				 gc0310_power_on, NULL);
 
 static const struct acpi_device_id gc0310_acpi_match[] = {
 	{"INT0310"},
