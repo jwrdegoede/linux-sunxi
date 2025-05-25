@@ -467,7 +467,8 @@ static const struct mt9m114_format_info mt9m114_format_infos[] = {
 		/* Keep the format compatible with the IFP sink pad last. */
 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 		.output_format = MT9M114_CAM_OUTPUT_FORMAT_BAYER_FORMAT_RAWR10
-			| MT9M114_CAM_OUTPUT_FORMAT_FORMAT_BAYER,
+			| MT9M114_CAM_OUTPUT_FORMAT_FORMAT_BAYER
+			| MT9M114_CAM_OUTPUT_FORMAT_BT656_CROP_SCALE_DISABLE,
 		.flags = MT9M114_FMT_FLAG_PARALLEL | MT9M114_FMT_FLAG_CSI2,
 	}
 };
@@ -850,6 +851,7 @@ static int mt9m114_configure_ifp(struct mt9m114 *sensor,
 	const struct v4l2_mbus_framefmt *format;
 	const struct v4l2_rect *crop;
 	const struct v4l2_rect *compose;
+	unsigned int border;
 	u64 output_format;
 	int ret = 0;
 
@@ -869,10 +871,12 @@ static int mt9m114_configure_ifp(struct mt9m114 *sensor,
 	 * by demosaicing that are taken into account in the crop rectangle but
 	 * not in the hardware.
 	 */
+	border = (format->code == MEDIA_BUS_FMT_SGRBG10_1X10) ? 0 : 4;
+
 	cci_write(sensor->regmap, MT9M114_CAM_CROP_WINDOW_XOFFSET,
-		  crop->left - 4, &ret);
+		  crop->left - border, &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_CROP_WINDOW_YOFFSET,
-		  crop->top - 4, &ret);
+		  crop->top - border, &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_CROP_WINDOW_WIDTH,
 		  crop->width, &ret);
 	cci_write(sensor->regmap, MT9M114_CAM_CROP_WINDOW_HEIGHT,
@@ -911,7 +915,8 @@ static int mt9m114_configure_ifp(struct mt9m114 *sensor,
 			   MT9M114_CAM_OUTPUT_FORMAT_BAYER_FORMAT_MASK |
 			   MT9M114_CAM_OUTPUT_FORMAT_FORMAT_MASK |
 			   MT9M114_CAM_OUTPUT_FORMAT_SWAP_BYTES |
-			   MT9M114_CAM_OUTPUT_FORMAT_SWAP_RED_BLUE);
+			   MT9M114_CAM_OUTPUT_FORMAT_SWAP_RED_BLUE |
+			   MT9M114_CAM_OUTPUT_FORMAT_BT656_CROP_SCALE_DISABLE);
 	output_format |= info->output_format;
 
 	cci_write(sensor->regmap, MT9M114_CAM_OUTPUT_FORMAT,
@@ -1810,6 +1815,7 @@ static int mt9m114_ifp_set_fmt(struct v4l2_subdev *sd,
 {
 	struct mt9m114 *sensor = ifp_to_mt9m114(sd);
 	struct v4l2_mbus_framefmt *format;
+	struct v4l2_rect *crop;
 
 	format = v4l2_subdev_state_get_format(state, fmt->pad);
 
@@ -1830,8 +1836,15 @@ static int mt9m114_ifp_set_fmt(struct v4l2_subdev *sd,
 		format->code = info->code;
 
 		/* If the output format is RAW10, bypass the scaler. */
-		if (format->code == MEDIA_BUS_FMT_SGRBG10_1X10)
+		if (format->code == MEDIA_BUS_FMT_SGRBG10_1X10) {
 			*format = *v4l2_subdev_state_get_format(state, 0);
+			crop = v4l2_subdev_state_get_crop(state, 0);
+			crop->left = 0;
+			crop->top = 0;
+			crop->width = format->width;
+			crop->height = format->height;
+			*v4l2_subdev_state_get_compose(state, 0) = *crop;
+		}
 	}
 
 	fmt->format = *format;
@@ -1850,6 +1863,12 @@ static int mt9m114_ifp_get_selection(struct v4l2_subdev *sd,
 	/* Crop and compose are only supported on the sink pad. */
 	if (sel->pad != 0)
 		return -EINVAL;
+
+	/* Crop and compose cannot be changed when bypassing the scaler */
+	if (v4l2_subdev_state_get_format(state, 1)->code == MEDIA_BUS_FMT_SGRBG10_1X10) {
+		sel->r = *v4l2_subdev_state_get_crop(state, 0);
+		return 0;
+	}
 
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
@@ -1910,6 +1929,12 @@ static int mt9m114_ifp_set_selection(struct v4l2_subdev *sd,
 	/* Crop and compose are only supported on the sink pad. */
 	if (sel->pad != 0)
 		return -EINVAL;
+
+	/* Crop and compose cannot be changed when bypassing the scaler */
+	if (v4l2_subdev_state_get_format(state, 1)->code == MEDIA_BUS_FMT_SGRBG10_1X10) {
+		sel->r = *v4l2_subdev_state_get_crop(state, 0);
+		return 0;
+	}
 
 	format = v4l2_subdev_state_get_format(state, 0);
 	crop = v4l2_subdev_state_get_crop(state, 0);
