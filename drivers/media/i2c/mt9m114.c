@@ -389,6 +389,7 @@ struct mt9m114 {
 
 	unsigned int pixrate;
 	bool streaming;
+	bool config_change_pending;
 	u32 clk_freq;
 
 	/* Pixel Array */
@@ -781,14 +782,7 @@ static int mt9m114_initialize(struct mt9m114 *sensor)
 	if (ret < 0)
 		return ret;
 
-	ret = mt9m114_set_state(sensor, MT9M114_SYS_STATE_ENTER_CONFIG_CHANGE);
-	if (ret < 0)
-		return ret;
-
-	ret = mt9m114_set_state(sensor, MT9M114_SYS_STATE_ENTER_SUSPEND);
-	if (ret < 0)
-		return ret;
-
+	sensor->config_change_pending = true;
 	return 0;
 }
 
@@ -987,6 +981,7 @@ static int mt9m114_start_streaming(struct mt9m114 *sensor,
 	if (ret)
 		goto error;
 
+	sensor->config_change_pending = false;
 	sensor->streaming = true;
 
 	return 0;
@@ -2314,6 +2309,14 @@ static int __maybe_unused mt9m114_runtime_suspend(struct device *dev)
 {
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct mt9m114 *sensor = ifp_to_mt9m114(sd);
+
+	if (sensor->config_change_pending) {
+		/* mt9m114_set_state() prints errors itself, no need to check */
+		mt9m114_set_state(sensor,
+				  MT9M114_SYS_STATE_ENTER_CONFIG_CHANGE);
+		mt9m114_set_state(sensor,
+				  MT9M114_SYS_STATE_ENTER_SUSPEND);
+	}
 
 	mt9m114_power_off(sensor);
 
