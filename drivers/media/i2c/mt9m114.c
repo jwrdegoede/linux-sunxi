@@ -388,6 +388,7 @@ struct mt9m114 {
 
 	unsigned int pixrate;
 	bool streaming;
+	u32 clk_freq;
 
 	/* Pixel Array */
 	struct {
@@ -2134,14 +2135,13 @@ static int mt9m114_power_on(struct mt9m114 *sensor)
 
 	/* Perform a hard reset if available, or a soft reset otherwise. */
 	if (sensor->reset) {
-		long freq = clk_get_rate(sensor->clk);
 		unsigned int duration;
 
 		/*
 		 * The minimum duration is 50 clock cycles, thus typically
 		 * around 2µs. Double it to be safe.
 		 */
-		duration = DIV_ROUND_UP(2 * 50 * 1000000, freq);
+		duration = DIV_ROUND_UP(2 * 50 * 1000000, sensor->clk_freq);
 
 		gpiod_set_value(sensor->reset, 1);
 		fsleep(duration);
@@ -2279,7 +2279,7 @@ static int mt9m114_clk_init(struct mt9m114 *sensor)
 	 * Check if EXTCLK fits the configured link frequency. Bypass the PLL
 	 * in this case.
 	 */
-	pixrate = clk_get_rate(sensor->clk) / 2;
+	pixrate = sensor->clk_freq / 2;
 	if (mt9m114_verify_link_frequency(sensor, pixrate) == 0) {
 		sensor->pixrate = pixrate;
 		sensor->bypass_pll = true;
@@ -2287,7 +2287,7 @@ static int mt9m114_clk_init(struct mt9m114 *sensor)
 	}
 
 	/* Check if the PLL configuration fits the configured link frequency. */
-	pixrate = clk_get_rate(sensor->clk) * sensor->pll.m
+	pixrate = sensor->clk_freq * sensor->pll.m
 		/ ((sensor->pll.n + 1) * (sensor->pll.p + 1));
 	if (mt9m114_verify_link_frequency(sensor, pixrate) == 0) {
 		sensor->pixrate = pixrate;
@@ -2395,11 +2395,23 @@ static int mt9m114_probe(struct i2c_client *client)
 		return ret;
 
 	/* Acquire clocks, GPIOs and regulators. */
-	sensor->clk = devm_clk_get(dev, NULL);
+	sensor->clk = devm_clk_get_optional(dev, NULL);
 	if (IS_ERR(sensor->clk)) {
 		ret = PTR_ERR(sensor->clk);
 		dev_err_probe(dev, ret, "Failed to get clock\n");
 		goto error_ep_free;
+	}
+
+	if (sensor->clk) {
+		sensor->clk_freq = clk_get_rate(sensor->clk);
+	} else {
+		ret = fwnode_property_read_u32(dev_fwnode(dev),
+					       "clock-frequency",
+					       &sensor->clk_freq);
+		if (ret) {
+			dev_err_probe(dev, ret, "Failed to read clock-freq\n");
+			goto error_ep_free;
+		}
 	}
 
 	sensor->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
