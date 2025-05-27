@@ -14,7 +14,6 @@ struct v4l2_mbus_frame_desc_entry;
 
 struct ipu6_isys_video;
 struct ipu6_isys;
-struct ipu6_isys_csi2_pdata;
 struct ipu6_isys_stream;
 
 #define NR_OF_CSI2_VC		16
@@ -37,7 +36,6 @@ struct ipu6_isys_stream;
 
 struct ipu6_isys_csi2 {
 	struct ipu6_isys_subdev asd;
-	struct ipu6_isys_csi2_pdata *pdata;
 	struct ipu6_isys *isys;
 	struct ipu6_isys_video av[NR_OF_CSI2_SRC_PADS];
 
@@ -45,6 +43,7 @@ struct ipu6_isys_csi2 {
 	u32 receiver_errors;
 	unsigned int nlanes;
 	unsigned int port;
+	unsigned int stream_count;
 };
 
 struct ipu6_isys_csi2_timing {
@@ -75,6 +74,7 @@ void ipu6_isys_csi2_error(struct ipu6_isys_csi2 *csi2);
 int ipu6_isys_csi2_get_remote_desc(u32 source_stream,
 				   struct ipu6_isys_csi2 *csi2,
 				   struct media_entity *source_entity,
-				   struct v4l2_mbus_frame_desc_entry *entry);
+				   struct v4l2_mbus_frame_desc_entry *entry,
+				   int *nr_queues);
 
 #endif /* IPU6_ISYS_CSI2_H */

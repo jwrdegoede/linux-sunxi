@@ -55,7 +55,7 @@ static const struct ipu_sensor_config ipu_supported_sensors[] = {
 	/* Himax HM2172 */
 	IPU_SENSOR_CONFIG("HIMX2172", 1, 384000000),
 	/* GalaxyCore GC0310 */
-	IPU_SENSOR_CONFIG("INT0310", 0),
+	IPU_SENSOR_CONFIG("INT0310", 1, 55692000),
 	/* Omnivision OV5693 */
 	IPU_SENSOR_CONFIG("INT33BE", 1, 419200000),
 	/* Omnivision OV2740 */
@@ -66,6 +66,8 @@ static const struct ipu_sensor_config ipu_supported_sensors[] = {
 	IPU_SENSOR_CONFIG("INT347E", 1, 319200000),
 	/* Hynix Hi-556 */
 	IPU_SENSOR_CONFIG("INT3537", 1, 437000000),
+	/* Lontium lt6911uxe */
+	IPU_SENSOR_CONFIG("INTC10C5", 0),
 	/* Omnivision OV01A10 / OV01A1S */
 	IPU_SENSOR_CONFIG("OVTI01A0", 1, 400000000),
 	IPU_SENSOR_CONFIG("OVTI01AS", 1, 400000000),
