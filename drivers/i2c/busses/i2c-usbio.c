@@ -174,6 +174,8 @@ static int usbio_i2c_probe(struct auxiliary_device *adev,
 	snprintf(i2c->adap.name, sizeof(i2c->adap.name), "%s.%d",
 				USBIO_I2C_CLIENT, i2c->id);
 
+	device_set_node(&i2c->adap.dev, dev_fwnode(&adev->dev));
+
 	auxiliary_set_drvdata(adev, i2c);
 	i2c_set_adapdata(&i2c->adap, i2c);
 
@@ -184,8 +186,8 @@ static int usbio_i2c_probe(struct auxiliary_device *adev,
 		return ret;
 	}
 
-	if (has_acpi_companion(dev))
-		acpi_dev_clear_dependencies(ACPI_COMPANION(dev));
+	if (has_acpi_companion(&i2c->adap.dev))
+		acpi_dev_clear_dependencies(ACPI_COMPANION(&i2c->adap.dev));
 
 	return 0;
 }
