@@ -44,7 +44,7 @@ static int usbio_i2c_init(struct i2c_adapter *adap, struct i2c_msg *msg)
 	ibuf.config = msg->addr;
 	ibuf.speed = i2c->speed;
 	ret = usbio_transfer(i2c->client, USBIO_I2CCMD_INIT, &ibuf, sizeof(ibuf),
-							&ibuf, sizeof(ibuf));
+							NULL, 0);
 	if (ret >= 0)
 		ret = ret != sizeof(ibuf) ? -EIO : 0;
 
