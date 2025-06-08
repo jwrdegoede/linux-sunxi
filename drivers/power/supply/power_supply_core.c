@@ -795,19 +795,20 @@ int power_supply_get_battery_info(struct power_supply *psy,
 	}
 
 	proplen = fwnode_property_count_u32(fwnode, "resistance-temp-table");
-	if (proplen < 0 || proplen % 2 != 0) {
+	if (proplen == 0 || proplen == -EINVAL) {
+		err = 0;
+		goto out_ret_pointer;
+	} else if (proplen < 0 || proplen % 2 != 0) {
 		power_supply_put_battery_info(psy, info);
-		err = -ENOMEM;
-		goto out_ret_pointer;
-	} else if (proplen == 0) {
-		goto out_ret_pointer;
+		err = (proplen < 0) ? proplen : -EINVAL;
+		goto out_put_node;
 	}
 
 	propdata = kcalloc(proplen, sizeof(*propdata), GFP_KERNEL);
 	if (!propdata) {
 		power_supply_put_battery_info(psy, info);
 		err = -ENOMEM;
-		goto out_ret_pointer;
+		goto out_put_node;
 	}
 
 	err = fwnode_property_read_u32_array(fwnode, "resistance-temp-table",
