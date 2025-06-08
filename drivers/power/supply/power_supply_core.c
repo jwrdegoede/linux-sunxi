@@ -588,7 +588,7 @@ int power_supply_get_battery_info(struct power_supply *psy,
 	struct fwnode_handle *srcnode, *fwnode;
 	const char *value;
 	int err, len, index, proplen;
-	u32 *propdata;
+	u32 *propdata __free(kfree) = NULL;
 	u32 min_max[2];
 
 	srcnode = dev_fwnode(&psy->dev);
@@ -758,9 +758,9 @@ int power_supply_get_battery_info(struct power_supply *psy,
 			err = -EINVAL;
 			goto out_put_node;
 		}
-		propdata = kcalloc(proplen, sizeof(*propdata), GFP_KERNEL);
+
+		u32 *propdata __free(kfree) = kcalloc(proplen, sizeof(*propdata), GFP_KERNEL);
 		if (!propdata) {
-			kfree(propname);
 			power_supply_put_battery_info(psy, info);
 			err = -EINVAL;
 			goto out_put_node;
@@ -768,8 +768,6 @@ int power_supply_get_battery_info(struct power_supply *psy,
 		err = fwnode_property_read_u32_array(fwnode, propname, propdata, proplen);
 		if (err < 0) {
 			dev_err(&psy->dev, "failed to get %s\n", propname);
-			kfree(propname);
-			kfree(propdata);
 			power_supply_put_battery_info(psy, info);
 			goto out_put_node;
 		}
@@ -780,7 +778,6 @@ int power_supply_get_battery_info(struct power_supply *psy,
 		info->ocv_table[index] = table =
 			devm_kcalloc(&psy->dev, tab_len, sizeof(*table), GFP_KERNEL);
 		if (!info->ocv_table[index]) {
-			kfree(propdata);
 			power_supply_put_battery_info(psy, info);
 			err = -ENOMEM;
 			goto out_put_node;
@@ -790,8 +787,6 @@ int power_supply_get_battery_info(struct power_supply *psy,
 			table[i].ocv = propdata[i*2];
 			table[i].capacity = propdata[i*2+1];
 		}
-
-		kfree(propdata);
 	}
 
 	proplen = fwnode_property_count_u32(fwnode, "resistance-temp-table");
@@ -814,7 +809,6 @@ int power_supply_get_battery_info(struct power_supply *psy,
 	err = fwnode_property_read_u32_array(fwnode, "resistance-temp-table",
 					     propdata, proplen);
 	if (err < 0) {
-		kfree(propdata);
 		power_supply_put_battery_info(psy, info);
 		goto out_put_node;
 	}
@@ -825,7 +819,6 @@ int power_supply_get_battery_info(struct power_supply *psy,
 							 sizeof(*resist_table),
 							 GFP_KERNEL);
 	if (!info->resist_table) {
-		kfree(propdata);
 		power_supply_put_battery_info(psy, info);
 		err = -ENOMEM;
 		goto out_put_node;
@@ -835,8 +828,6 @@ int power_supply_get_battery_info(struct power_supply *psy,
 		resist_table[index].temp = propdata[index*2];
 		resist_table[index].resistance = propdata[index*2+1];
 	}
-
-	kfree(propdata);
 
 out_ret_pointer:
 	/* Finally return the whole thing */
