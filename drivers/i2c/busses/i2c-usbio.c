@@ -44,7 +44,13 @@ static int usbio_i2c_init(struct i2c_adapter *adap, struct i2c_msg *msg)
 	ibuf.config = msg->addr;
 	ibuf.speed = i2c->speed;
 	ret = usbio_transfer(i2c->client, USBIO_I2CCMD_INIT, &ibuf, sizeof(ibuf),
-							&ibuf, sizeof(ibuf));
+							NULL, 0);
+//							&ibuf, sizeof(ibuf));
+
+	if (ret != sizeof(ibuf))
+		dev_info(adap->dev.parent, "i2c_init err exp %d got %d\n",
+			 (int)sizeof(ibuf), ret);
+
 	if (ret >= 0)
 		ret = ret != sizeof(ibuf) ? -EIO : 0;
 
@@ -67,6 +73,9 @@ static int usbio_i2c_read(struct i2c_adapter *adap, struct i2c_msg *msg)
 
 	ret = usbio_transfer(i2c->client, USBIO_I2CCMD_READ, rbuf, sizeof(*rbuf),
 							rbuf, sizeof(*rbuf) + msg->len);
+	if (ret != sizeof(*rbuf))
+		dev_info(adap->dev.parent, "i2c_read err exp %d got %d\n",
+			 (int)sizeof(*rbuf), ret);
 	if (ret >= 0)
 		ret = ret == sizeof(*rbuf) + msg->len ? 0 : -EIO;
 
@@ -98,6 +107,9 @@ static int usbio_i2c_write(struct i2c_adapter *adap, struct i2c_msg *msg)
 	dev_dbg(adap->dev.parent, "WR[%d]:%*phN", msg->len, msg->len, msg->buf);
 	ret = usbio_transfer(i2c->client, USBIO_I2CCMD_WRITE, wbuf,
 							sizeof(*wbuf) + msg->len, wbuf, sizeof(*wbuf));
+	if (ret + wbuf->size != sizeof(*wbuf) + msg->len)
+		dev_info(adap->dev.parent, "i2c_write err exp %d got %d + %d\n",
+			 (int)sizeof(*wbuf) + msg->len, ret, (int)wbuf->size);
 	if (ret >= 0)
 		ret = ret + wbuf->size == sizeof(*wbuf) + msg->len ? 0 : -EIO;
 
@@ -137,8 +149,8 @@ static u32 usbio_i2c_func(struct i2c_adapter *adap)
 
 static const struct i2c_adapter_quirks usbio_i2c_quirks = {
 	.flags = I2C_AQ_NO_REP_START,
-	.max_read_len = SZ_4K,
-	.max_write_len = SZ_4K
+	.max_read_len = 64,
+	.max_write_len = 64,
 };
 
 static const struct i2c_algorithm usbio_i2c_algo = {
