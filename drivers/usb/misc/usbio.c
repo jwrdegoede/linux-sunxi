@@ -142,8 +142,8 @@ static int usbio_bulk_msg(struct usbio_device *usbio,
 	reinit_completion(&usbio->done);
 	ret = usb_bulk_msg(usbio->udev, usbio->tx_pipe,
 						(void *)bpkt, bpkt_len, &act, timeout);
-	dev_dbg(usbio->dev, "usb bulk sent: %u", act);
-	dev_dbg(usbio->dev, "\thdr: %*phN data: %*phN", (int)sizeof(*bpkt), bpkt,
+	dev_info(usbio->dev, "usb bulk sent: %u exp: %d ret %d", act, (int)bpkt_len, ret);
+	dev_info(usbio->dev, "\thdr: %*phN data: %*phN", (int)sizeof(*bpkt), bpkt,
 				(int)bpkt->len, bpkt->data);
 
 	if (ret || act != bpkt_len)
@@ -160,17 +160,23 @@ read:
 		}
 
 		ret = wait_for_completion_timeout(&usbio->done, timeout);
-		if (!ret)
+		if (!ret) {
+			dev_err(usbio->dev, "wait for compl timeout\n");
 			return -ETIMEDOUT;
+		}
 
 		act = usbio->rxdat_len;
 		bpkt = (struct usbio_bulk_packet *)usbio->rxbuf;
-		dev_dbg(usbio->dev, "usb bulk received: %u", act);
-		dev_dbg(usbio->dev, "\thdr: %*phN data: %*phN", (int)sizeof(*bpkt),
+		dev_info(usbio->dev, "usb bulk received: %u expect %d", act, (int)(sizeof(struct usbio_packet_header)));
+		dev_info(usbio->dev, "\thdr: %*phN data: %*phN", (int)sizeof(*bpkt),
 				bpkt, (int)bpkt->len, bpkt->data);
 
-		if (act < sizeof(*bpkt))
+		if (act < sizeof(struct usbio_packet_header))
 			return -EIO;
+
+		/* Some hw does not send the length field for 0 length packets */
+		if (act < sizeof(*bpkt))
+			bpkt->len = 0;
 
 		ret = -EINVAL;
 		if ((bpkt->header.type == pkt->type) &&
@@ -427,7 +433,7 @@ int usbio_i2c_handler(struct usbio_device *usbio, u8 cmd,
 
 	switch (cmd) {
 	case USBIO_I2CCMD_INIT:
-		struct usbio_i2c_bus_desc *i2c = &usbio->i2cs[init->busid];
+/*		struct usbio_i2c_bus_desc *i2c = &usbio->i2cs[init->busid];
 		unsigned int mode = i2c->caps & USBIO_I2C_BUS_MODE_CAP_MASK;
 		uint32_t max_speed = usbio_i2c_speeds[mode];
 
@@ -439,6 +445,7 @@ int usbio_i2c_handler(struct usbio_device *usbio, u8 cmd,
 						*speed, max_speed);
 			*speed = max_speed;
 		}
+		*/
 		break;
 
 	case USBIO_I2CCMD_WRITE:
