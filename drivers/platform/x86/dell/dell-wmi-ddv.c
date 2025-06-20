@@ -689,9 +689,11 @@ static int dell_wmi_ddv_battery_translate(struct dell_wmi_ddv_data *data,
 
 	dev_dbg(&data->wdev->dev, "Translation cache miss\n");
 
-	/* Perform a translation between a ACPI battery and a battery index */
-
-	ret = power_supply_get_property(battery, POWER_SUPPLY_PROP_SERIAL_NUMBER, &val);
+	/*
+	 * Perform a translation between a ACPI battery and a battery index. Directly call
+	 * desc->get_property() to avoid locking battery->extensions_sem a second time.
+	 */
+	ret = battery->desc->get_property(battery, POWER_SUPPLY_PROP_SERIAL_NUMBER, &val);
 	if (ret < 0)
 		return ret;
 
