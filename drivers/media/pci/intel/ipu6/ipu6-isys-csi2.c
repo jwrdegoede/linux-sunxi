@@ -339,6 +339,12 @@ static int ipu6_isys_csi2_set_stream(struct v4l2_subdev *sd,
 	return ret;
 }
 
+/*
+ * Maximum stream ID is 63 for now, as we use u64 bitmask to represent a set
+ * of streams.
+ */
+#define CSI2_SUBDEV_MAX_STREAM_ID 63
+
 static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 					 struct v4l2_subdev_state *state,
 					 u32 pad, u64 streams_mask)
@@ -346,54 +352,83 @@ static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 	struct ipu6_isys_subdev *asd = to_ipu6_isys_subdev(sd);
 	struct ipu6_isys_csi2 *csi2 = to_ipu6_isys_csi2(asd);
 	struct ipu6_isys_csi2_timing timing = { };
-	struct v4l2_subdev *remote_sd;
-	struct media_pad *remote_pad;
-	u64 sink_streams;
-	int ret;
+	u32 sink_pad, sink_stream;
+	struct v4l2_subdev *r_sd;
+	struct media_pad *r_pad;
+	int ret, i;
 
-	remote_pad = media_pad_remote_pad_first(&sd->entity.pads[CSI2_PAD_SINK]);
-	remote_sd = media_entity_to_v4l2_subdev(remote_pad->entity);
+	if (!csi2->stream_count) {
+		ret = ipu6_isys_csi2_calc_timing(csi2, &timing, CSI2_ACCINV);
+		if (ret)
+			return ret;
 
-	sink_streams = v4l2_subdev_state_xlate_streams(state, CSI2_PAD_SRC,
-						       CSI2_PAD_SINK,
-						       &streams_mask);
-
-	ret = ipu6_isys_csi2_calc_timing(csi2, &timing, CSI2_ACCINV);
-	if (ret)
-		return ret;
-
-	ret = ipu6_isys_csi2_set_stream(sd, &timing, csi2->nlanes, true);
-	if (ret)
-		return ret;
-
-	ret = v4l2_subdev_enable_streams(remote_sd, remote_pad->index,
-					 sink_streams);
-	if (ret) {
-		ipu6_isys_csi2_set_stream(sd, NULL, 0, false);
-		return ret;
+		ret = ipu6_isys_csi2_set_stream(sd, &timing, csi2->nlanes,
+						true);
+		if (ret)
+			return ret;
 	}
 
-	return 0;
+	i = ffs(streams_mask);
+	if (i == 0 || i > CSI2_SUBDEV_MAX_STREAM_ID + 1)
+		return -EINVAL;
+
+	ret = v4l2_subdev_routing_find_opposite_end(&state->routing, pad, i - 1,
+						    &sink_pad, &sink_stream);
+	if (ret)
+		return ret;
+
+	r_pad = media_pad_remote_pad_first(&sd->entity.pads[CSI2_PAD_SINK]);
+	r_sd = media_entity_to_v4l2_subdev(r_pad->entity);
+
+	ret = v4l2_subdev_enable_streams(r_sd, r_pad->index,
+					 BIT_ULL(sink_stream));
+	if (!ret) {
+		csi2->stream_count++;
+		return 0;
+	}
+
+	if (!csi2->stream_count)
+		ipu6_isys_csi2_set_stream(sd, NULL, 0, false);
+
+	return ret;
 }
 
 static int ipu6_isys_csi2_disable_streams(struct v4l2_subdev *sd,
 					  struct v4l2_subdev_state *state,
 					  u32 pad, u64 streams_mask)
 {
-	struct v4l2_subdev *remote_sd;
-	struct media_pad *remote_pad;
-	u64 sink_streams;
+	struct ipu6_isys_subdev *asd = to_ipu6_isys_subdev(sd);
+	struct ipu6_isys_csi2 *csi2 = to_ipu6_isys_csi2(asd);
+	u32 sink_pad, sink_stream;
+	struct v4l2_subdev *r_sd;
+	struct media_pad *r_pad;
+	int ret, i;
 
-	sink_streams = v4l2_subdev_state_xlate_streams(state, CSI2_PAD_SRC,
-						       CSI2_PAD_SINK,
-						       &streams_mask);
+	i = ffs(streams_mask);
+	if (i == 0 || i > CSI2_SUBDEV_MAX_STREAM_ID + 1) {
+		dev_err(&csi2->isys->adev->auxdev.dev,
+			"invalid stream id %u\n", i);
+		return -EINVAL;
+	}
 
-	remote_pad = media_pad_remote_pad_first(&sd->entity.pads[CSI2_PAD_SINK]);
-	remote_sd = media_entity_to_v4l2_subdev(remote_pad->entity);
+	ret = v4l2_subdev_routing_find_opposite_end(&state->routing, pad, i - 1,
+						    &sink_pad, &sink_stream);
+	if (ret)
+		return ret;
+
+	r_pad = media_pad_remote_pad_first(&sd->entity.pads[CSI2_PAD_SINK]);
+	r_sd = media_entity_to_v4l2_subdev(r_pad->entity);
+
+	v4l2_subdev_disable_streams(r_sd, r_pad->index, BIT_ULL(sink_stream));
+
+	csi2->stream_count--;
+	if (csi2->stream_count)
+		return 0;
+
+	dev_dbg(&csi2->isys->adev->auxdev.dev,
+		"stream off CSI2-%u with %u lanes\n", csi2->port, csi2->nlanes);
 
 	ipu6_isys_csi2_set_stream(sd, NULL, 0, false);
-
-	v4l2_subdev_disable_streams(remote_sd, remote_pad->index, sink_streams);
 
 	return 0;
 }
@@ -592,7 +627,8 @@ void ipu6_isys_csi2_eof_event_by_stream(struct ipu6_isys_stream *stream)
 int ipu6_isys_csi2_get_remote_desc(u32 source_stream,
 				   struct ipu6_isys_csi2 *csi2,
 				   struct media_entity *source_entity,
-				   struct v4l2_mbus_frame_desc_entry *entry)
+				   struct v4l2_mbus_frame_desc_entry *entry,
+				   int *nr_queues)
 {
 	struct v4l2_mbus_frame_desc_entry *desc_entry = NULL;
 	struct device *dev = &csi2->isys->adev->auxdev.dev;
@@ -638,6 +674,11 @@ int ipu6_isys_csi2_get_remote_desc(u32 source_stream,
 	}
 
 	*entry = *desc_entry;
+
+	for (i = 0; i < desc.num_entries; i++) {
+		if (desc_entry->bus.csi2.vc == desc.entry[i].bus.csi2.vc)
+			(*nr_queues)++;
+	}
 
 	return 0;
 }
