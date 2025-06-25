@@ -1470,7 +1470,7 @@ static void thermal_zone_init_complete(struct thermal_zone_device *tz)
 }
 
 /**
- * thermal_zone_device_register_with_trips() - register a new thermal zone device
+ * thermal_zone_device_register_with_trips_and_lockkey() - register a new thermal zone device
  * @type:	the thermal zone device type
  * @trips:	a pointer to an array of thermal trips
  * @num_trips:	the number of trip points the thermal zone support
@@ -1482,6 +1482,9 @@ static void thermal_zone_init_complete(struct thermal_zone_device *tz)
  * @polling_delay: number of milliseconds to wait between polls when checking
  *		   whether trip points have been crossed (0 for interrupt
  *		   driven systems)
+ * @lockkey:	lock_class_key to use for this thermal zone's lock, note drivers
+ *		should use the thermal_zone_device_register_with_trips() macro
+ *		instead of specifying this
  *
  * This interface function adds a new thermal zone device (sensor) to
  * /sys/class/thermal folder as thermal_zone[0-*]. It tries to bind all the
@@ -1494,13 +1497,14 @@ static void thermal_zone_init_complete(struct thermal_zone_device *tz)
  * IS_ERR*() helpers.
  */
 struct thermal_zone_device *
-thermal_zone_device_register_with_trips(const char *type,
-					const struct thermal_trip *trips,
-					int num_trips, void *devdata,
-					const struct thermal_zone_device_ops *ops,
-					const struct thermal_zone_params *tzp,
-					unsigned int passive_delay,
-					unsigned int polling_delay)
+thermal_zone_device_register_with_trips_and_lockkey(const char *type,
+						    const struct thermal_trip *trips,
+						    int num_trips, void *devdata,
+						    const struct thermal_zone_device_ops *ops,
+						    const struct thermal_zone_params *tzp,
+						    unsigned int passive_delay,
+						    unsigned int polling_delay,
+						    struct lock_class_key *lockkey)
 {
 	const struct thermal_trip *trip = trips;
 	struct thermal_zone_device *tz;
@@ -1555,7 +1559,7 @@ thermal_zone_device_register_with_trips(const char *type,
 	INIT_LIST_HEAD(&tz->trips_reached);
 	INIT_LIST_HEAD(&tz->trips_invalid);
 	ida_init(&tz->ida);
-	mutex_init(&tz->lock);
+	mutex_init_with_key(&tz->lock, lockkey);
 	init_completion(&tz->removal);
 	init_completion(&tz->resume);
 	id = ida_alloc(&thermal_tz_ida, GFP_KERNEL);
@@ -1644,18 +1648,7 @@ free_tz:
 	kfree(tz);
 	return ERR_PTR(result);
 }
-EXPORT_SYMBOL_GPL(thermal_zone_device_register_with_trips);
-
-struct thermal_zone_device *thermal_tripless_zone_device_register(
-					const char *type,
-					void *devdata,
-					const struct thermal_zone_device_ops *ops,
-					const struct thermal_zone_params *tzp)
-{
-	return thermal_zone_device_register_with_trips(type, NULL, 0, devdata,
-						       ops, tzp, 0, 0);
-}
-EXPORT_SYMBOL_GPL(thermal_tripless_zone_device_register);
+EXPORT_SYMBOL_GPL(thermal_zone_device_register_with_trips_and_lockkey);
 
 void *thermal_zone_device_priv(struct thermal_zone_device *tzd)
 {
