@@ -13,6 +13,7 @@
 #include <linux/of.h>
 #include <linux/idr.h>
 #include <linux/device.h>
+#include <linux/lockdep_types.h>
 #include <linux/sysfs.h>
 #include <linux/workqueue.h>
 #include <uapi/linux/thermal.h>
@@ -225,20 +226,33 @@ void thermal_zone_set_trip_temp(struct thermal_zone_device *tz,
 int thermal_zone_get_crit_temp(struct thermal_zone_device *tz, int *temp);
 
 #ifdef CONFIG_THERMAL
-struct thermal_zone_device *thermal_zone_device_register_with_trips(
-					const char *type,
-					const struct thermal_trip *trips,
-					int num_trips, void *devdata,
-					const struct thermal_zone_device_ops *ops,
-					const struct thermal_zone_params *tzp,
-					unsigned int passive_delay,
-					unsigned int polling_delay);
+#define thermal_zone_device_register_with_trips(type, trips, num_trips, devdata,	\
+						ops, tzp, passive_delay, polling_delay)	\
+({											\
+	static struct lock_class_key __key;						\
+	thermal_zone_device_register_with_trips_and_lockkey(type, trips, num_trips,	\
+							    devdata, ops, tzp,		\
+							    passive_delay,		\
+							    polling_delay, &__key);	\
+})
 
-struct thermal_zone_device *thermal_tripless_zone_device_register(
-					const char *type,
-					void *devdata,
-					const struct thermal_zone_device_ops *ops,
-					const struct thermal_zone_params *tzp);
+#define thermal_tripless_zone_device_register(type, devdata, ops, tzp)			\
+({											\
+	static struct lock_class_key __key;						\
+	thermal_zone_device_register_with_trips_and_lockkey(type, NULL, 0,		\
+							    devdata, ops, tzp,		\
+							    0, 0, &__key);		\
+})
+
+struct thermal_zone_device *
+thermal_zone_device_register_with_trips_and_lockkey(const char *type,
+						    const struct thermal_trip *trips,
+						    int num_trips, void *devdata,
+						    const struct thermal_zone_device_ops *ops,
+						    const struct thermal_zone_params *tzp,
+						    unsigned int passive_delay,
+						    unsigned int polling_delay,
+						    struct lock_class_key *lockkey);
 
 void thermal_zone_device_unregister(struct thermal_zone_device *tz);
 
