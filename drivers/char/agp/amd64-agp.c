@@ -721,7 +721,7 @@ static const struct pci_device_id agp_amd64_pci_table[] = {
 MODULE_DEVICE_TABLE(pci, agp_amd64_pci_table);
 
 static const struct pci_device_id agp_amd64_pci_promisc_table[] = {
-	{ PCI_DEVICE_CLASS(0, 0) },
+	{ PCI_DEVICE_CLASS((PCI_CLASS_BRIDGE_HOST << 8), ~0) },
 	{ }
 };
 
