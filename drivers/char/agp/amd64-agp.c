@@ -34,7 +34,6 @@
 #define ULI_X86_64_ENU_SCR_REG		0x54
 
 static struct resource *aperture_resource;
-static bool agp_try_unsupported __initdata;
 static int agp_bridges_found;
 
 static void amd64_tlbflush(struct agp_memory *temp)
@@ -734,47 +733,10 @@ static struct pci_driver agp_amd64_pci_driver = {
 /* Not static due to IOMMU code calling it early. */
 int __init agp_amd64_init(void)
 {
-	struct pci_dev *pdev = NULL;
-	int err = 0;
-
 	if (agp_off)
 		return -EINVAL;
 
-	err = pci_register_driver(&agp_amd64_pci_driver);
-	if (err < 0)
-		return err;
-
-	if (agp_bridges_found == 0) {
-		if (!agp_try_unsupported && !agp_try_unsupported_boot) {
-			printk(KERN_INFO PFX "No supported AGP bridge found.\n");
-#ifdef MODULE
-			printk(KERN_INFO PFX "You can try agp_try_unsupported=1\n");
-#else
-			printk(KERN_INFO PFX "You can boot with agp=try_unsupported\n");
-#endif
-			pci_unregister_driver(&agp_amd64_pci_driver);
-			return -ENODEV;
-		}
-
-		/* First check that we have at least one AMD64 NB */
-		if (!amd_nb_num()) {
-			pci_unregister_driver(&agp_amd64_pci_driver);
-			return -ENODEV;
-		}
-
-		/* Look for any AGP bridge */
-		for_each_pci_dev(pdev)
-			if (pci_find_capability(pdev, PCI_CAP_ID_AGP))
-				pci_add_dynid(&agp_amd64_pci_driver,
-					      pdev->vendor, pdev->device,
-					      pdev->subsystem_vendor,
-					      pdev->subsystem_device, 0, 0, 0);
-		if (agp_bridges_found == 0) {
-			pci_unregister_driver(&agp_amd64_pci_driver);
-			err = -ENODEV;
-		}
-	}
-	return err;
+	return pci_register_driver(&agp_amd64_pci_driver);
 }
 
 static int __init agp_amd64_mod_init(void)
@@ -801,6 +763,5 @@ module_init(agp_amd64_mod_init);
 module_exit(agp_amd64_cleanup);
 
 MODULE_AUTHOR("Dave Jones, Andi Kleen");
-module_param(agp_try_unsupported, bool, 0);
 MODULE_DESCRIPTION("GART driver for the AMD Opteron/Athlon64 on-CPU northbridge");
 MODULE_LICENSE("GPL");
