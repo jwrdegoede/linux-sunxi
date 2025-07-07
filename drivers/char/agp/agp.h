@@ -237,7 +237,6 @@ void agp3_generic_cleanup(void);
 extern const struct aper_size_info_16 agp3_generic_sizes[];
 
 extern int agp_off;
-extern int agp_try_unsupported_boot;
 
 long compat_agp_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 
