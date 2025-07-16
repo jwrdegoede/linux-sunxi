@@ -39,8 +39,8 @@ struct usbio_match_ids_walk_data {
 static int usbio_match_device_ids(struct acpi_device *adev, void *data)
 {
 	struct usbio_match_ids_walk_data *wd = data;
+	unsigned int id = 0;
 	char *uid;
-	unsigned int id;
 
 	if (!acpi_match_device_ids(adev, wd->hids)) {
 		uid = acpi_device_uid(adev);
