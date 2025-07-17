@@ -24,19 +24,33 @@ static const struct acpi_device_id usbio_gpio_acpi_hids[] = {
 	{ }
 };
 
-static int usbio_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
+static bool usbio_gpio_get_bank_and_pin(struct gpio_chip *gc, unsigned int offset,
+					struct usbio_gpio_bank **bank_ret, int *pin_ret)
 {
 	struct usbio_gpio *gpio = gpiochip_get_data(gc);
 	struct usbio_gpio_bank *bank;
 	int pin;
-	u8 cfg;
 
-	if (!gpio || (offset >= gc->ngpio))
-		return -EINVAL;
+	if (offset >= gc->ngpio)
+		return false;
 
 	bank = &gpio->banks[offset / USBIO_GPIOSPERBANK];
 	pin = offset % USBIO_GPIOSPERBANK;
 	if (~bank->bitmap & BIT(pin))
+		return false;
+
+	*bank_ret = bank;
+	*pin_ret = pin;
+	return true;
+}
+
+static int usbio_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
+{
+	struct usbio_gpio_bank *bank;
+	int pin;
+	u8 cfg;
+
+	if (!usbio_gpio_get_bank_and_pin(gc, offset, &bank, &pin))
 		return -EINVAL;
 
 	cfg = bank->config[pin] & USBIO_GPIO_PINMOD_MASK;
@@ -55,12 +69,7 @@ static int usbio_gpio_get(struct gpio_chip *gc, unsigned int offset)
 	struct usbio_gpio_rw gbuf;
 	int pin, ret;
 
-	if (!gpio || (offset >= gc->ngpio))
-		return -EINVAL;
-
-	bank = &gpio->banks[offset / USBIO_GPIOSPERBANK];
-	pin = offset % USBIO_GPIOSPERBANK;
-	if (~bank->bitmap & BIT(pin))
+	if (!usbio_gpio_get_bank_and_pin(gc, offset, &bank, &pin))
 		return -EINVAL;
 
 	mutex_lock(&gpio->mutex);
@@ -84,12 +93,7 @@ static void usbio_gpio_set(struct gpio_chip *gc, unsigned int offset,
 	struct usbio_gpio_rw gbuf;
 	int pin;
 
-	if (!gpio || (offset >= gc->ngpio))
-		return;
-
-	bank = &gpio->banks[offset / USBIO_GPIOSPERBANK];
-	pin = offset % USBIO_GPIOSPERBANK;
-	if (~bank->bitmap & BIT(pin))
+	if (!usbio_gpio_get_bank_and_pin(gc, offset, &bank, &pin))
 		return;
 
 	mutex_lock(&gpio->mutex);
@@ -110,12 +114,7 @@ static int usbio_gpio_direction_input(struct gpio_chip *gc,
 	struct usbio_gpio_init gbuf;
 	int pin, ret;
 
-	if (!gpio || (offset >= gc->ngpio))
-		return -EINVAL;
-
-	bank = &gpio->banks[offset / USBIO_GPIOSPERBANK];
-	pin = offset % USBIO_GPIOSPERBANK;
-	if (~bank->bitmap & BIT(pin))
+	if (!usbio_gpio_get_bank_and_pin(gc, offset, &bank, &pin))
 		return -EINVAL;
 
 	bank->config[pin] &= ~USBIO_GPIO_PINMOD_MASK;
@@ -141,12 +140,7 @@ static int usbio_gpio_direction_output(struct gpio_chip *gc,
 	struct usbio_gpio_init gbuf;
 	int pin, ret;
 
-	if (!gpio || (offset >= gc->ngpio))
-		return -EINVAL;
-
-	bank = &gpio->banks[offset / USBIO_GPIOSPERBANK];
-	pin = offset % USBIO_GPIOSPERBANK;
-	if (~bank->bitmap & BIT(pin))
+	if (!usbio_gpio_get_bank_and_pin(gc, offset, &bank, &pin))
 		return -EINVAL;
 
 	bank->config[pin] &= ~USBIO_GPIO_PINMOD_MASK;
@@ -171,16 +165,10 @@ static int usbio_gpio_direction_output(struct gpio_chip *gc,
 static int usbio_gpio_set_config(struct gpio_chip *gc, unsigned int offset,
 		unsigned long config)
 {
-	struct usbio_gpio *gpio = gpiochip_get_data(gc);
 	struct usbio_gpio_bank *bank;
 	int pin;
 
-	if (!gpio || (offset >= gc->ngpio))
-		return -EINVAL;
-
-	bank = &gpio->banks[offset / USBIO_GPIOSPERBANK];
-	pin = offset % USBIO_GPIOSPERBANK;
-	if (~bank->bitmap & BIT(pin))
+	if (!usbio_gpio_get_bank_and_pin(gc, offset, &bank, &pin))
 		return -EINVAL;
 
 	bank->config[pin] = USBIO_GPIO_SET_PINCFG(USBIO_GPIO_PINCFG_DEFAULT);
