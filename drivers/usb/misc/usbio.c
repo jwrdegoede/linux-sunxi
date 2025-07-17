@@ -260,7 +260,7 @@ static void usbio_auxdev_release(struct device *dev)
 	struct auxiliary_device *adev = to_auxiliary_dev(dev);
 	struct usbio_client *client = auxiliary_get_usbio_client(adev);
 
-	client->bridge = NULL;
+	kfree(client);
 }
 
 static int usbio_add_client(struct usbio_device *usbio, char *name,
@@ -533,23 +533,13 @@ int usbio_i2c_handler(struct usbio_device *usbio, u8 cmd,
 	return ret;
 }
 
-int usbio_gpio_init(struct usbio_client *client,
-		struct usbio_gpio_bank *banks, unsigned int len)
+int usbio_gpio_init(struct usbio_client *client, struct usbio_gpio_bank *banks,
+		    unsigned int len)
 {
-	struct usbio_device *usbio;
-	struct usbio_gpio_bank_desc *gpio;
-	int i;
+	struct usbio_device *usbio = (struct usbio_device *)client->bridge;
 
-	if (!client || !banks || !len)
-		return -EINVAL;
-
-	if (!client->bridge)
-		return -ENODEV;
-
-	usbio = (struct usbio_device *)client->bridge;
-	gpio = usbio->gpios;
-	for (i = 0; i < len && i < usbio->nr_gpio_banks; i++)
-		banks[i].bitmap = gpio[i].bmap;
+	for (unsigned int i = 0; i < len && i < usbio->nr_gpio_banks; i++)
+		banks[i].bitmap = usbio->gpios[i].bmap;
 
 	return usbio->nr_gpio_banks;
 }
@@ -558,16 +548,9 @@ EXPORT_SYMBOL_NS_GPL(usbio_gpio_init, "USBIO");
 int usbio_transfer(struct usbio_client *client, u8 cmd,
 		const void *obuf, u16 obuf_len, void *ibuf, u16 ibuf_len)
 {
-	struct usbio_device *usbio;
+	struct usbio_device *usbio = (struct usbio_device *)client->bridge;
 	int ret;
 
-	if (!client)
-		return -EINVAL;
-
-	if (!client->bridge)
-		return -ENODEV;
-
-	usbio = (struct usbio_device *)client->bridge;
 	switch (client->type) {
 	case USBIO_GPIO:
 		if (USBIO_GPIOCMD_VALID(cmd))
@@ -609,10 +592,9 @@ static void usbio_disconnect(struct usb_interface *intf)
 
 	list_for_each_entry_safe_reverse(client, prev, &usbio->cli_list, link) {
 		auxiliary_device_delete(&client->adev);
+		list_del_init(&client->link);
 		auxiliary_device_uninit(&client->adev);
 
-		list_del_init(&client->link);
-		kfree(client);
 	}
 
 	usb_set_intfdata(intf, NULL);
