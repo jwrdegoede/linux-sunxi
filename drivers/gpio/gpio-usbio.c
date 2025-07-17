@@ -5,6 +5,7 @@
  */
 
 #include <linux/acpi.h>
+#include <linux/cleanup.h>
 #include <linux/gpio/driver.h>
 #include <linux/usbio.h>
 
@@ -109,55 +110,44 @@ static void usbio_gpio_set(struct gpio_chip *gc, unsigned int offset,
 	mutex_unlock(&gpio->mutex);
 }
 
-static int usbio_gpio_direction_input(struct gpio_chip *gc,
-		unsigned int offset)
+static int usbio_gpio_update_config(struct gpio_chip *gc, unsigned int offset,
+				    u8 mask, u8 value)
 {
 	struct usbio_gpio *gpio = gpiochip_get_data(gc);
 	struct usbio_gpio_bank *bank;
 	struct usbio_gpio_init gbuf;
-	int pin, ret;
+	int pin;
 
 	if (!usbio_gpio_get_bank_and_pin(gc, offset, &bank, &pin))
 		return -EINVAL;
 
-	bank->config[pin] &= ~USBIO_GPIO_PINMOD_MASK;
-	bank->config[pin] |= USBIO_GPIO_SET_PINMOD(USBIO_GPIO_PINMOD_INPUT);
+	bank->config[pin] &= ~mask;
+	bank->config[pin] |= value;
 
-	mutex_lock(&gpio->mutex);
+	guard(mutex)(&gpio->mutex);
+
 	gbuf.bankid = offset / USBIO_GPIOSPERBANK;
 	gbuf.config = bank->config[pin];
 	gbuf.pincount  = 1;
 	gbuf.pin = pin;
-	ret = usbio_transfer(gpio->client, USBIO_GPIOCMD_INIT,
-							&gbuf, sizeof(gbuf), NULL, 0);
-	mutex_unlock(&gpio->mutex);
 
-	return ret;
+	return usbio_transfer(gpio->client, USBIO_GPIOCMD_INIT,
+			      &gbuf, sizeof(gbuf), NULL, 0);
+}
+
+static int usbio_gpio_direction_input(struct gpio_chip *gc, unsigned int offset)
+{
+	return usbio_gpio_update_config(gc, offset, USBIO_GPIO_PINMOD_MASK,
+				        USBIO_GPIO_SET_PINMOD(USBIO_GPIO_PINMOD_INPUT));
 }
 
 static int usbio_gpio_direction_output(struct gpio_chip *gc,
 		unsigned int offset, int value)
 {
-	struct usbio_gpio *gpio = gpiochip_get_data(gc);
-	struct usbio_gpio_bank *bank;
-	struct usbio_gpio_init gbuf;
-	int pin, ret;
+	int ret;
 
-	if (!usbio_gpio_get_bank_and_pin(gc, offset, &bank, &pin))
-		return -EINVAL;
-
-	bank->config[pin] &= ~USBIO_GPIO_PINMOD_MASK;
-	bank->config[pin] |= USBIO_GPIO_SET_PINMOD(USBIO_GPIO_PINMOD_OUTPUT);
-
-	mutex_lock(&gpio->mutex);
-	gbuf.bankid = offset / USBIO_GPIOSPERBANK;
-	gbuf.config = bank->config[pin];
-	gbuf.pincount  = 1;
-	gbuf.pin = pin;
-	ret = usbio_transfer(gpio->client, USBIO_GPIOCMD_INIT,
-							&gbuf, sizeof(gbuf), NULL, 0);
-	mutex_unlock(&gpio->mutex);
-
+	ret = usbio_gpio_update_config(gc, offset, USBIO_GPIO_PINMOD_MASK,
+				       USBIO_GPIO_SET_PINMOD(USBIO_GPIO_PINMOD_OUTPUT));
 	if (ret)
 		return ret;
 
