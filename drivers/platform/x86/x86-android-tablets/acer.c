@@ -16,24 +16,8 @@
 #include "x86-android-tablets.h"
 
 /* Acer Iconia One 8 A1-840 (non FHD version) */
-static const struct property_entry acer_a1_840_4v20_battery_props[] = {
-	PROPERTY_ENTRY_STRING("compatible", "simple-battery"),
-	PROPERTY_ENTRY_STRING("device-chemistry", "lithium-ion-polymer"),
-	/* The below values were taken from the Android kernel */
-	PROPERTY_ENTRY_U32("precharge-current-microamp", 256000),
-	PROPERTY_ENTRY_U32("charge-term-current-microamp", 128000),
-	PROPERTY_ENTRY_U32("constant-charge-current-max-microamp", 2240000),
-	PROPERTY_ENTRY_U32("constant-charge-voltage-max-microvolt", 4192000),
-	PROPERTY_ENTRY_U32("factory-internal-resistance-micro-ohms", 150000),
-	{ }
-};
-
-const struct software_node acer_a1_840_4v20_battery_node = {
-	.properties = acer_a1_840_4v20_battery_props,
-};
-
 static const struct property_entry acer_a1_840_bq24190_props[] = {
-	PROPERTY_ENTRY_REF("monitored-battery", &acer_a1_840_4v20_battery_node),
+	PROPERTY_ENTRY_REF("monitored-battery", &generic_lipo_4v2_battery_node),
 	PROPERTY_ENTRY_BOOL("omit-battery-class"),
 	PROPERTY_ENTRY_BOOL("disable-reset"),
 	{ }
@@ -138,7 +122,7 @@ static struct gpiod_lookup_table * const acer_a1_840_gpios[] = {
 
 /* Properties for the Dollar Cove TI PMIC battery MFD child used as fuel-gauge */
 static const struct property_entry acer_a1_840_fuel_gauge_props[] = {
-	PROPERTY_ENTRY_REF("monitored-battery", &acer_a1_840_4v20_battery_node),
+	PROPERTY_ENTRY_REF("monitored-battery", &generic_lipo_4v2_battery_node),
 	PROPERTY_ENTRY_STRING_ARRAY_LEN("supplied-from", bq24190_psy, 1),
 	{ }
 };
@@ -164,7 +148,7 @@ const struct x86_dev_info acer_a1_840_info __initconst = {
 	.pdev_info = int3496_pdevs,
 	.pdev_count = 1,
 	.gpiod_lookup_tables = acer_a1_840_gpios,
-	.bat_swnode = &acer_a1_840_4v20_battery_node,
+	.bat_swnode = &generic_lipo_4v2_battery_node,
 	.init = acer_a1_840_init,
 };
 
