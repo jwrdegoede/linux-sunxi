@@ -158,30 +158,26 @@ static int usbio_gpio_direction_output(struct gpio_chip *gc,
 static int usbio_gpio_set_config(struct gpio_chip *gc, unsigned int offset,
 		unsigned long config)
 {
-	struct usbio_gpio_bank *bank;
-	int pin;
+	u8 value;
 
-	if (!usbio_gpio_get_bank_and_pin(gc, offset, &bank, &pin))
-		return -EINVAL;
-
-	bank->config[pin] = USBIO_GPIO_SET_PINCFG(USBIO_GPIO_PINCFG_DEFAULT);
 	switch (pinconf_to_config_param(config)) {
 	case PIN_CONFIG_BIAS_PULL_PIN_DEFAULT:
+		value = USBIO_GPIO_SET_PINCFG(USBIO_GPIO_PINCFG_DEFAULT);
 		break;
 	case PIN_CONFIG_BIAS_PULL_UP:
-		bank->config[pin] |= USBIO_GPIO_SET_PINCFG(USBIO_GPIO_PINCFG_PULLUP);
+		value = USBIO_GPIO_SET_PINCFG(USBIO_GPIO_PINCFG_PULLUP);
 		break;
 	case PIN_CONFIG_BIAS_PULL_DOWN:
-		bank->config[pin] |= USBIO_GPIO_SET_PINCFG(USBIO_GPIO_PINCFG_PULLDOWN);
+		value = USBIO_GPIO_SET_PINCFG(USBIO_GPIO_PINCFG_PULLDOWN);
 		break;
 	case PIN_CONFIG_DRIVE_PUSH_PULL:
-		bank->config[pin] |= USBIO_GPIO_SET_PINCFG(USBIO_GPIO_PINCFG_PUSHPULL);
+		value = USBIO_GPIO_SET_PINCFG(USBIO_GPIO_PINCFG_PUSHPULL);
 		break;
 	default:
 		return -ENOTSUPP;
 	}
 
-	return 0;
+	return usbio_gpio_update_config(gc, offset, USBIO_GPIO_PINCFG_MASK, value);
 }
 
 static int usbio_gpio_probe(struct auxiliary_device *adev,
