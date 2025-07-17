@@ -48,6 +48,60 @@ static int usbio_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
 	return GPIO_LINE_DIRECTION_IN;
 }
 
+static int usbio_gpio_get(struct gpio_chip *gc, unsigned int offset)
+{
+	struct usbio_gpio *gpio = gpiochip_get_data(gc);
+	struct usbio_gpio_bank *bank;
+	struct usbio_gpio_rw gbuf;
+	int pin, ret;
+
+	if (!gpio || (offset >= gc->ngpio))
+		return -EINVAL;
+
+	bank = &gpio->banks[offset / USBIO_GPIOSPERBANK];
+	pin = offset % USBIO_GPIOSPERBANK;
+	if (~bank->bitmap & BIT(pin))
+		return -EINVAL;
+
+	mutex_lock(&gpio->mutex);
+	gbuf.bankid = offset / USBIO_GPIOSPERBANK;
+	gbuf.pincount  = 1;
+	gbuf.pin = pin;
+	ret = usbio_transfer(gpio->client, USBIO_GPIOCMD_READ,
+							&gbuf, sizeof(gbuf) - sizeof(gbuf.value),
+							&gbuf, sizeof(gbuf));
+	ret = ret == sizeof(gbuf.value) ? (gbuf.value >> pin) & 1 : -EINVAL;
+	mutex_unlock(&gpio->mutex);
+
+	return ret;
+}
+
+static void usbio_gpio_set(struct gpio_chip *gc, unsigned int offset,
+		int value)
+{
+	struct usbio_gpio *gpio = gpiochip_get_data(gc);
+	struct usbio_gpio_bank *bank;
+	struct usbio_gpio_rw gbuf;
+	int pin;
+
+	if (!gpio || (offset >= gc->ngpio))
+		return;
+
+	bank = &gpio->banks[offset / USBIO_GPIOSPERBANK];
+	pin = offset % USBIO_GPIOSPERBANK;
+	if (~bank->bitmap & BIT(pin))
+		return;
+
+	mutex_lock(&gpio->mutex);
+	gbuf.bankid = offset / USBIO_GPIOSPERBANK;
+	gbuf.pincount  = 1;
+	gbuf.pin = pin;
+	gbuf.value = value << pin;
+	usbio_transfer(gpio->client, USBIO_GPIOCMD_WRITE,
+					&gbuf, sizeof(gbuf), NULL, 0);
+	mutex_unlock(&gpio->mutex);
+}
+
 static int usbio_gpio_direction_input(struct gpio_chip *gc,
 		unsigned int offset)
 {
@@ -106,60 +160,6 @@ static int usbio_gpio_direction_output(struct gpio_chip *gc,
 	mutex_unlock(&gpio->mutex);
 
 	return ret;
-}
-
-static int usbio_gpio_get(struct gpio_chip *gc, unsigned int offset)
-{
-	struct usbio_gpio *gpio = gpiochip_get_data(gc);
-	struct usbio_gpio_bank *bank;
-	struct usbio_gpio_rw gbuf;
-	int pin, ret;
-
-	if (!gpio || (offset >= gc->ngpio))
-		return -EINVAL;
-
-	bank = &gpio->banks[offset / USBIO_GPIOSPERBANK];
-	pin = offset % USBIO_GPIOSPERBANK;
-	if (~bank->bitmap & BIT(pin))
-		return -EINVAL;
-
-	mutex_lock(&gpio->mutex);
-	gbuf.bankid = offset / USBIO_GPIOSPERBANK;
-	gbuf.pincount  = 1;
-	gbuf.pin = pin;
-	ret = usbio_transfer(gpio->client, USBIO_GPIOCMD_READ,
-							&gbuf, sizeof(gbuf) - sizeof(gbuf.value),
-							&gbuf, sizeof(gbuf));
-	ret = ret == sizeof(gbuf.value) ? (gbuf.value >> pin) & 1 : -EINVAL;
-	mutex_unlock(&gpio->mutex);
-
-	return ret;
-}
-
-static void usbio_gpio_set(struct gpio_chip *gc, unsigned int offset,
-		int value)
-{
-	struct usbio_gpio *gpio = gpiochip_get_data(gc);
-	struct usbio_gpio_bank *bank;
-	struct usbio_gpio_rw gbuf;
-	int pin;
-
-	if (!gpio || (offset >= gc->ngpio))
-		return;
-
-	bank = &gpio->banks[offset / USBIO_GPIOSPERBANK];
-	pin = offset % USBIO_GPIOSPERBANK;
-	if (~bank->bitmap & BIT(pin))
-		return;
-
-	mutex_lock(&gpio->mutex);
-	gbuf.bankid = offset / USBIO_GPIOSPERBANK;
-	gbuf.pincount  = 1;
-	gbuf.pin = pin;
-	gbuf.value = value << pin;
-	usbio_transfer(gpio->client, USBIO_GPIOCMD_WRITE,
-					&gbuf, sizeof(gbuf), NULL, 0);
-	mutex_unlock(&gpio->mutex);
 }
 
 static int usbio_gpio_set_config(struct gpio_chip *gc, unsigned int offset,
