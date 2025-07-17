@@ -194,12 +194,7 @@ static int usbio_gpio_probe(struct auxiliary_device *adev,
 		return -ENOMEM;
 
 	gpio->client = auxiliary_get_usbio_client(adev);
-	gpio->gpio_banks = usbio_gpio_init(gpio->client, gpio->banks,
-										sizeof(gpio->banks));
-	if (gpio->gpio_banks < 0) {
-		devm_kfree(dev, gpio);
-		return -EINVAL;
-	}
+	gpio->gpio_banks = usbio_gpio_init(gpio->client, gpio->banks, ARRAY_SIZE(gpio->banks));
 
 	gpio->gc.label = ACPI_COMPANION(dev) ?
 					acpi_dev_name(ACPI_COMPANION(dev)) : dev_name(dev);
