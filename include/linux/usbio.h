@@ -116,8 +116,8 @@ enum usbio_gpio_pincfg {
 
 #define USBIO_GPIO_PINCFG_SHIFT 2
 #define USBIO_GPIO_PINCFG_MASK (0x3 << USBIO_GPIO_PINCFG_SHIFT)
-#define USBIO_GPIO_SET_PINCFG(pin) \
-	((pin & USBIO_GPIO_PINCFG_MASK) << USBIO_GPIO_PINCFG_SHIFT)
+#define USBIO_GPIO_SET_PINCFG(pincfg) \
+	(((pincfg) << USBIO_GPIO_PINCFG_SHIFT) & USBIO_GPIO_PINCFG_MASK)
 
 enum usbio_gpio_pinmode {
 	USBIO_GPIO_PINMOD_INVAL,
