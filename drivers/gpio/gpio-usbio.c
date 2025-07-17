@@ -159,7 +159,11 @@ static int usbio_gpio_direction_output(struct gpio_chip *gc,
 							&gbuf, sizeof(gbuf), NULL, 0);
 	mutex_unlock(&gpio->mutex);
 
-	return ret;
+	if (ret)
+		return ret;
+
+	usbio_gpio_set(gc, offset, value);
+	return 0;
 }
 
 static int usbio_gpio_set_config(struct gpio_chip *gc, unsigned int offset,
