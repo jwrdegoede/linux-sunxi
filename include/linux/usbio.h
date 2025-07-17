@@ -13,7 +13,7 @@
 #define auxiliary_get_usbio_client(auxdev) \
 		container_of(auxdev, struct usbio_client, adev)
 
-struct usbio_bridge;
+struct usbio_device;
 
 /**
  * struct usbio_client - represents a usbio client
@@ -26,7 +26,7 @@ struct usbio_client {
 	u8 type;
 	u8 id;
 	struct auxiliary_device adev;
-	struct usbio_bridge *bridge;
+	struct usbio_device *bridge;
 	struct list_head link;
 };
 

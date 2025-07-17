@@ -276,7 +276,7 @@ static int usbio_add_client(struct usbio_device *usbio, char *name,
 
 	client->type = type;
 	client->id = id;
-	client->bridge = (struct usbio_bridge *)usbio;
+	client->bridge = usbio;
 	adev = &client->adev;
 	adev->name = name;
 	adev->id = id;
@@ -536,7 +536,7 @@ int usbio_i2c_handler(struct usbio_device *usbio, u8 cmd,
 int usbio_gpio_init(struct usbio_client *client, struct usbio_gpio_bank *banks,
 		    unsigned int len)
 {
-	struct usbio_device *usbio = (struct usbio_device *)client->bridge;
+	struct usbio_device *usbio = client->bridge;
 
 	for (unsigned int i = 0; i < len && i < usbio->nr_gpio_banks; i++)
 		banks[i].bitmap = usbio->gpios[i].bmap;
@@ -548,7 +548,7 @@ EXPORT_SYMBOL_NS_GPL(usbio_gpio_init, "USBIO");
 int usbio_transfer(struct usbio_client *client, u8 cmd,
 		const void *obuf, u16 obuf_len, void *ibuf, u16 ibuf_len)
 {
-	struct usbio_device *usbio = (struct usbio_device *)client->bridge;
+	struct usbio_device *usbio = client->bridge;
 	int ret;
 
 	switch (client->type) {
