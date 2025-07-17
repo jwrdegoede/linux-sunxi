@@ -28,6 +28,7 @@ static bool usbio_gpio_get_bank_and_pin(struct gpio_chip *gc, unsigned int offse
 					struct usbio_gpio_bank **bank_ret, int *pin_ret)
 {
 	struct usbio_gpio *gpio = gpiochip_get_data(gc);
+	struct device *dev = &gpio->client->adev.dev;
 	struct usbio_gpio_bank *bank;
 	int pin;
 
@@ -36,8 +37,10 @@ static bool usbio_gpio_get_bank_and_pin(struct gpio_chip *gc, unsigned int offse
 
 	bank = &gpio->banks[offset / USBIO_GPIOSPERBANK];
 	pin = offset % USBIO_GPIOSPERBANK;
-	if (~bank->bitmap & BIT(pin))
-		return false;
+	if (~bank->bitmap & BIT(pin)) {
+		/* The FW bitmap sometimes is invalid, warn and continue */
+		dev_warn_once(dev, FW_BUG "GPIO %u is not in FW pins bitmap\n", offset);
+	}
 
 	*bank_ret = bank;
 	*pin_ret = pin;
