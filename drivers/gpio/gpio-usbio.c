@@ -118,6 +118,7 @@ static int usbio_gpio_direction_input(struct gpio_chip *gc,
 	if (~bank->bitmap & BIT(pin))
 		return -EINVAL;
 
+	bank->config[pin] &= ~USBIO_GPIO_PINMOD_MASK;
 	bank->config[pin] |= USBIO_GPIO_SET_PINMOD(USBIO_GPIO_PINMOD_INPUT);
 
 	mutex_lock(&gpio->mutex);
@@ -148,6 +149,7 @@ static int usbio_gpio_direction_output(struct gpio_chip *gc,
 	if (~bank->bitmap & BIT(pin))
 		return -EINVAL;
 
+	bank->config[pin] &= ~USBIO_GPIO_PINMOD_MASK;
 	bank->config[pin] |= USBIO_GPIO_SET_PINMOD(USBIO_GPIO_PINMOD_OUTPUT);
 
 	mutex_lock(&gpio->mutex);
