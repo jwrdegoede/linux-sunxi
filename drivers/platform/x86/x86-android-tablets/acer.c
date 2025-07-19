@@ -121,25 +121,56 @@ static struct gpiod_lookup_table * const acer_a1_840_gpios[] = {
 };
 
 /* Properties for the Dollar Cove TI PMIC battery MFD child used as fuel-gauge */
-static const struct property_entry acer_a1_840_fuel_gauge_props[] = {
+static const struct property_entry acer_a1_840_fg_props[] = {
 	PROPERTY_ENTRY_REF("monitored-battery", &generic_lipo_4v2_battery_node),
 	PROPERTY_ENTRY_STRING_ARRAY_LEN("supplied-from", bq24190_psy, 1),
 	{ }
 };
 
+static struct device *acer_a1_840_fg_dev;
+static struct fwnode_handle *acer_a1_840_fg_node;
+
 static int __init acer_a1_840_init(struct device *dev)
 {
-	struct device *bat_dev;
 	int ret;
 
-	bat_dev = bus_find_device_by_name(&platform_bus_type, NULL, "chtdc_ti_battery");
-	if (!bat_dev)
+	acer_a1_840_fg_dev = bus_find_device_by_name(&platform_bus_type, NULL, "chtdc_ti_battery");
+	if (!acer_a1_840_fg_dev)
 		return dev_err_probe(dev, -EPROBE_DEFER, "getting chtdc_ti_battery dev\n");
 
-	ret = device_create_managed_software_node(bat_dev, acer_a1_840_fuel_gauge_props, NULL);
-	put_device(bat_dev);
+	acer_a1_840_fg_node = fwnode_create_software_node(acer_a1_840_fg_props, NULL);
+	if (IS_ERR(acer_a1_840_fg_node)) {
+		ret = PTR_ERR(acer_a1_840_fg_node);
+		goto err_put;
+	}
 
+	ret = device_add_software_node(acer_a1_840_fg_dev,
+				       to_software_node(acer_a1_840_fg_node));
+	if (ret)
+		goto err_put;
+
+	return 0;
+
+err_put:
+	fwnode_handle_put(acer_a1_840_fg_node);
+	acer_a1_840_fg_node = NULL;
+	put_device(acer_a1_840_fg_dev);
+	acer_a1_840_fg_dev = NULL;
 	return ret;
+}
+
+static void acer_a1_840_exit(void)
+{
+	device_remove_software_node(acer_a1_840_fg_dev);
+	/*
+	 * Skip fwnode_handle_put(acer_a1_840_fg_node), instead leak the node.
+	 * The intel_dc_ti_battery driver may still reference the strdup-ed
+	 * "supplied-from" string. This string will be free-ed if the node
+	 * is released.
+	 */
+	acer_a1_840_fg_node = NULL;
+	put_device(acer_a1_840_fg_dev);
+	acer_a1_840_fg_dev = NULL;
 }
 
 const struct x86_dev_info acer_a1_840_info __initconst = {
@@ -150,6 +181,7 @@ const struct x86_dev_info acer_a1_840_info __initconst = {
 	.gpiod_lookup_tables = acer_a1_840_gpios,
 	.bat_swnode = &generic_lipo_4v2_battery_node,
 	.init = acer_a1_840_init,
+	.exit = acer_a1_840_exit,
 };
 
 /* Acer Iconia One 7 B1-750 has an Android factory image with everything hardcoded */
