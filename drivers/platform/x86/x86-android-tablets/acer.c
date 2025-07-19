@@ -142,6 +142,29 @@ static int __init acer_a1_840_init(struct device *dev)
 	return ret;
 }
 
+static void acer_a1_840_exit(void)
+{
+	struct device *bat_dev;
+
+	/*
+	 * The node must be removed from the "chtdc_ti_battery" device since
+	 * the "monitored-battery" reference will become invalid.
+	 */
+	bat_dev = bus_find_device_by_name(&platform_bus_type, NULL, "chtdc_ti_battery");
+	if (bat_dev) {
+		/*
+		 * Leak the node since the intel_dc_ti_battery may still
+		 * reference the strdup-ed "supplied-from" string.
+		 * Note device_remove_software_node() does 2 puts when
+		 * called on a managed node.
+		 */
+		fwnode_handle_get(dev_fwnode(bat_dev));
+		fwnode_handle_get(dev_fwnode(bat_dev));
+		device_remove_software_node(bat_dev);
+		put_device(bat_dev);
+	}
+}
+
 const struct x86_dev_info acer_a1_840_info __initconst = {
 	.i2c_client_info = acer_a1_840_i2c_clients,
 	.i2c_client_count = ARRAY_SIZE(acer_a1_840_i2c_clients),
@@ -150,6 +173,7 @@ const struct x86_dev_info acer_a1_840_info __initconst = {
 	.gpiod_lookup_tables = acer_a1_840_gpios,
 	.bat_swnode = &generic_lipo_4v2_battery_node,
 	.init = acer_a1_840_init,
+	.exit = acer_a1_840_exit,
 };
 
 /* Acer Iconia One 7 B1-750 has an Android factory image with everything hardcoded */
