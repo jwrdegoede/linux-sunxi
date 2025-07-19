@@ -714,20 +714,36 @@ int iio_read_channel_processed_scale(struct iio_channel *chan, int *val,
 				     unsigned int scale)
 {
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(chan->indio_dev);
-	int ret;
+	int ret, val2;
 
 	guard(mutex)(&iio_dev_opaque->info_exist_lock);
 	if (!chan->indio_dev->info)
 		return -ENODEV;
 
 	if (iio_channel_has_info(chan->channel, IIO_CHAN_INFO_PROCESSED)) {
-		ret = iio_channel_read(chan, val, NULL,
+		ret = iio_channel_read(chan, val, &val2,
 				       IIO_CHAN_INFO_PROCESSED);
 		if (ret < 0)
 			return ret;
-		*val *= scale;
 
-		return ret;
+		switch (ret) {
+		case IIO_VAL_INT:
+			*val *= scale;
+			return IIO_VAL_INT;
+		case IIO_VAL_INT_PLUS_MICRO:
+			*val *= scale;
+			*val += div_s64((s64)val2 * scale, 1000000LL);
+			return IIO_VAL_INT;
+		case IIO_VAL_INT_PLUS_NANO:
+			*val *= scale;
+			*val += div_s64((s64)val2 * scale, 1000000000LL);
+			return IIO_VAL_INT;
+		default:
+			dev_err_once(&chan->indio_dev->dev,
+				     "unsupported processed IIO-val-type: %d\n",
+				     ret);
+			return -EINVAL;
+		}
 	} else {
 		ret = iio_channel_read(chan, val, NULL, IIO_CHAN_INFO_RAW);
 		if (ret < 0)
