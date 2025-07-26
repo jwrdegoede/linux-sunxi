@@ -12518,6 +12518,13 @@ S:	Maintained
 F:	Documentation/admin-guide/pm/intel_uncore_frequency_scaling.rst
 F:	drivers/platform/x86/intel/uncore-frequency/
 
+INTEL USBIO USB I/O EXPANDER DRIVERS
+M:	Israel Cepeda <israel.a.cepeda.lopez@intel.com>
+M:	Hans de Goede <hansg@kernel.org>
+S:	Maintained
+F:	drivers/usb/misc/usbio.c
+F:	include/linux/usb/usbio.h
+
 INTEL VENDOR SPECIFIC EXTENDED CAPABILITIES DRIVER
 M:	David E. Box <david.e.box@linux.intel.com>
 S:	Supported
