@@ -5,11 +5,13 @@
 #include <linux/types.h>
 
 struct device;
+struct gpio_desc;
 
 /**
  * struct gpio_keys_button - configuration parameters
  * @code:		input event code (KEY_*, SW_*)
- * @gpio:		%-1 if this key does not support gpio
+ * @gpio:		%-1 if this key does not support gpio (deprecated use gpiod)
+ * @gpiod:		gpio_desc for the GPIO, NULL if this key does not support gpio
  * @active_low:		%true indicates that button is considered
  *			depressed when gpio is low
  * @desc:		label that will be attached to button's gpio
@@ -26,6 +28,7 @@ struct device;
 struct gpio_keys_button {
 	unsigned int code;
 	int gpio;
+	struct gpio_desc *gpiod;
 	int active_low;
 	const char *desc;
 	unsigned int type;
