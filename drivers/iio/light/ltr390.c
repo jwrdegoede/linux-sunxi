@@ -38,12 +38,21 @@
 #define LTR390_ALS_UVS_GAIN		0x05
 #define LTR390_PART_ID			0x06
 #define LTR390_MAIN_STATUS		0x07
+
 #define LTR390_ALS_DATA			0x0D
+#define LTR390_ALS_DATA_BYTE(n)		(LTR390_ALS_DATA + (n))
+
 #define LTR390_UVS_DATA			0x10
+#define LTR390_UVS_DATA_BYTE(n)		(LTR390_UVS_DATA + (n))
+
 #define LTR390_INT_CFG			0x19
 #define LTR390_INT_PST			0x1A
+
 #define LTR390_THRESH_UP		0x21
+#define LTR390_THRESH_UP_BYTE(n)	(LTR390_THRESH_UP + (n))
+
 #define LTR390_THRESH_LOW		0x24
+#define LTR390_THRESH_LOW_BYTE(n)	(LTR390_THRESH_LOW + (n))
 
 #define LTR390_PART_NUMBER_ID		0xb
 #define LTR390_ALS_UVS_GAIN_MASK	GENMASK(2, 0)
@@ -98,11 +107,39 @@ struct ltr390_data {
 	int int_time_us;
 };
 
+static const struct regmap_range ltr390_readable_reg_ranges[] = {
+	regmap_reg_range(LTR390_MAIN_CTRL, LTR390_MAIN_CTRL),
+	regmap_reg_range(LTR390_ALS_UVS_MEAS_RATE, LTR390_MAIN_STATUS),
+	regmap_reg_range(LTR390_ALS_DATA_BYTE(0), LTR390_UVS_DATA_BYTE(2)),
+	regmap_reg_range(LTR390_INT_CFG, LTR390_INT_PST),
+	regmap_reg_range(LTR390_THRESH_UP_BYTE(0), LTR390_THRESH_LOW_BYTE(2)),
+};
+
+static const struct regmap_access_table ltr390_readable_reg_table = {
+	.yes_ranges = ltr390_readable_reg_ranges,
+	.n_yes_ranges = ARRAY_SIZE(ltr390_readable_reg_ranges),
+};
+
+static const struct regmap_range ltr390_writeable_reg_ranges[] = {
+	regmap_reg_range(LTR390_MAIN_CTRL, LTR390_MAIN_CTRL),
+	regmap_reg_range(LTR390_ALS_UVS_MEAS_RATE, LTR390_ALS_UVS_GAIN),
+	regmap_reg_range(LTR390_INT_CFG, LTR390_INT_PST),
+	regmap_reg_range(LTR390_THRESH_UP_BYTE(0), LTR390_THRESH_LOW_BYTE(2)),
+};
+
+static const struct regmap_access_table ltr390_writeable_reg_table = {
+	.yes_ranges = ltr390_writeable_reg_ranges,
+	.n_yes_ranges = ARRAY_SIZE(ltr390_writeable_reg_ranges),
+};
+
 static const struct regmap_config ltr390_regmap_config = {
 	.name = "ltr390",
 	.reg_bits = 8,
 	.reg_stride = 1,
 	.val_bits = 8,
+	.max_register = LTR390_THRESH_LOW_BYTE(2),
+	.rd_table = &ltr390_readable_reg_table,
+	.wr_table = &ltr390_writeable_reg_table,
 };
 
 /* Sampling frequency is in mili Hz and mili Seconds */
@@ -586,6 +623,20 @@ static int ltr390_write_event_config(struct iio_dev *indio_dev,
 	}
 }
 
+static int ltr390_debugfs_reg_access(struct iio_dev *indio_dev,
+						unsigned int reg, unsigned int writeval,
+						unsigned int *readval)
+{
+	struct ltr390_data *data = iio_priv(indio_dev);
+
+	guard(mutex)(&data->lock);
+
+	if (readval)
+		return regmap_read(data->regmap, reg, readval);
+
+	return regmap_write(data->regmap, reg, writeval);
+}
+
 static const struct iio_info ltr390_info = {
 	.read_raw = ltr390_read_raw,
 	.write_raw = ltr390_write_raw,
@@ -594,6 +645,7 @@ static const struct iio_info ltr390_info = {
 	.read_event_config = ltr390_read_event_config,
 	.write_event_value = ltr390_write_event_value,
 	.write_event_config = ltr390_write_event_config,
+	.debugfs_reg_access = ltr390_debugfs_reg_access,
 };
 
 static irqreturn_t ltr390_interrupt_handler(int irq, void *private)
@@ -628,6 +680,22 @@ static irqreturn_t ltr390_interrupt_handler(int irq, void *private)
 	return IRQ_HANDLED;
 }
 
+static void ltr390_powerdown(void *priv)
+{
+	struct ltr390_data *data = priv;
+
+	guard(mutex)(&data->lock);
+
+	/* Ensure that power off and interrupts are disabled */
+	if (regmap_clear_bits(data->regmap, LTR390_INT_CFG,
+				LTR390_LS_INT_EN) < 0)
+		dev_err(&data->client->dev, "failed to disable interrupts\n");
+
+	if (regmap_clear_bits(data->regmap, LTR390_MAIN_CTRL,
+			LTR390_SENSOR_ENABLE) < 0)
+		dev_err(&data->client->dev, "failed to disable sensor\n");
+}
+
 static int ltr390_probe(struct i2c_client *client)
 {
 	struct ltr390_data *data;
@@ -641,7 +709,6 @@ static int ltr390_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	data = iio_priv(indio_dev);
-
 	data->regmap = devm_regmap_init_i2c(client, &ltr390_regmap_config);
 	if (IS_ERR(data->regmap))
 		return dev_err_probe(dev, PTR_ERR(data->regmap),
@@ -680,6 +747,10 @@ static int ltr390_probe(struct i2c_client *client)
 	ret = regmap_set_bits(data->regmap, LTR390_MAIN_CTRL, LTR390_SENSOR_ENABLE);
 	if (ret)
 		return dev_err_probe(dev, ret, "failed to enable the sensor\n");
+
+	ret = devm_add_action_or_reset(dev, ltr390_powerdown, data);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to add action or reset\n");
 
 	if (client->irq) {
 		ret = devm_request_threaded_irq(dev, client->irq,
