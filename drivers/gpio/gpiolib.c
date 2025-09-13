@@ -4601,6 +4601,12 @@ static struct gpio_desc *gpiod_find_by_fwnode(struct fwnode_handle *fwnode,
 		desc = swnode_find_gpio(fwnode, con_id, idx, lookupflags);
 	}
 
+	if (desc == ERR_PTR(-ENOENT) && fwnode && is_software_node(fwnode->secondary)) {
+		dev_dbg(consumer, "using secondary-swnode '%pfw' for '%s' GPIO lookup\n",
+			fwnode->secondary, name);
+		desc = swnode_find_gpio(fwnode->secondary, con_id, idx, lookupflags);
+	}
+
 	return desc;
 }
 
