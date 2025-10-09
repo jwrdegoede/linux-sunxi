@@ -358,7 +358,7 @@ static void t4ka3_calc_mode(struct t4ka3_data *sensor)
 	width = fmt->width;
 	height = fmt->height;
 
-	if (width  <= (crop->width / 2) && height <= (crop->height / 2))
+	if (width <= (crop->width / 2) && height <= (crop->height / 2))
 		binning = 2;
 	else
 		binning = 1;
@@ -370,7 +370,7 @@ static void t4ka3_calc_mode(struct t4ka3_data *sensor)
 	sensor->mode.win_x = (crop->left + (crop->width - width) / 2) & ~1;
 	sensor->mode.win_y = (crop->top + (crop->height - height) / 2) & ~1;
 	/*
-	 * t4ka's window is done after binning, but must still be a multiple of 2 ?
+	 * t4ka3's window is done after binning, but must still be a multiple of 2 ?
 	 * Round up to avoid top 2 black lines in 1640x1230 (quarter res) case.
 	 */
 	sensor->mode.win_x = DIV_ROUND_UP(sensor->mode.win_x, binning);
@@ -891,7 +891,11 @@ static int t4ka3_init_controls(struct t4ka3_data *sensor)
 					      0, T4KA3_PIXEL_RATE,
 					      1, T4KA3_PIXEL_RATE);
 
+	v4l2_subdev_lock_state(sensor->sd.active_state);
+	t4ka3_calc_mode(sensor);
 	t4ka3_get_vblank_limits(sensor, &min, &max, &def);
+	v4l2_subdev_unlock_state(sensor->sd.active_state);
+
 	ctrls->vblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_VBLANK, min, max, 1, def);
 
 	def = T4KA3_ACTIVE_WIDTH;
@@ -1044,8 +1048,6 @@ static int t4ka3_probe(struct i2c_client *client)
 	ret = t4ka3_init_controls(sensor);
 	if (ret)
 		goto err_controls;
-
-	t4ka3_calc_mode(sensor);
 
 	ret = v4l2_async_register_subdev_sensor(&sensor->sd);
 	if (ret)
