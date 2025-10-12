@@ -1110,9 +1110,31 @@ static const struct ov01a10_sensor_cfg ov01a1b_cfg = {
 	.format1_base_val = 0xa0,
 };
 
+/*
+ * The native ov01a1s bayer_pattern is GRGB-IGIG-GBGR-IGIG but Intel's
+ * proprietary IPU6 userspace stack expects IGIG-GBGR-IGIG-GRGB. So we
+ * generate this by shifting the crop window-y coordinate by 1 when
+ * vflip is *disabled*.
+ */
+static const struct ov01a10_sensor_cfg ov01a1s_cfg = {
+	.model = "ov01a1s",
+	/*
+	 * FIXME this obviously is wrong, this needs to be changed to
+	 * MEDIA_BUS_FMT_RAW10_1x10 + reporting the proper bayer-order through
+	 * a v4l2-control once the sensor internal pads series has landed.
+	 */
+	.bus_fmt = MEDIA_BUS_FMT_SGRBG10_1X10, /* really IGIG-GBGR-IGIG-GRGB */
+	.pattern_size = 4, /* 4x4 */
+	.border_size = 4,
+	.format1_base_val = 0x80,
+	.invert_hflip_shift = false,
+	.invert_vflip_shift = true,
+};
+
 static const struct acpi_device_id ov01a10_acpi_ids[] = {
 	{ "OVTI01A0", (uintptr_t)&ov01a10_cfg },
 	{ "OVTI01AB", (uintptr_t)&ov01a1b_cfg },
+	{ "OVTI01AS", (uintptr_t)&ov01a1s_cfg },
 	{ }
 };
 
