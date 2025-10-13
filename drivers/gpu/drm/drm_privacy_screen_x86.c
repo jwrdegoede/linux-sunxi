@@ -62,7 +62,7 @@ static const struct arch_init_data arch_init_data[] __initconst = {
 	{
 		.lookup = {
 			.dev_id = NULL,
-			.con_id = NULL,
+			.con_id = "eDP-1",
 			.provider = "privacy_screen-thinkpad_acpi",
 		},
 		.detect = detect_thinkpad_privacy_screen,
@@ -72,7 +72,7 @@ static const struct arch_init_data arch_init_data[] __initconst = {
 	{
 		.lookup = {
 			.dev_id = NULL,
-			.con_id = NULL,
+			.con_id = "eDP-1",
 			.provider = "privacy_screen-GOOG0010:00",
 		},
 		.detect = detect_chromeos_privacy_screen,
