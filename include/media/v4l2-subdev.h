@@ -1101,6 +1101,7 @@ struct v4l2_subdev {
 	 */
 
 	struct led_classdev *privacy_led;
+	struct v4l2_subdev *vcm;
 
 	/*
 	 * TODO: active_state should most likely be changed from a pointer to an
@@ -1111,6 +1112,7 @@ struct v4l2_subdev {
 	struct v4l2_subdev_state *active_state;
 	u64 enabled_pads;
 	bool s_stream_enabled;
+	bool vcm_enabled;
 };
 
 
