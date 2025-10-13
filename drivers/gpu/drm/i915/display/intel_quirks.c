@@ -100,6 +100,13 @@ static void quirk_disable_psr2(struct intel_display *display)
 	drm_info(display->drm, "PSR2 support not currently available for this setup, applying disable PSR2 quirk\n");
 }
 
+/* The Xiaomi Mi Pad 2 CHT tablet hangs on enabling the dpio-common-bc well */
+static void quirk_no_vlv_disp_pw_dpio_cmn_bc_init(struct intel_display *display)
+{
+	intel_set_quirk(display, QUIRK_NO_VLV_DISP_PW_DPIO_CMN_BC_INIT);
+	drm_info(display->drm, "Applying no dpio-common-bc powerwell init quirk\n");
+}
+
 struct intel_quirk {
 	int device;
 	int subsystem_vendor;
@@ -259,6 +266,9 @@ static struct intel_quirk intel_quirks[] = {
 
 	/* Xiaomi Book Pro 14 2026 */
 	{ 0xb081, 0x1d72, 0x2424, quirk_disable_psr2 },
+
+	/* Xiaomi Mi Pad 2 */
+	{ 0x22b0, 0x1d72, 0x1502, quirk_no_vlv_disp_pw_dpio_cmn_bc_init },
 };
 
 static const struct intel_dpcd_quirk intel_dpcd_quirks[] = {
