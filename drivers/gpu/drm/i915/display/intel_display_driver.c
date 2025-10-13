@@ -226,6 +226,7 @@ int intel_display_driver_probe_noirq(struct intel_display *display)
 		goto cleanup_bios;
 
 	intel_psr_dc5_dc6_wa_init(display);
+	intel_init_quirks(display);
 
 	/* FIXME: completely on the wrong abstraction layer */
 	ret = intel_power_domains_init(display);
@@ -297,8 +298,6 @@ int intel_display_driver_probe_noirq(struct intel_display *display)
 	ret = intel_pmdemand_init(display);
 	if (ret)
 		goto cleanup_wq_unordered;
-
-	intel_init_quirks(display);
 
 	intel_fbc_init(display);
 
