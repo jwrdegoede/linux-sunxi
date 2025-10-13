@@ -4681,7 +4681,7 @@ static int intel_ddi_init_dp_connector(struct intel_digital_port *dig_port)
 	if (dig_port->base.type == INTEL_OUTPUT_EDP) {
 		struct drm_privacy_screen *privacy_screen;
 
-		privacy_screen = drm_privacy_screen_get(display->drm->dev, NULL);
+		privacy_screen = drm_privacy_screen_get(display->drm->dev, connector->base.name);
 		if (!IS_ERR(privacy_screen)) {
 			drm_connector_attach_privacy_screen_provider(&connector->base,
 								     privacy_screen);
