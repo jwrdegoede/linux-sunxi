@@ -41,6 +41,10 @@ static const guid_t cio2_sensor_module_guid =
 	GUID_INIT(0x822ace8f, 0x2814, 0x4174,
 		  0xa5, 0x6b, 0x5f, 0x02, 0x9f, 0xe0, 0x79, 0xee);
 
+unsigned int handshake_enable_time;
+module_param(handshake_enable_time, uint, 0444);
+MODULE_PARM_DESC(handshake_enable_time, "Override delay after handshake GPIO enable (ms)");
+
 static void skl_int3472_log_sensor_module_name(struct int3472_discrete_device *int3472)
 {
 	union acpi_object *obj;
@@ -357,6 +361,9 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
 			second_sensor = int3472->quirks.avdd_second_sensor;
 			fallthrough;
 		case INT3472_GPIO_TYPE_HANDSHAKE:
+			if (handshake_enable_time)
+				enable_time_us = handshake_enable_time * USEC_PER_MSEC;
+
 			ret = skl_int3472_register_regulator(int3472, gpio, enable_time_us,
 							     con_id, second_sensor);
 			if (ret)
