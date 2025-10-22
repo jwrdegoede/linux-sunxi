@@ -340,7 +340,7 @@ static void t4ka3_fill_format(struct t4ka3_data *sensor,
 	fmt->width = width;
 	fmt->height = height;
 	fmt->field = V4L2_FIELD_NONE;
-	fmt->colorspace = V4L2_COLORSPACE_SRGB;
+	fmt->colorspace = V4L2_COLORSPACE_RAW;
 	t4ka3_set_bayer_order(sensor, fmt);
 }
 
@@ -435,18 +435,16 @@ static int t4ka3_set_pad_format(struct v4l2_subdev *sd,
 	if (ret)
 		return ret;
 
-	def = T4KA3_ACTIVE_WIDTH - fmt->width;
+	def = T4KA3_PIXELS_PER_LINE - fmt->width;
 	ret = __v4l2_ctrl_modify_range(sensor->ctrls.hblank, def, def, 1, def);
 	if (ret)
 		return ret;
+
 	ret = __v4l2_ctrl_s_ctrl(sensor->ctrls.hblank, def);
 	if (ret)
 		return ret;
 
-	/* exposure range depends on vts which may have changed */
-	ret = t4ka3_update_exposure_range(sensor);
-
-	return ret;
+	return 0;
 }
 
 /* Horizontal or vertically flip the image */
@@ -594,7 +592,7 @@ static int t4ka3_enable_stream(struct v4l2_subdev *sd, struct v4l2_subdev_state 
 	ret = pm_runtime_get_sync(sensor->sd.dev);
 	if (ret < 0) {
 		dev_err(sensor->dev, "power-up err.\n");
-		goto error_exit;
+		goto error_powerdown;
 	}
 
 	cci_multi_reg_write(sensor->regmap, t4ka3_init_config,
@@ -628,11 +626,10 @@ static int t4ka3_enable_stream(struct v4l2_subdev *sd, struct v4l2_subdev_state 
 
 	sensor->streaming = 1;
 
-	return ret;
+	return 0;
 
 error_powerdown:
 	pm_runtime_put(sensor->sd.dev);
-error_exit:
 	return ret;
 }
 
@@ -694,20 +691,12 @@ static int t4ka3_set_selection(struct v4l2_subdev *sd,
 			      T4KA3_NATIVE_START_LEFT, T4KA3_NATIVE_WIDTH);
 	rect.top = clamp_val(ALIGN(sel->r.top, 2),
 			     T4KA3_NATIVE_START_TOP, T4KA3_NATIVE_HEIGHT);
-	rect.width = clamp_val(ALIGN(sel->r.width, 2),
-			       T4KA3_MIN_CROP_WIDTH, T4KA3_NATIVE_WIDTH);
-	rect.height = clamp_val(ALIGN(sel->r.height, 2),
-				T4KA3_MIN_CROP_HEIGHT, T4KA3_NATIVE_HEIGHT);
-
-	/* Make sure the crop rectangle isn't outside the bounds of the array */
-	rect.width = min_t(unsigned int, rect.width,
-			   T4KA3_NATIVE_WIDTH - rect.left);
-	rect.height = min_t(unsigned int, rect.height,
-			    T4KA3_NATIVE_HEIGHT - rect.top);
+	rect.width = clamp_val(ALIGN(sel->r.width, 2), T4KA3_MIN_CROP_WIDTH,
+			       T4KA3_NATIVE_WIDTH - rect.left);
+	rect.height = clamp_val(ALIGN(sel->r.height, 2), T4KA3_MIN_CROP_HEIGHT,
+				T4KA3_NATIVE_HEIGHT - rect.top);
 
 	crop = v4l2_subdev_state_get_crop(state, sel->pad);
-
-	*crop = rect;
 
 	if (rect.width != crop->width || rect.height != crop->height) {
 		/*
@@ -721,6 +710,7 @@ static int t4ka3_set_selection(struct v4l2_subdev *sd,
 			t4ka3_calc_mode(sensor);
 	}
 
+	*crop = rect;
 	sel->r = rect;
 
 	return 0;
@@ -748,8 +738,6 @@ static int t4ka3_enum_frame_size(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	crop = v4l2_subdev_state_get_crop(sd_state, fse->pad);
-	if (!crop)
-		return -EINVAL;
 
 	fse->min_width = crop->width / (fse->index + 1);
 	fse->min_height = crop->height / (fse->index + 1);
@@ -898,7 +886,7 @@ static int t4ka3_init_controls(struct t4ka3_data *sensor)
 
 	ctrls->vblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_VBLANK, min, max, 1, def);
 
-	def = T4KA3_ACTIVE_WIDTH;
+	def = T4KA3_PIXELS_PER_LINE - T4KA3_ACTIVE_WIDTH;
 	ctrls->hblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_HBLANK,
 					  def, def, 1, def);
 
@@ -970,8 +958,9 @@ static void t4ka3_remove(struct i2c_client *client)
 	struct t4ka3_data *sensor = to_t4ka3_sensor(sd);
 
 	v4l2_async_unregister_subdev(&sensor->sd);
-	media_entity_cleanup(&sensor->sd.entity);
 	v4l2_ctrl_handler_free(&sensor->ctrls.handler);
+	v4l2_subdev_cleanup(sd);
+	media_entity_cleanup(&sensor->sd.entity);
 
 	/*
 	 * Disable runtime PM. In case runtime PM is disabled in the kernel,
@@ -1036,13 +1025,13 @@ static int t4ka3_probe(struct i2c_client *client)
 
 	ret = media_entity_pads_init(&sensor->sd.entity, 1, &sensor->pad);
 	if (ret)
-		goto err_media_entity;
+		goto err_pm_disable;
 
 	sensor->sd.state_lock = sensor->ctrls.handler.lock;
 	ret = v4l2_subdev_init_finalize(&sensor->sd);
 	if (ret < 0) {
 		dev_err(&client->dev, "failed to init subdev: %d", ret);
-		goto err_subdev_entry;
+		goto err_media_entity;
 	}
 
 	ret = t4ka3_init_controls(sensor);
@@ -1051,7 +1040,7 @@ static int t4ka3_probe(struct i2c_client *client)
 
 	ret = v4l2_async_register_subdev_sensor(&sensor->sd);
 	if (ret)
-		goto err_subdev_entry;
+		goto err_controls;
 
 	pm_runtime_set_autosuspend_delay(&client->dev, 1000);
 	pm_runtime_use_autosuspend(&client->dev);
@@ -1059,16 +1048,17 @@ static int t4ka3_probe(struct i2c_client *client)
 
 	return 0;
 
-err_subdev_entry:
-	v4l2_subdev_cleanup(&sensor->sd);
-
 err_controls:
 	v4l2_ctrl_handler_free(&sensor->ctrls.handler);
+	v4l2_subdev_cleanup(&sensor->sd);
 
 err_media_entity:
 	media_entity_cleanup(&sensor->sd.entity);
+
+err_pm_disable:
 	pm_runtime_disable(&client->dev);
 	pm_runtime_put_noidle(&client->dev);
+	t4ka3_pm_suspend(&client->dev);
 
 	return ret;
 }
