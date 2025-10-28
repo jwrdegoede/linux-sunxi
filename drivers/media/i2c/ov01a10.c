@@ -215,9 +215,8 @@ static const struct reg_sequence ov01a1s_regs[] = {
 static const char * const ov01a10_test_pattern_menu[] = {
 	"Disabled",
 	"Color Bar",
+	"Left-Right Darker Color Bar",
 	"Top-Bottom Darker Color Bar",
-	"Right-Left Darker Color Bar",
-	"Color Bar type 4",
 };
 
 static const s64 link_freq_menu_items[] = {
@@ -318,7 +317,7 @@ static int ov01a10_update_digital_gain(struct ov01a10 *ov01a10, u32 d_gain)
 static int ov01a10_test_pattern(struct ov01a10 *ov01a10, u32 pattern)
 {
 	if (pattern)
-		pattern = (pattern - 1) | OV01A10_TEST_PATTERN_ENABLE;
+		pattern |= OV01A10_TEST_PATTERN_ENABLE;
 
 	return cci_write(ov01a10->regmap, OV01A10_REG_TEST_PATTERN, pattern,
 			 NULL);
