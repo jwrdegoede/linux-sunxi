@@ -1326,15 +1326,16 @@
 };
 
 &pcie6a {
-	perst-gpios = <&tlmm 152 GPIO_ACTIVE_LOW>;
-	wake-gpios = <&tlmm 154 GPIO_ACTIVE_LOW>;
-
-	vddpe-3v3-supply = <&vreg_nvme>;
-
 	pinctrl-0 = <&pcie6a_default>;
 	pinctrl-names = "default";
 
 	status = "okay";
+};
+
+&pcie6_port0 {
+	reset-gpios = <&tlmm 152 GPIO_ACTIVE_LOW>;
+	wake-gpios = <&tlmm 154 GPIO_ACTIVE_LOW>;
+	vddpe-3v3-supply = <&vreg_nvme>;
 };
 
 &pcie6a_phy {
