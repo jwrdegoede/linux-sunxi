@@ -2326,6 +2326,7 @@ static bool amdgpu_support_enabled(struct device *dev,
 		param = "si_support";
 		module_param = amdgpu_si_support;
 		amdgpu_support_built = IS_ENABLED(CONFIG_DRM_AMDGPU_SI);
+		support_by_default = true;
 		break;
 
 	case CHIP_BONAIRE:
