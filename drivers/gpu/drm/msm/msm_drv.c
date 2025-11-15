@@ -1142,3 +1142,5 @@ module_exit(msm_drm_unregister);
 MODULE_AUTHOR("Rob Clark <robdclark@gmail.com");
 MODULE_DESCRIPTION("MSM DRM Driver");
 MODULE_LICENSE("GPL");
+/* Make initrd generators add nvmem_qfprom to initrd for speed_bin nvme node */
+MODULE_SOFTDEP("pre: nvmem_qfprom");
