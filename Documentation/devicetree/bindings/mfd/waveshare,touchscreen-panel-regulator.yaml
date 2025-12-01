@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mfd/waveshare,touchscreen-panel-regulator.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Waveshare Touchscreen Panel Regulator and GPIO Controller
+
+maintainers:
+  - Arduino SA <support@arduino.cc>
+
+description: |
+  The Waveshare touchscreen panel regulator is a multi-function device that
+  provides GPIO control and power management for Waveshare DSI touchscreen
+  panels. It controls various power rails, reset lines, and backlight for
+  the display panel.
+
+  This device is typically connected via I2C and provides multiple GPIO
+  lines that can be used to control panel power supplies, reset signals,
+  and backlight control.
+
+properties:
+  compatible:
+    const: waveshare,touchscreen-panel-regulator
+
+  reg:
+    maxItems: 1
+    description: I2C address of the device
+
+  gpio-controller: true
+
+  "#gpio-cells":
+    const: 2
+    description: |
+      The first cell is the GPIO number.
+      The second cell is the GPIO flags as defined in
+      <dt-bindings/gpio/gpio.h>.
+
+required:
+  - compatible
+  - reg
+  - gpio-controller
+  - "#gpio-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        display_mcu: display-mcu@45 {
+            compatible = "waveshare,touchscreen-panel-regulator";
+            reg = <0x45>;
+            gpio-controller;
+            #gpio-cells = <2>;
+        };
+
+        touchscreen@5d {
+            compatible = "goodix,gt9271";
+            reg = <0x5d>;
+            reset-gpios = <&display_mcu 9 GPIO_ACTIVE_HIGH>;
+        };
+    };

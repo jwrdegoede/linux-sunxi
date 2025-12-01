@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/panel/waveshare,10.1-dsi-touch-a.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Waveshare 10.1" DSI Touchscreen Panel (Type A)
+
+maintainers:
+  - Arduino SA <support@arduino.cc>
+
+description: |
+  The Waveshare 10.1" DSI touchscreen panel Type A is a MIPI DSI display
+  panel with integrated capacitive touch controller. This panel requires
+  multiple GPIO-controlled power rails and has an integrated backlight
+  controller.
+
+allOf:
+  - $ref: panel-common.yaml#
+
+properties:
+  compatible:
+    const: waveshare,10.1-dsi-touch-a
+
+  reg:
+    maxItems: 1
+    description: DSI virtual channel
+
+  reset-gpio:
+    maxItems: 1
+    description: GPIO for the reset signal (active high)
+
+  iovcc-gpio:
+    maxItems: 1
+    description: GPIO to enable IOVCC power rail (active high)
+
+  avdd-gpio:
+    maxItems: 1
+    description: GPIO to enable AVDD power rail (active high)
+
+  backlight:
+    description: |
+      Backlight controller phandle. For this panel, the backlight is typically
+      controlled through the display MCU GPIO controller.
+
+  port: true
+
+required:
+  - compatible
+  - reg
+  - reset-gpio
+  - iovcc-gpio
+  - avdd-gpio
+  - backlight
+  - port
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    dsi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        panel@0 {
+            compatible = "waveshare,10.1-dsi-touch-a";
+            reg = <0>;
+            reset-gpio = <&display_mcu 1 GPIO_ACTIVE_HIGH>;
+            iovcc-gpio = <&display_mcu 4 GPIO_ACTIVE_HIGH>;
+            avdd-gpio = <&display_mcu 0 GPIO_ACTIVE_HIGH>;
+            backlight = <&display_mcu>;
+
+            port {
+                panel_in: endpoint {
+                    remote-endpoint = <&dsi_out>;
+                };
+            };
+        };
+    };
