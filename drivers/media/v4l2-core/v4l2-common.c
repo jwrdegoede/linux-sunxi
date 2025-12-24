@@ -743,10 +743,25 @@ struct clk *__devm_v4l2_sensor_clk_get(struct device *dev, const char *id,
 {
 	bool of_node = is_of_node(dev_fwnode(dev));
 	const char *clk_id __free(kfree) = NULL;
+	struct fwnode_handle *ep;
 	struct clk_hw *clk_hw;
 	struct clk *clk;
 	u32 rate = clk_rate;
 	int ret = 0;
+
+	/*
+	 * On ACPI systems the fwnode graph can be initialized by a bridge
+	 * driver, which may not have probed yet. The bridge driver also sets
+	 * the clock-frequency property which is used below. Wait for this.
+	 *
+	 * TODO: Remove once bridge driver code has moved to the ACPI core.
+	 */
+	ep = fwnode_graph_get_next_endpoint(dev_fwnode(dev), NULL);
+	if (!ep)
+		return ERR_PTR(dev_err_probe(dev, -EPROBE_DEFER,
+					     "waiting for fwnode graph endpoint\n"));
+
+	fwnode_handle_put(ep);
 
 	clk = devm_clk_get_optional(dev, id);
 	if (IS_ERR(clk))
