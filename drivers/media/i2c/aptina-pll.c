@@ -12,6 +12,16 @@
 
 #include "aptina-pll.h"
 
+/*
+ * Based on the docs the PLL is believed to have the following setup:
+ *
+ *         +-----+     +-----+     +-----+     +-----+     +-----+
+ * Fin --> | / N | --> | x M | --> | x 2 | --> | / P | --> | / 2 | -->
+ *         +-----+     +-----+     +-----+     +-----+     +-----+
+ *                                         fBit       fWord       fSensor
+ * ext_clock    int_clock   out_clock                             pix_clock
+ */
+
 int aptina_pll_calculate(struct device *dev,
 			 const struct aptina_pll_limits *limits,
 			 struct aptina_pll *pll)
