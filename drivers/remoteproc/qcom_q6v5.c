@@ -36,6 +36,25 @@ static int q6v5_load_state_toggle(struct qcom_q6v5 *q6v5, bool enable)
 	return ret;
 }
 
+static int q6v5_init(struct qcom_q6v5 *q6v5, bool handover_issued)
+{
+	int ret;
+
+	/* Always send correct load state in case it was not done before */
+	ret = q6v5_load_state_toggle(q6v5, true);
+	if (ret)
+		return ret;
+
+	reinit_completion(&q6v5->start_done);
+	reinit_completion(&q6v5->stop_done);
+
+	q6v5->running = true;
+	q6v5->handover_issued = handover_issued;
+
+	enable_irq(q6v5->handover_irq);
+	return 0;
+}
+
 /**
  * qcom_q6v5_prepare() - reinitialize the qcom_q6v5 context before start
  * @q6v5:	reference to qcom_q6v5 context to be reinitialized
@@ -52,23 +71,34 @@ int qcom_q6v5_prepare(struct qcom_q6v5 *q6v5)
 		return ret;
 	}
 
-	ret = q6v5_load_state_toggle(q6v5, true);
+	ret = q6v5_init(q6v5, false);
 	if (ret) {
 		icc_set_bw(q6v5->path, 0, 0);
 		return ret;
 	}
 
-	reinit_completion(&q6v5->start_done);
-	reinit_completion(&q6v5->stop_done);
-
-	q6v5->running = true;
-	q6v5->handover_issued = false;
-
-	enable_irq(q6v5->handover_irq);
-
 	return 0;
 }
 EXPORT_SYMBOL_GPL(qcom_q6v5_prepare);
+
+/**
+ * qcom_q6v5_attach() - attach to already running qcom_q6v5 remoteproc
+ * @q6v5:	reference to qcom_q6v5 context to be attached
+ *
+ * Return: 0 on success, negative errno on failure
+ */
+int qcom_q6v5_attach(struct qcom_q6v5 *q6v5)
+{
+	int ret;
+
+	ret = q6v5_init(q6v5, true);
+	if (ret)
+		return ret;
+
+	complete(&q6v5->start_done);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(qcom_q6v5_attach);
 
 /**
  * qcom_q6v5_unprepare() - unprepare the qcom_q6v5 context after stop
@@ -201,8 +231,8 @@ int qcom_q6v5_request_stop(struct qcom_q6v5 *q6v5, struct qcom_sysmon *sysmon)
 
 	q6v5->running = false;
 
-	/* Don't perform SMP2P dance if remote isn't running */
-	if (q6v5->rproc->state != RPROC_RUNNING || qcom_sysmon_shutdown_acked(sysmon))
+	/* Don't perform SMP2P dance if remote crashed or already stopped */
+	if (q6v5->rproc->state == RPROC_CRASHED || qcom_sysmon_shutdown_acked(sysmon))
 		return 0;
 
 	qcom_smem_state_update_bits(q6v5->state,
@@ -233,6 +263,35 @@ unsigned long qcom_q6v5_panic(struct qcom_q6v5 *q6v5)
 	return Q6V5_PANIC_DELAY_MS;
 }
 EXPORT_SYMBOL_GPL(qcom_q6v5_panic);
+
+/**
+ * qcom_q6v5_read_smp2p_state() - check the initial state during boot using SMP2P
+ * @q6v5:	reference to qcom_q6v5 context
+ *
+ * Read the current state of the SMP2P interrupts and attempt to determine if
+ * the remoteproc is already running. If yes, the remoteproc state is set to
+ * RPROC_DETACHED. Drivers can use this to add support for attaching to
+ * remoteprocs during boot.
+ *
+ * There is a small chance for false-positives, so drivers should combine this
+ * with device-specific status information if possible.
+ */
+void qcom_q6v5_read_smp2p_state(struct qcom_q6v5 *q6v5)
+{
+	bool handover = false;
+	bool ready = false;
+	bool fatal = false;
+	bool stop = false;
+
+	irq_get_irqchip_state(q6v5->handover_irq, IRQCHIP_STATE_LINE_LEVEL, &handover);
+	irq_get_irqchip_state(q6v5->ready_irq, IRQCHIP_STATE_LINE_LEVEL, &ready);
+	irq_get_irqchip_state(q6v5->fatal_irq, IRQCHIP_STATE_LINE_LEVEL, &fatal);
+	irq_get_irqchip_state(q6v5->stop_irq, IRQCHIP_STATE_LINE_LEVEL, &stop);
+
+	if (ready && handover && !stop && !fatal)
+		q6v5->rproc->state = RPROC_DETACHED;
+}
+EXPORT_SYMBOL_GPL(qcom_q6v5_read_smp2p_state);
 
 /**
  * qcom_q6v5_init() - initializer of the q6v5 common struct

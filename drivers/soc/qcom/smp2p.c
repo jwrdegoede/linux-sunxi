@@ -73,7 +73,7 @@ struct smp2p_smem_item {
 	u32 flags;
 
 	struct {
-		u8 name[SMP2P_MAX_ENTRY_NAME];
+		char name[SMP2P_MAX_ENTRY_NAME];
 		u32 value;
 	} entries[SMP2P_MAX_ENTRY];
 } __packed;
@@ -202,8 +202,6 @@ static void qcom_smp2p_do_ssr_ack(struct qcom_smp2p *smp2p)
 	if (smp2p->ssr_ack)
 		val |= BIT(SMP2P_FLAGS_RESTART_ACK_BIT);
 	out->flags = val;
-
-	qcom_smp2p_kick(smp2p);
 }
 
 static void qcom_smp2p_negotiate(struct qcom_smp2p *smp2p)
@@ -214,8 +212,10 @@ static void qcom_smp2p_negotiate(struct qcom_smp2p *smp2p)
 	if (in->version == out->version) {
 		out->features &= in->features;
 
-		if (out->features & SMP2P_FEATURE_SSR_ACK)
+		if (out->features & SMP2P_FEATURE_SSR_ACK) {
 			smp2p->ssr_ack_enabled = true;
+			smp2p->ssr_ack = !!(out->flags & BIT(SMP2P_FLAGS_RESTART_ACK_BIT));
+		}
 
 		smp2p->negotiation_done = true;
 		trace_smp2p_negotiate(smp2p->dev, out->features);
@@ -228,7 +228,6 @@ static void qcom_smp2p_notify_in(struct qcom_smp2p *smp2p)
 	struct smp2p_entry *entry;
 	int irq_pin;
 	u32 status;
-	char buf[SMP2P_MAX_ENTRY_NAME];
 	u32 val;
 	int i;
 
@@ -237,8 +236,7 @@ static void qcom_smp2p_notify_in(struct qcom_smp2p *smp2p)
 	/* Match newly created entries */
 	for (i = smp2p->valid_entries; i < in->valid_entries; i++) {
 		list_for_each_entry(entry, &smp2p->inbound, node) {
-			memcpy(buf, in->entries[i].name, sizeof(buf));
-			if (!strcmp(buf, entry->name)) {
+			if (!strncmp(in->entries[i].name, entry->name, SMP2P_MAX_ENTRY_NAME)) {
 				entry->value = &in->entries[i].value;
 				break;
 			}
@@ -276,6 +274,24 @@ static void qcom_smp2p_notify_in(struct qcom_smp2p *smp2p)
 	}
 }
 
+static bool qcom_smp2p_scan(struct qcom_smp2p *smp2p)
+{
+	bool ack_restart = false;
+
+	if (!smp2p->negotiation_done)
+		qcom_smp2p_negotiate(smp2p);
+
+	if (smp2p->negotiation_done) {
+		ack_restart = qcom_smp2p_check_ssr(smp2p);
+		qcom_smp2p_notify_in(smp2p);
+
+		if (ack_restart)
+			qcom_smp2p_do_ssr_ack(smp2p);
+	}
+
+	return ack_restart;
+}
+
 /**
  * qcom_smp2p_intr() - interrupt handler for incoming notifications
  * @irq:	unused
@@ -292,7 +308,6 @@ static irqreturn_t qcom_smp2p_intr(int irq, void *data)
 	struct qcom_smp2p *smp2p = data;
 	unsigned int smem_id = smp2p->smem_items[SMP2P_INBOUND];
 	unsigned int pid = smp2p->remote_pid;
-	bool ack_restart;
 	size_t size;
 
 	in = smp2p->in;
@@ -309,16 +324,8 @@ static irqreturn_t qcom_smp2p_intr(int irq, void *data)
 		smp2p->in = in;
 	}
 
-	if (!smp2p->negotiation_done)
-		qcom_smp2p_negotiate(smp2p);
-
-	if (smp2p->negotiation_done) {
-		ack_restart = qcom_smp2p_check_ssr(smp2p);
-		qcom_smp2p_notify_in(smp2p);
-
-		if (ack_restart)
-			qcom_smp2p_do_ssr_ack(smp2p);
-	}
+	if (qcom_smp2p_scan(smp2p))
+		qcom_smp2p_kick(smp2p);
 
 out:
 	return IRQ_HANDLED;
@@ -368,12 +375,33 @@ static void smp2p_irq_print_chip(struct irq_data *irqd, struct seq_file *p)
 	seq_printf(p, "%8s", dev_name(entry->smp2p->dev));
 }
 
+static int smp2p_get_irqchip_state(struct irq_data *irqd,
+				   enum irqchip_irq_state which, bool *state)
+{
+	struct smp2p_entry *entry = irq_data_get_irq_chip_data(irqd);
+	irq_hw_number_t irq = irqd_to_hwirq(irqd);
+	u32 val;
+
+	if (which != IRQCHIP_STATE_LINE_LEVEL)
+		return -EINVAL;
+
+	if (entry->value) {
+		val = readl(entry->value);
+		*state = !!(val & BIT(irq));
+	} else {
+		*state = 0;
+	}
+
+	return 0;
+}
+
 static struct irq_chip smp2p_irq_chip = {
 	.name           = "smp2p",
 	.irq_mask       = smp2p_mask_irq,
 	.irq_unmask     = smp2p_unmask_irq,
 	.irq_set_type	= smp2p_set_irq_type,
 	.irq_print_chip = smp2p_irq_print_chip,
+	.irq_get_irqchip_state = smp2p_get_irqchip_state,
 };
 
 static int smp2p_irq_map(struct irq_domain *d,
@@ -439,16 +467,24 @@ static int qcom_smp2p_outbound_entry(struct qcom_smp2p *smp2p,
 				     struct device_node *node)
 {
 	struct smp2p_smem_item *out = smp2p->out;
-	char buf[SMP2P_MAX_ENTRY_NAME] = {};
+	int i;
 
-	/* Allocate an entry from the smem item */
-	strscpy(buf, entry->name, SMP2P_MAX_ENTRY_NAME);
-	memcpy(out->entries[out->valid_entries].name, buf, SMP2P_MAX_ENTRY_NAME);
+	/* Check if we have an entry already (e.g. allocated by boot firmware) */
+	for (i = 0; i < out->valid_entries; i++)
+		if (!strncmp(out->entries[i].name, entry->name, SMP2P_MAX_ENTRY_NAME))
+			break;
+
+	if (i == out->valid_entries) {
+		/* Allocate an entry from the smem item */
+		if (i == out->total_entries)
+			return -ENOMEM;
+
+		strscpy(out->entries[i].name, entry->name, SMP2P_MAX_ENTRY_NAME);
+		out->valid_entries++;
+	}
 
 	/* Make the logical entry reference the physical value */
-	entry->value = &out->entries[out->valid_entries].value;
-
-	out->valid_entries++;
+	entry->value = &out->entries[i].value;
 
 	entry->state = qcom_smem_state_register(node, &smp2p_state_ops, entry);
 	if (IS_ERR(entry->state)) {
@@ -477,6 +513,29 @@ static int qcom_smp2p_alloc_outbound_item(struct qcom_smp2p *smp2p)
 		return PTR_ERR(out);
 	}
 
+	smp2p->out = out;
+
+	if (ret == -EEXIST && smp2p->in) {
+		if (out->magic == SMP2P_MAGIC &&
+		    out->version == 1 &&
+		    out->local_pid == smp2p->local_pid &&
+		    out->remote_pid == smp2p->remote_pid &&
+		    out->total_entries >= SMP2P_MAX_ENTRY &&
+		    out->valid_entries <= out->total_entries) {
+			/*
+			 * Reuse existing smem item, but adjust features to
+			 * what we support. This will be updated later when we
+			 * negotiate with the features of the remote side.
+			 */
+			out->features = SMP2P_ALL_FEATURES;
+			return 0;
+		} else {
+			dev_warn(smp2p->dev, "Unexpected local smp2p item allocated by firmware, resetting. "
+				 "(magic: %#x, version: %d, local_pid: %d, remote_pid: %d, total_entries: %d, valid_entries: %d)\n",
+				 out->magic, out->version, out->local_pid, out->remote_pid, out->total_entries, out->valid_entries);
+		}
+	}
+
 	memset(out, 0, sizeof(*out));
 	out->magic = SMP2P_MAGIC;
 	out->local_pid = smp2p->local_pid;
@@ -493,8 +552,6 @@ static int qcom_smp2p_alloc_outbound_item(struct qcom_smp2p *smp2p)
 	out->version = 1;
 
 	qcom_smp2p_kick(smp2p);
-
-	smp2p->out = out;
 
 	return 0;
 }
@@ -535,6 +592,7 @@ static int smp2p_parse_ipc(struct qcom_smp2p *smp2p)
 
 static int qcom_smp2p_probe(struct platform_device *pdev)
 {
+	struct smp2p_smem_item *in;
 	struct smp2p_entry *entry;
 	struct qcom_smp2p *smp2p;
 	const char *key;
@@ -585,6 +643,10 @@ static int qcom_smp2p_probe(struct platform_device *pdev)
 			return ret;
 	}
 
+	in = qcom_smem_get(smp2p->remote_pid, smp2p->smem_items[SMP2P_INBOUND], NULL);
+	if (!IS_ERR(in))
+		smp2p->in = in;
+
 	ret = qcom_smp2p_alloc_outbound_item(smp2p);
 	if (ret < 0)
 		goto release_mbox;
@@ -618,8 +680,9 @@ static int qcom_smp2p_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* Kick the outgoing edge after allocating entries */
-	qcom_smp2p_kick(smp2p);
+	if (smp2p->in)
+		/* Ignore return status since we kick unconditionally below */
+		qcom_smp2p_scan(smp2p);
 
 	ret = devm_request_threaded_irq(&pdev->dev, irq,
 					NULL, qcom_smp2p_intr,
@@ -629,6 +692,9 @@ static int qcom_smp2p_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to request interrupt\n");
 		goto unwind_interfaces;
 	}
+
+	/* Kick the outgoing edge after allocating entries */
+	qcom_smp2p_kick(smp2p);
 
 	/*
 	 * Treat smp2p interrupt as wakeup source, but keep it disabled
