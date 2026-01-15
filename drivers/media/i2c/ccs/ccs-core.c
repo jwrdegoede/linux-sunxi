@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include <linux/smiapp.h>
 #include <linux/v4l2-mediabus.h>
+#include <media/mipi-csi2.h>
 #include <media/v4l2-cci.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-fwnode.h>
@@ -243,6 +244,33 @@ out_err:
 	kfree(alloc);
 
 	return ret;
+}
+
+static u8 ccs_mipi_csi2_data_type(unsigned int bpp)
+{
+	switch (bpp) {
+	case 6:
+		return MIPI_CSI2_DT_RAW6;
+	case 7:
+		return MIPI_CSI2_DT_RAW7;
+	case 8:
+		return MIPI_CSI2_DT_RAW8;
+	case 10:
+		return MIPI_CSI2_DT_RAW10;
+	case 12:
+		return MIPI_CSI2_DT_RAW12;
+	case 14:
+		return MIPI_CSI2_DT_RAW14;
+	case 16:
+		return MIPI_CSI2_DT_RAW16;
+	case 20:
+		return MIPI_CSI2_DT_RAW20;
+	case 24:
+		return MIPI_CSI2_DT_RAW24;
+	default:
+		WARN_ON(1);
+		return 0;
+	}
 }
 
 static int ccs_read_frame_fmt(struct ccs_sensor *sensor)
@@ -1704,163 +1732,8 @@ static int ccs_power_off(struct device *dev)
 	usleep_range(5000, 5000);
 	regulator_bulk_disable(ARRAY_SIZE(ccs_regulators),
 			       sensor->regulators);
-	sensor->streaming = false;
 
 	return 0;
-}
-
-/* -----------------------------------------------------------------------------
- * Video stream management
- */
-
-static int ccs_start_streaming(struct ccs_sensor *sensor)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&sensor->src->sd);
-	unsigned int binning_mode;
-	int rval;
-
-	mutex_lock(&sensor->mutex);
-
-	rval = ccs_write(sensor, CSI_DATA_FORMAT,
-			 (sensor->csi_format->width << 8) |
-			 sensor->csi_format->compressed);
-	if (rval)
-		goto out;
-
-	/* Binning configuration */
-	if (sensor->binning_horizontal == 1 &&
-	    sensor->binning_vertical == 1) {
-		binning_mode = 0;
-	} else {
-		u8 binning_type =
-			(sensor->binning_horizontal << 4)
-			| sensor->binning_vertical;
-
-		rval = ccs_write(sensor, BINNING_TYPE, binning_type);
-		if (rval < 0)
-			goto out;
-
-		binning_mode = 1;
-	}
-	rval = ccs_write(sensor, BINNING_MODE, binning_mode);
-	if (rval < 0)
-		goto out;
-
-	/* Set up PLL */
-	rval = ccs_pll_configure(sensor);
-	if (rval)
-		goto out;
-
-	/* Analog crop start coordinates */
-	rval = ccs_write(sensor, X_ADDR_START, sensor->pa_src.left);
-	if (rval < 0)
-		goto out;
-
-	rval = ccs_write(sensor, Y_ADDR_START, sensor->pa_src.top);
-	if (rval < 0)
-		goto out;
-
-	/* Analog crop end coordinates */
-	rval = ccs_write(sensor, X_ADDR_END,
-			 sensor->pa_src.left + sensor->pa_src.width - 1);
-	if (rval < 0)
-		goto out;
-
-	rval = ccs_write(sensor, Y_ADDR_END,
-			 sensor->pa_src.top + sensor->pa_src.height - 1);
-	if (rval < 0)
-		goto out;
-
-	/*
-	 * Output from pixel array, including blanking, is set using
-	 * controls below. No need to set here.
-	 */
-
-	/* Digital crop */
-	if (CCS_LIM(sensor, DIGITAL_CROP_CAPABILITY)
-	    == CCS_DIGITAL_CROP_CAPABILITY_INPUT_CROP) {
-		rval = ccs_write(sensor, DIGITAL_CROP_X_OFFSET,
-				 sensor->scaler_sink.left);
-		if (rval < 0)
-			goto out;
-
-		rval = ccs_write(sensor, DIGITAL_CROP_Y_OFFSET,
-				 sensor->scaler_sink.top);
-		if (rval < 0)
-			goto out;
-
-		rval = ccs_write(sensor, DIGITAL_CROP_IMAGE_WIDTH,
-				 sensor->scaler_sink.width);
-		if (rval < 0)
-			goto out;
-
-		rval = ccs_write(sensor, DIGITAL_CROP_IMAGE_HEIGHT,
-				 sensor->scaler_sink.height);
-		if (rval < 0)
-			goto out;
-	}
-
-	/* Scaling */
-	if (CCS_LIM(sensor, SCALING_CAPABILITY)
-	    != CCS_SCALING_CAPABILITY_NONE) {
-		rval = ccs_write(sensor, SCALING_MODE, sensor->scaling_mode);
-		if (rval < 0)
-			goto out;
-
-		rval = ccs_write(sensor, SCALE_M, sensor->scale_m);
-		if (rval < 0)
-			goto out;
-	}
-
-	/* Output size from sensor */
-	rval = ccs_write(sensor, X_OUTPUT_SIZE, sensor->src_src.width);
-	if (rval < 0)
-		goto out;
-	rval = ccs_write(sensor, Y_OUTPUT_SIZE, sensor->src_src.height);
-	if (rval < 0)
-		goto out;
-
-	if (CCS_LIM(sensor, FLASH_MODE_CAPABILITY) &
-	    (CCS_FLASH_MODE_CAPABILITY_SINGLE_STROBE |
-	     SMIAPP_FLASH_MODE_CAPABILITY_MULTIPLE_STROBE) &&
-	    sensor->hwcfg.strobe_setup != NULL &&
-	    sensor->hwcfg.strobe_setup->trigger != 0) {
-		rval = ccs_setup_flash_strobe(sensor);
-		if (rval)
-			goto out;
-	}
-
-	rval = ccs_call_quirk(sensor, pre_streamon);
-	if (rval) {
-		dev_err(&client->dev, "pre_streamon quirks failed\n");
-		goto out;
-	}
-
-	rval = ccs_write(sensor, MODE_SELECT, CCS_MODE_SELECT_STREAMING);
-
-out:
-	mutex_unlock(&sensor->mutex);
-
-	return rval;
-}
-
-static int ccs_stop_streaming(struct ccs_sensor *sensor)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&sensor->src->sd);
-	int rval;
-
-	mutex_lock(&sensor->mutex);
-	rval = ccs_write(sensor, MODE_SELECT, CCS_MODE_SELECT_SOFTWARE_STANDBY);
-	if (rval)
-		goto out;
-
-	rval = ccs_call_quirk(sensor, post_streamoff);
-	if (rval)
-		dev_err(&client->dev, "post_streamoff quirks failed\n");
-
-out:
-	mutex_unlock(&sensor->mutex);
-	return rval;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1888,32 +1761,36 @@ static int ccs_pm_get_init(struct ccs_sensor *sensor)
 	sensor->handler_setup_needed = false;
 
 	/* Restore V4L2 controls to the previously suspended device */
-	rval = v4l2_ctrl_handler_setup(&sensor->pixel_array->ctrl_handler);
+	rval = __v4l2_ctrl_handler_setup(&sensor->pixel_array->ctrl_handler);
 	if (rval)
 		goto error;
 
-	rval = v4l2_ctrl_handler_setup(&sensor->src->ctrl_handler);
+	rval = __v4l2_ctrl_handler_setup(&sensor->src->ctrl_handler);
 	if (rval)
 		goto error;
 
 	/* Keep PM runtime usage_count incremented on success */
 	return 0;
+
 error:
 	pm_runtime_put(&client->dev);
 	return rval;
 }
 
-static int ccs_set_stream(struct v4l2_subdev *subdev, int enable)
+static int ccs_enable_streams(struct v4l2_subdev *subdev,
+			      struct v4l2_subdev_state *state, u32 pad,
+			      u64 streams_mask)
 {
 	struct ccs_sensor *sensor = to_ccs_sensor(subdev);
 	struct i2c_client *client = v4l2_get_subdevdata(&sensor->src->sd);
+	unsigned int binning_mode;
 	int rval;
 
-	if (!enable) {
-		ccs_stop_streaming(sensor);
-		sensor->streaming = false;
-		pm_runtime_put_autosuspend(&client->dev);
+	if (pad != CCS_PAD_SRC)
+		return -EINVAL;
 
+	if (sensor->streaming) {
+		sensor->streaming |= streams_mask;
 		return 0;
 	}
 
@@ -1921,15 +1798,159 @@ static int ccs_set_stream(struct v4l2_subdev *subdev, int enable)
 	if (rval)
 		return rval;
 
-	sensor->streaming = true;
+	rval = ccs_write(sensor, CSI_DATA_FORMAT,
+			 (sensor->csi_format->width << 8) |
+			 sensor->csi_format->compressed);
+	if (rval)
+		goto err_pm_put;
 
-	rval = ccs_start_streaming(sensor);
-	if (rval < 0) {
-		sensor->streaming = false;
-		pm_runtime_put_autosuspend(&client->dev);
+	/* Binning configuration */
+	if (sensor->binning_horizontal == 1 &&
+	    sensor->binning_vertical == 1) {
+		binning_mode = 0;
+	} else {
+		u8 binning_type =
+			(sensor->binning_horizontal << 4)
+			| sensor->binning_vertical;
+
+		rval = ccs_write(sensor, BINNING_TYPE, binning_type);
+		if (rval < 0)
+			goto err_pm_put;
+
+		binning_mode = 1;
+	}
+	rval = ccs_write(sensor, BINNING_MODE, binning_mode);
+	if (rval < 0)
+		goto err_pm_put;
+
+	/* Set up PLL */
+	rval = ccs_pll_configure(sensor);
+	if (rval)
+		goto err_pm_put;
+
+	/* Analog crop start coordinates */
+	rval = ccs_write(sensor, X_ADDR_START, sensor->pa_src.left);
+	if (rval < 0)
+		goto err_pm_put;
+
+	rval = ccs_write(sensor, Y_ADDR_START, sensor->pa_src.top);
+	if (rval < 0)
+		goto err_pm_put;
+
+	/* Analog crop end coordinates */
+	rval = ccs_write(sensor, X_ADDR_END,
+			 sensor->pa_src.left + sensor->pa_src.width - 1);
+	if (rval < 0)
+		goto err_pm_put;
+
+	rval = ccs_write(sensor, Y_ADDR_END,
+			 sensor->pa_src.top + sensor->pa_src.height - 1);
+	if (rval < 0)
+		goto err_pm_put;
+
+	/*
+	 * Output from pixel array, including blanking, is set using
+	 * controls below. No need to set here.
+	 */
+
+	/* Digital crop */
+	if (CCS_LIM(sensor, DIGITAL_CROP_CAPABILITY)
+	    == CCS_DIGITAL_CROP_CAPABILITY_INPUT_CROP) {
+		rval = ccs_write(sensor, DIGITAL_CROP_X_OFFSET,
+				 sensor->scaler_sink.left);
+		if (rval < 0)
+			goto err_pm_put;
+
+		rval = ccs_write(sensor, DIGITAL_CROP_Y_OFFSET,
+				 sensor->scaler_sink.top);
+		if (rval < 0)
+			goto err_pm_put;
+
+		rval = ccs_write(sensor, DIGITAL_CROP_IMAGE_WIDTH,
+				 sensor->scaler_sink.width);
+		if (rval < 0)
+			goto err_pm_put;
+
+		rval = ccs_write(sensor, DIGITAL_CROP_IMAGE_HEIGHT,
+				 sensor->scaler_sink.height);
+		if (rval < 0)
+			goto err_pm_put;
 	}
 
+	/* Scaling */
+	if (CCS_LIM(sensor, SCALING_CAPABILITY)
+	    != CCS_SCALING_CAPABILITY_NONE) {
+		rval = ccs_write(sensor, SCALING_MODE, sensor->scaling_mode);
+		if (rval < 0)
+			goto err_pm_put;
+
+		rval = ccs_write(sensor, SCALE_M, sensor->scale_m);
+		if (rval < 0)
+			goto err_pm_put;
+	}
+
+	/* Output size from sensor */
+	rval = ccs_write(sensor, X_OUTPUT_SIZE, sensor->src_src.width);
+	if (rval < 0)
+		goto err_pm_put;
+	rval = ccs_write(sensor, Y_OUTPUT_SIZE, sensor->src_src.height);
+	if (rval < 0)
+		goto err_pm_put;
+
+	if (CCS_LIM(sensor, FLASH_MODE_CAPABILITY) &
+	    (CCS_FLASH_MODE_CAPABILITY_SINGLE_STROBE |
+	     SMIAPP_FLASH_MODE_CAPABILITY_MULTIPLE_STROBE) &&
+	    sensor->hwcfg.strobe_setup != NULL &&
+	    sensor->hwcfg.strobe_setup->trigger != 0) {
+		rval = ccs_setup_flash_strobe(sensor);
+		if (rval)
+			goto err_pm_put;
+	}
+
+	rval = ccs_call_quirk(sensor, pre_streamon);
+	if (rval) {
+		dev_err(&client->dev, "pre_streamon quirks failed\n");
+		goto err_pm_put;
+	}
+
+	rval = ccs_write(sensor, MODE_SELECT, CCS_MODE_SELECT_STREAMING);
+
+	sensor->streaming |= streams_mask;
+
+	return 0;
+
+err_pm_put:
+	pm_runtime_put_autosuspend(&client->dev);
+
 	return rval;
+}
+
+static int ccs_disable_streams(struct v4l2_subdev *subdev,
+			       struct v4l2_subdev_state *state, u32 pad,
+			       u64 streams_mask)
+{
+	struct ccs_sensor *sensor = to_ccs_sensor(subdev);
+	struct i2c_client *client = v4l2_get_subdevdata(&sensor->src->sd);
+	int rval;
+
+	if (pad != CCS_PAD_SRC)
+		return -EINVAL;
+
+	sensor->streaming &= ~streams_mask;
+	if (sensor->streaming)
+		return 0;
+
+	rval = ccs_write(sensor, MODE_SELECT, CCS_MODE_SELECT_SOFTWARE_STANDBY);
+	if (rval)
+		return rval;
+
+	rval = ccs_call_quirk(sensor, post_streamoff);
+	if (rval)
+		dev_err(&client->dev, "post_streamoff quirks failed\n");
+
+	pm_runtime_put_autosuspend(&client->dev);
+
+	return 0;
 }
 
 static int ccs_pre_streamon(struct v4l2_subdev *subdev, u32 flags)
@@ -1955,7 +1976,9 @@ static int ccs_pre_streamon(struct v4l2_subdev *subdev, u32 flags)
 		}
 	}
 
+	mutex_lock(&sensor->mutex);
 	rval = ccs_pm_get_init(sensor);
+	mutex_unlock(&sensor->mutex);
 	if (rval)
 		return rval;
 
@@ -1975,6 +1998,20 @@ static int ccs_post_streamoff(struct v4l2_subdev *subdev)
 	struct i2c_client *client = v4l2_get_subdevdata(&sensor->src->sd);
 
 	return pm_runtime_put(&client->dev);
+}
+
+static const struct ccs_csi_data_format
+*ccs_validate_csi_data_format(struct ccs_sensor *sensor, u32 code)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(ccs_csi_data_formats); i++) {
+		if (sensor->mbus_frame_fmts & (1 << i) &&
+		    ccs_csi_data_formats[i].code == code)
+			return &ccs_csi_data_formats[i];
+	}
+
+	return sensor->csi_format;
 }
 
 static int ccs_enum_mbus_code(struct v4l2_subdev *subdev,
@@ -2065,10 +2102,11 @@ static void ccs_get_crop_compose(struct v4l2_subdev *subdev,
 	if (crops)
 		for (i = 0; i < subdev->entity.num_pads; i++)
 			crops[i] =
-				v4l2_subdev_state_get_crop(sd_state, i);
+				v4l2_subdev_state_get_crop(sd_state, i,
+							   CCS_STREAM_PIXEL);
 	if (comps)
-		*comps = v4l2_subdev_state_get_compose(sd_state,
-						       ssd->sink_pad);
+		*comps = v4l2_subdev_state_get_compose(sd_state, ssd->sink_pad,
+						       CCS_STREAM_PIXEL);
 }
 
 /* Changes require propagation only on sink pad. */
@@ -2101,7 +2139,8 @@ static void ccs_propagate(struct v4l2_subdev *subdev,
 		fallthrough;
 	case V4L2_SEL_TGT_COMPOSE:
 		*crops[CCS_PAD_SRC] = *comp;
-		fmt = v4l2_subdev_state_get_format(sd_state, CCS_PAD_SRC);
+		fmt = v4l2_subdev_state_get_format(sd_state, CCS_PAD_SRC,
+						   CCS_STREAM_PIXEL);
 		fmt->width = comp->width;
 		fmt->height = comp->height;
 		if (which == V4L2_SUBDEV_FORMAT_ACTIVE && ssd == sensor->src)
@@ -2110,20 +2149,6 @@ static void ccs_propagate(struct v4l2_subdev *subdev,
 	default:
 		WARN_ON_ONCE(1);
 	}
-}
-
-static const struct ccs_csi_data_format
-*ccs_validate_csi_data_format(struct ccs_sensor *sensor, u32 code)
-{
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(ccs_csi_data_formats); i++) {
-		if (sensor->mbus_frame_fmts & (1 << i) &&
-		    ccs_csi_data_formats[i].code == code)
-			return &ccs_csi_data_formats[i];
-	}
-
-	return sensor->csi_format;
 }
 
 static int ccs_set_format_source(struct v4l2_subdev *subdev,
@@ -2346,7 +2371,7 @@ static void ccs_set_compose_scaler(struct v4l2_subdev *subdev,
 		* CCS_LIM(sensor, SCALER_N_MIN) / sel->r.height;
 	max_m = crops[CCS_PAD_SINK]->width
 		* CCS_LIM(sensor, SCALER_N_MIN)
-		/ CCS_LIM(sensor, MIN_X_OUTPUT_SIZE);
+		/ (CCS_LIM(sensor, MIN_X_OUTPUT_SIZE) ?: 1);
 
 	a = clamp(a, CCS_LIM(sensor, SCALER_M_MIN),
 		  CCS_LIM(sensor, SCALER_M_MAX));
@@ -2628,6 +2653,41 @@ static int ccs_set_selection(struct v4l2_subdev *subdev,
 
 	mutex_unlock(&sensor->mutex);
 	return ret;
+}
+
+static int ccs_get_frame_desc(struct v4l2_subdev *subdev, unsigned int pad,
+				 struct v4l2_mbus_frame_desc *desc)
+{
+	struct ccs_sensor *sensor = to_ccs_sensor(subdev);
+	struct v4l2_mbus_frame_desc_entry *entry = desc->entry;
+	struct v4l2_subdev_state *sd_state;
+
+	switch (sensor->hwcfg.csi_signalling_mode) {
+	case CCS_CSI_SIGNALING_MODE_CSI_2_DPHY:
+	case CCS_CSI_SIGNALING_MODE_CSI_2_CPHY:
+		desc->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+		break;
+	default:
+		/* FIXME: CCP2 support */
+		return -EINVAL;
+	}
+
+	sd_state = v4l2_subdev_lock_and_get_active_state(subdev);
+	if (!sd_state)
+		return -EINVAL;
+
+	entry->pixelcode = sensor->csi_format->code;
+	entry->stream = CCS_STREAM_PIXEL;
+	entry->bus.csi2.dt =
+		sensor->csi_format->width == sensor->csi_format->compressed ?
+		ccs_mipi_csi2_data_type(sensor->csi_format->width) :
+		CCS_DEFAULT_COMPRESSED_DT;
+	entry++;
+	desc->num_entries++;
+
+	v4l2_subdev_unlock_state(sd_state);
+
+	return 0;
 }
 
 static int ccs_get_skip_frames(struct v4l2_subdev *subdev, u32 *frames)
@@ -2940,6 +3000,8 @@ static void ccs_cleanup(struct ccs_sensor *sensor)
 	ccs_free_controls(sensor);
 }
 
+static const struct v4l2_subdev_internal_ops ccs_internal_ops;
+
 static int ccs_init_subdev(struct ccs_sensor *sensor,
 			   struct ccs_subdev *ssd, const char *name,
 			   unsigned short num_pads, u32 function,
@@ -2952,8 +3014,10 @@ static int ccs_init_subdev(struct ccs_sensor *sensor,
 	if (!ssd)
 		return 0;
 
-	if (ssd != sensor->src)
+	if (ssd != sensor->src) {
 		v4l2_subdev_init(&ssd->sd, &ccs_ops);
+		ssd->sd.internal_ops = &ccs_internal_ops;
+	}
 
 	ssd->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	ssd->sd.entity.function = function;
@@ -3034,7 +3098,7 @@ static int ccs_init_state(struct v4l2_subdev *sd,
 }
 
 static const struct v4l2_subdev_video_ops ccs_video_ops = {
-	.s_stream = ccs_set_stream,
+	.s_stream = v4l2_subdev_s_stream_helper,
 	.pre_streamon = ccs_pre_streamon,
 	.post_streamoff = ccs_post_streamoff,
 };
@@ -3045,6 +3109,9 @@ static const struct v4l2_subdev_pad_ops ccs_pad_ops = {
 	.set_fmt = ccs_set_format,
 	.get_selection = ccs_get_selection,
 	.set_selection = ccs_set_selection,
+	.enable_streams = ccs_enable_streams,
+	.disable_streams = ccs_disable_streams,
+	.get_frame_desc = ccs_get_frame_desc,
 };
 
 static const struct v4l2_subdev_sensor_ops ccs_sensor_ops = {
@@ -3060,6 +3127,10 @@ static const struct v4l2_subdev_ops ccs_ops = {
 
 static const struct media_entity_operations ccs_entity_ops = {
 	.link_validate = v4l2_subdev_link_validate,
+};
+
+static const struct v4l2_subdev_internal_ops ccs_internal_ops = {
+	.init_state = ccs_init_state,
 };
 
 static const struct v4l2_subdev_internal_ops ccs_internal_src_ops = {
@@ -3525,7 +3596,6 @@ static int ccs_probe(struct i2c_client *client)
 		goto out_cleanup;
 	}
 
-	sensor->streaming = false;
 	sensor->dev_init_done = true;
 	sensor->handler_setup_needed = true;
 
