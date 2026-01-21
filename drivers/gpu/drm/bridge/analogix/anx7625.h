@@ -67,6 +67,9 @@
 #define CC2_RA                  BIT(5)
 #define CC2_RP			(BIT(6) | BIT(7))
 
+#define CMD_SEND_BUF		0xC0
+#define CMD_RECV_BUF		0xE0
+
 /******** END of I2C Address 0x58 ********/
 
 /***************************************************************/
@@ -462,6 +465,14 @@ struct anx7625_i2c_client {
 struct typec_port;
 struct usb_role_switch;
 
+#define MAX_BUF_LEN	30
+struct fw_msg {
+	u8 msg_len;
+	u8 msg_type;
+	u8 buf[MAX_BUF_LEN];
+} __packed;
+#define HEADER_LEN		2
+
 struct anx7625_data {
 	struct anx7625_platform_data pdata;
 	struct platform_device *audio_pdev;
@@ -497,6 +508,7 @@ struct anx7625_data {
 	struct drm_connector *connector;
 	struct mipi_dsi_device *dsi;
 	struct drm_dp_aux aux;
+	struct fw_msg send_msg;
 };
 
 #endif  /* __ANX7625_H__ */
