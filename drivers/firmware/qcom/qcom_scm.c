@@ -78,6 +78,27 @@ struct qcom_scm_mem_map_info {
 	__le64 mem_size;
 };
 
+struct qcom_scm_storage_cmd {
+	__le64 storage_type;
+	__le64 slot_num;
+	__le64 lun;
+	__le64 guid_ptr;
+	__le64 storage_cmd;
+} __packed;
+
+struct qcom_scm_storage_cmd_details {
+	__le64 lba;
+	__le64 length;
+	__le64 data_ptr;
+	__le64 data_size;
+} __packed;
+
+struct qcom_scm_storage_payload {
+	struct qcom_scm_storage_cmd cmd;
+	struct qcom_scm_storage_cmd_details details;
+	u8 data[];
+};
+
 /**
  * struct qcom_scm_qseecom_resp - QSEECOM SCM call response.
  * @result:    Result or status of the SCM call. See &enum qcom_scm_qseecom_result.
@@ -124,6 +145,17 @@ enum qcom_scm_qseecom_tz_cmd_info {
 };
 
 #define RSCTABLE_BUFFER_NOT_SUFFICIENT		20
+
+#define STORAGE_RESULT_SUCCESS			0
+#define STORAGE_RESULT_NO_MEMORY		1
+#define STORAGE_RESULT_INVALID_PARAMETER	2
+#define STORAGE_RESULT_STORAGE_ERROR		3
+#define STORAGE_RESULT_ACCESS_DENIED		4
+#define STORAGE_RESULT_NOT_SUPPORTED		5
+#define STORAGE_RESULT_MAC_MISMATCH		6
+#define STORAGE_RESULT_ALREADY_RUNNING		7
+#define STORAGE_RESULT_PARTITION_NOT_FOUND	8
+#define STORAGE_RESULT_READONLY			9
 
 #define QSEECOM_MAX_APP_NAME_SIZE		64
 #define SHMBRIDGE_RESULT_NOTSUPP		4
@@ -2500,6 +2532,132 @@ static void qcom_scm_qtee_init(struct qcom_scm *scm)
 	devm_add_action_or_reset(scm->dev, qcom_scm_qtee_free, qtee_dev);
 }
 
+int qcom_scm_storage_send_cmd(enum qcom_scm_storage_type storage_type,
+			      enum qcom_scm_storage_cmd_id cmd_id,
+			      u64 lba, void *data, size_t size)
+{
+	struct qcom_scm_storage_payload *payload __free(qcom_tzmem) = NULL;
+	struct qcom_scm_res scm_res = {};
+	struct qcom_scm_desc desc = {};
+	phys_addr_t payload_addr;
+	size_t buf_size;
+	int ret;
+
+	buf_size = sizeof(*payload);
+	if (data)
+		buf_size += size;
+
+	payload = qcom_tzmem_alloc(__scm->mempool, buf_size, GFP_KERNEL);
+	if (!payload)
+		return -ENOMEM;
+
+	memset(payload, 0, buf_size);
+	if (data)
+		memcpy(payload->data, data, size);
+
+	payload->cmd.storage_type = cpu_to_le64(storage_type);
+	payload->cmd.storage_cmd = cpu_to_le64(cmd_id);
+
+	payload->details.lba = cpu_to_le64(lba);
+	if (payload) {
+		payload_addr = qcom_tzmem_to_phys(payload->data);
+		payload->details.data_ptr = cpu_to_le64(payload_addr);
+	}
+	payload->details.length = cpu_to_le64(size);
+
+	desc.svc = QCOM_SCM_SVC_STORAGE;
+	desc.cmd = QCOM_SCM_STORAGE_CMD;
+	desc.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_RO, QCOM_SCM_VAL,
+				     QCOM_SCM_RW, QCOM_SCM_VAL);
+	desc.args[0] = qcom_tzmem_to_phys(&payload->cmd);
+	desc.args[1] = sizeof(payload->cmd);
+	desc.args[2] = qcom_tzmem_to_phys(&payload->details);
+	desc.args[3] = sizeof(payload->details);
+	desc.owner = ARM_SMCCC_OWNER_SIP;
+
+	ret = qcom_scm_call(__scm->dev, &desc, &scm_res);
+	if (ret)
+		return ret;
+
+	if (data)
+		memcpy(data, payload->data, size);
+
+	switch (scm_res.result[0]) {
+	case STORAGE_RESULT_SUCCESS:
+		return 0;
+	case STORAGE_RESULT_NO_MEMORY:
+		return -ENOMEM;
+	case STORAGE_RESULT_INVALID_PARAMETER:
+		return -EINVAL;
+	case STORAGE_RESULT_STORAGE_ERROR:
+		return -EIO;
+	case STORAGE_RESULT_ACCESS_DENIED:
+		return -EACCES;
+	case STORAGE_RESULT_NOT_SUPPORTED:
+		return -EOPNOTSUPP;
+	case STORAGE_RESULT_MAC_MISMATCH:
+		return -EBADMSG;
+	case STORAGE_RESULT_ALREADY_RUNNING:
+		return -EALREADY;
+	case STORAGE_RESULT_PARTITION_NOT_FOUND:
+		return -ENOENT;
+	case STORAGE_RESULT_READONLY:
+		return -EROFS;
+	default:
+		return -EIO;
+	}
+}
+EXPORT_SYMBOL_GPL(qcom_scm_storage_send_cmd);
+
+static void qcom_scm_storage_free(void *data)
+{
+	struct platform_device *storage_dev = data;
+
+	platform_device_unregister(storage_dev);
+}
+
+static void qcom_scm_storage_init(struct qcom_scm *scm)
+{
+	struct qcom_scm_storage_info info;
+	struct platform_device *storage_dev;
+	u64 total_blocks;
+	u32 block_size;
+	int ret;
+
+	if (!__qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_STORAGE,
+					 QCOM_SCM_STORAGE_CMD))
+		return;
+
+	ret = qcom_scm_storage_send_cmd(QCOM_SCM_STORAGE_SPINOR,
+					QCOM_SCM_STORAGE_GET_INFO,
+					0, &info, sizeof(info));
+	if (ret < 0) {
+		dev_warn(scm->dev, "scm storage get info failed: %d\n", ret);
+		return;
+	}
+
+	total_blocks = le64_to_cpu(info.total_blocks);
+	block_size = le32_to_cpu(info.block_size);
+
+	dev_dbg(scm->dev, "scm storage size %llu bytes\n",
+		total_blocks * block_size);
+
+	storage_dev = platform_device_alloc("qcom_scm_storage", -1);
+	if (!storage_dev)
+		return;
+
+	storage_dev->dev.parent = scm->dev;
+
+	ret = platform_device_add(storage_dev);
+	if (ret) {
+		platform_device_put(storage_dev);
+		return;
+	}
+
+	devm_add_action_or_reset(scm->dev, qcom_scm_storage_free,
+				 storage_dev);
+}
+
 /**
  * qcom_scm_is_available() - Checks if SCM is available
  */
@@ -2868,6 +3026,9 @@ static int qcom_scm_probe(struct platform_device *pdev)
 
 	/* Initialize the Gunyah watchdog platform device. */
 	qcom_scm_gunyah_wdt_init(scm);
+
+	/* Initialize the SCM storage interface. */
+	qcom_scm_storage_init(scm);
 
 	return 0;
 }
