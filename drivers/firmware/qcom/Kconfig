@@ -15,6 +15,7 @@ config QCOM_PAS
 	  TEE bus based PAS service implementation.
 
 config QCOM_SCM
+	select QCOM_PAS
 	select QCOM_TZMEM
 	tristate
 
