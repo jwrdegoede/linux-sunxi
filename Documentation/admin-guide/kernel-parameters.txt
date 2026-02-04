@@ -1250,7 +1250,7 @@ Kernel parameters
 			out hasn't expired, it'll be restarted by each
 			successful driver registration. This option will also
 			dump out devices still on the deferred probe list after
-			retrying.
+			retrying. Set to -1 to wait indefinitely.
 
 	delayacct	[KNL] Enable per-task delay accounting
 
