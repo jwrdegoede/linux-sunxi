@@ -836,6 +836,10 @@
 	vdd3-supply = <&vreg_l7b_e0_2p79>;
 };
 
+&remoteproc_soccp {
+	status = "okay";
+};
+
 &tlmm {
 	gpio-reserved-ranges = <4 4>, /* EC TZ Secure I3C */
 			       <10 2>, /* OOB UART */
