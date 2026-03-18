@@ -1,0 +1,131 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright (c) 2025, Arduino SA
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
+#include "qrb2210-arduino-imola-carrier-media-common.dtsi"
+
+&camss {
+	status = "okay";
+
+	vdda-csiphy-1p2-supply = <&pm4125_l5>;
+	vdda-pll-1p8-supply = <&pm4125_l13>;
+};
+
+&cci {
+	status= "okay";
+};
+
+&leds {
+	led1-blue {
+		label = "media-carrier:blue1";
+		function = LED_FUNCTION_INDICATOR;
+		color = <LED_COLOR_ID_BLUE>;
+		gpios = <&pca9555 14 GPIO_ACTIVE_LOW>;
+		linux,default-trigger = "none";
+		default-state = "off";
+	};
+
+	led1-green {
+		label = "media-carrier:green1";
+		function = LED_FUNCTION_INDICATOR;
+		color = <LED_COLOR_ID_GREEN>;
+		gpios = <&pca9555 15 GPIO_ACTIVE_LOW>;
+		linux,default-trigger = "none";
+		default-state = "off";
+	};
+
+	led1-red {
+		label = "media-carrier:red1";
+		function = LED_FUNCTION_INDICATOR;
+		color = <LED_COLOR_ID_RED>;
+		gpios = <&pca9555 13 GPIO_ACTIVE_LOW>;
+		linux,default-trigger = "none";
+		default-state = "off";
+	};
+	led2-blue {
+		label = "media-carrier:blue2";
+		function = LED_FUNCTION_INDICATOR;
+		color = <LED_COLOR_ID_BLUE>;
+		gpios = <&pca9555 11 GPIO_ACTIVE_LOW>;
+		linux,default-trigger = "none";
+		default-state = "off";
+	};
+
+	led2-green {
+		label = "media-carrier:green2";
+		function = LED_FUNCTION_INDICATOR;
+		color = <LED_COLOR_ID_GREEN>;
+		gpios = <&pca9555 12 GPIO_ACTIVE_LOW>;
+		linux,default-trigger = "none";
+		default-state = "off";
+	};
+
+	led2-red {
+		label = "media-carrier:red2";
+		function = LED_FUNCTION_INDICATOR;
+		color = <LED_COLOR_ID_RED>;
+		gpios = <&pca9555 10 GPIO_ACTIVE_LOW>;
+		linux,default-trigger = "none";
+		default-state = "off";
+	};
+
+	led3-blue {
+		label = "media-carrier:blue3";
+		function = LED_FUNCTION_INDICATOR;
+		color = <LED_COLOR_ID_BLUE>;
+		gpios = <&pca9555 8 GPIO_ACTIVE_LOW>;
+		linux,default-trigger = "none";
+		default-state = "off";
+	};
+
+	led3-green {
+		label = "media-carrier:green3";
+		function = LED_FUNCTION_INDICATOR;
+		color = <LED_COLOR_ID_GREEN>;
+		gpios = <&pca9555 9 GPIO_ACTIVE_LOW>;
+		linux,default-trigger = "none";
+		default-state = "off";
+	};
+
+	led3-red {
+		label = "media-carrier:red3";
+		function = LED_FUNCTION_INDICATOR;
+		color = <LED_COLOR_ID_RED>;
+		gpios = <&pca9555 7 GPIO_ACTIVE_LOW>;
+		linux,default-trigger = "none";
+		default-state = "off";
+	};
+
+	led4-blue {
+		label = "media-carrier:blue4";
+		function = LED_FUNCTION_INDICATOR;
+		color = <LED_COLOR_ID_BLUE>;
+		gpios = <&pca9555 5 GPIO_ACTIVE_LOW>;
+		linux,default-trigger = "none";
+		default-state = "off";
+	};
+
+	led4-green {
+		label = "media-carrier:green4";
+		function = LED_FUNCTION_INDICATOR;
+		color = <LED_COLOR_ID_GREEN>;
+		gpios = <&pca9555 6 GPIO_ACTIVE_LOW>;
+		linux,default-trigger = "none";
+		default-state = "off";
+	};
+
+	led4-red {
+		label = "media-carrier:red4";
+		function = LED_FUNCTION_INDICATOR;
+		color = <LED_COLOR_ID_RED>;
+		gpios = <&pca9555 4 GPIO_ACTIVE_LOW>;
+		linux,default-trigger = "none";
+		default-state = "off";
+	};
+};

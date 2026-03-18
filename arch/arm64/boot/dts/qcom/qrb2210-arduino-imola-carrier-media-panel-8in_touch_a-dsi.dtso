@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright (c) 2025, Arduino SA
+ */
+
+ /dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "qrb2210-arduino-imola-carrier-media-common.dtsi"
+
+&cci_i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	display_mcu: display_mcu@45 {
+		compatible = "waveshare,touchscreen-panel-regulator";
+		reg = <0x45>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		enable-gpio = <&display_mcu 2 GPIO_ACTIVE_HIGH>;
+	};
+
+	touch: goodix@5d {
+		compatible = "goodix,gt9271";
+		reg = <0x5d>;
+		reset-gpio = <&display_mcu 9 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&mdss_dsi0 {
+	vdda-supply = <&pm4125_l5>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+
+	dsi_panel: dsi_panel@0 {
+		reg = <0>;
+		compatible = "waveshare,8.0-dsi-touch-a-4lane";
+		reset-gpio = <&display_mcu 1 GPIO_ACTIVE_HIGH>;
+		iovcc-gpio = <&display_mcu 4 GPIO_ACTIVE_HIGH>;
+		avdd-gpio = <&display_mcu 0 GPIO_ACTIVE_HIGH>;
+		backlight = <&display_mcu>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&mdss_dsi0_out>;
+			};
+		};
+	};
+
+};
+
+&mdss_dsi0_out {
+	remote-endpoint = <&panel_in>;
+	data-lanes = <0 1 2 3>;
+};

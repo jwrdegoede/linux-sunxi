@@ -2436,6 +2436,10 @@
 							dai@2 {
 								reg = <MSM_FRONTEND_DAI_MULTIMEDIA3>;
 							};
+
+							dai@3 {
+								reg = <MSM_FRONTEND_DAI_MULTIMEDIA4>;
+							};
 						};
 					};
 

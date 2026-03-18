@@ -110,7 +110,7 @@
 		leds = <&ledr>, <&ledg>, <&ledb>;
 	};
 
-	sound {
+	sound: sound {
 		compatible = "qcom,qrb2210-sndcard";
 		model = "Arduino-Imola-HPH-LOUT";
 		audio-routing =	"IN1_HPHL", "HPHL_OUT",
@@ -138,6 +138,14 @@
 
 			cpu {
 				sound-dai = <&q6asmdai  MSM_FRONTEND_DAI_MULTIMEDIA3>;
+			};
+		};
+
+		mm4-dai-link {
+			link-name = "MultiMedia4";
+
+			cpu {
+				sound-dai = <&q6asmdai  MSM_FRONTEND_DAI_MULTIMEDIA4>;
 			};
 		};
 
@@ -258,6 +266,7 @@
 		analogix,lane1-swing = /bits/ 8 <0x14 0x54 0x64 0x74>;
 
 		pinctrl-0 = <&anx7625_int_pin>, <&anx7625_cable_det_pin>;
+		#sound-dai-cells = <1>;
 
 		connector {
 			compatible = "usb-c-connector";
@@ -289,19 +298,6 @@
 				};
 			};
 		};
-
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-				anx_dsi0_in: endpoint {
-					remote-endpoint = <&mdss_dsi0_out>;
-					data-lanes = <0 1 2 3>;
-				};
-			};
-		};
 	};
 };
 
@@ -313,11 +309,6 @@
 	vdda-supply = <&pm4125_l5>;
 
 	status = "okay";
-};
-
-&mdss_dsi0_out {
-	remote-endpoint = <&anx_dsi0_in>;
-	data-lanes = <0 1 2 3>;
 };
 
 &mdss_dsi0_phy {
