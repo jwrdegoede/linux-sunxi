@@ -842,12 +842,17 @@ static int pm4125_codec_enable_micbias_pullup(struct snd_soc_dapm_widget *w,
 
 static int pm4125_connect_port(struct pm4125_sdw_priv *sdw_priv, u8 port_idx, u8 ch_id, bool enable)
 {
-	struct sdw_port_config *port_config = &sdw_priv->port_config[port_idx - 1];
+	struct sdw_port_config *port_config;
 	const struct wcd_sdw_ch_info *ch_info = &sdw_priv->ch_info[ch_id];
 	struct sdw_slave *sdev = sdw_priv->sdev;
 	u8 port_num = ch_info->port_num;
 	u8 ch_mask = ch_info->ch_mask;
 	u8 mstr_port_num, mstr_ch_mask;
+
+	if (!port_idx) /* Invalid port index */
+		return -EINVAL;
+
+	port_config = &sdw_priv->port_config[port_idx - 1];
 
 	port_config->num = port_num;
 
@@ -905,6 +910,8 @@ static int pm4125_set_compander(struct snd_kcontrol *kcontrol, struct snd_ctl_el
 	}
 
 	portidx = sdw_priv->ch_info[mc->reg].port_num;
+	if (!portidx)
+		return 0;
 
 	pm4125_connect_port(sdw_priv, portidx, mc->reg, value ? true : false);
 
@@ -943,6 +950,8 @@ static int pm4125_set_swr_port(struct snd_kcontrol *kcontrol, struct snd_ctl_ele
 	sdw_priv = pm4125->sdw_priv[dai_id];
 
 	portidx = sdw_priv->ch_info[ch_idx].port_num;
+	if (!portidx) /* Invalid port index */
+		return 0;
 
 	enable = ucontrol->value.integer.value[0];
 
