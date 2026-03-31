@@ -41,6 +41,67 @@
 		};
 	};
 
+	/* Display-mounted sensors */
+	i2c-sensors1 {
+		compatible = "i2c-gpio";
+		i2c-gpio,delay-us = <2>;
+
+		scl-gpios = <&tlmm 232 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		sda-gpios = <&tlmm 231 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+
+		pinctrl-0 = <&sensors_i2c_display_default>;
+		pinctrl-names = "default";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		accelerometer@18 {
+			compatible = "st,lis2dw12";
+			reg = <0x18>;
+
+			interrupts-extended = <&tlmm 29 IRQ_TYPE_LEVEL_LOW>;
+			pinctrl-0 = <&acc_display_int_n_default>;
+			pinctrl-names = "default";
+
+			mount-matrix = "-1", "0", "0",
+				       "0", "1", "0",
+				       "0", "0", "-1";
+		};
+
+		/* AMS TCS3530 @ 0x39, IRQ 93 */
+	};
+
+	/* Motherboard-mounted sensors */
+	i2c-sensors2 {
+		compatible = "i2c-gpio";
+		i2c-gpio,delay-us = <2>;
+
+		scl-gpios = <&tlmm 216 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		sda-gpios = <&tlmm 215 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+
+		pinctrl-0 = <&sensors_i2c_mobo_default>;
+		pinctrl-names = "default";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		accelerometer@18 {
+			compatible = "st,lis2dw12";
+			reg = <0x18>;
+
+			interrupts-extended = <&tlmm 28 IRQ_TYPE_LEVEL_LOW>;
+			pinctrl-0 = <&acc_mobo_int_n_default>;
+			pinctrl-names = "default";
+
+			vdd-supply = <&vreg_l10b_1p8>;
+			vddio-supply = <&vreg_l10b_1p8>;
+
+			mount-matrix = "0", "1", "0",
+				       "0", "0", "1",
+				       "1", "0", "0";
+		};
+	};
+
 	leds {
 		compatible = "gpio-leds";
 
@@ -499,6 +560,13 @@
 			regulator-name = "vreg_l9b_2p9";
 			regulator-min-microvolt = <2960000>;
 			regulator-max-microvolt = <2960000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l10b_1p8: ldo10 {
+			regulator-name = "vreg_l10b_1p8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
@@ -1297,6 +1365,18 @@
 			       <76 4>,  /* SPI19 (TZ Protected) */
 			       <238 1>; /* UFS Reset */
 
+	acc_display_int_n_default: acc-display-int-n-state {
+		pins = "gpio29";
+		function = "gpio";
+		bias-pull-up;
+	};
+
+	acc_mobo_int_n_default: acc-mobo-int-n-state {
+		pins = "gpio28";
+		function = "gpio";
+		bias-pull-up;
+	};
+
 	cam_indicator_en: cam-indicator-en-state {
 		pins = "gpio110";
 		function = "gpio";
@@ -1421,6 +1501,20 @@
 
 	rtmr1_default: rtmr1-reset-n-active-state {
 		pins = "gpio176";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+	};
+
+	sensors_i2c_display_default: sensors-i2c-display-state {
+		pins = "gpio231", "gpio232";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+	};
+
+	sensors_i2c_mobo_default: sensors-i2c-mobo-state {
+		pins = "gpio215", "gpio216";
 		function = "gpio";
 		drive-strength = <2>;
 		bias-disable;
