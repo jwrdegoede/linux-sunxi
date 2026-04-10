@@ -110,8 +110,8 @@ static void pdc_enable_intr_bank(int pin_out, bool on)
 	unsigned long enable;
 	u32 index, mask;
 
-	index = pin_out / 32;
-	mask = pin_out % 32;
+	index = FIELD_GET(GENMASK(31, 5), pin_out);
+	mask = FIELD_GET(GENMASK(4, 0), pin_out);
 
 	enable = pdc_reg_read(IRQ_ENABLE_BANK, index);
 	__assign_bit(mask, &enable, on);
