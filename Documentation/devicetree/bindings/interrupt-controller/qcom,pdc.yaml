@@ -98,7 +98,7 @@ examples:
 
     pdc: interrupt-controller@b220000 {
         compatible = "qcom,sdm845-pdc", "qcom,pdc";
-        reg = <0xb220000 0x30000>;
+        reg = <0xb220000 0x10000>;
         qcom,pdc-ranges = <0 512 94>, <94 641 15>, <115 662 7>;
         #interrupt-cells = <2>;
         interrupt-parent = <&intc>;
