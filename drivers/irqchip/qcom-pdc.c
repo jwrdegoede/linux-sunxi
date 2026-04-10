@@ -51,7 +51,7 @@ static void __iomem *pdc_base;
 static void __iomem *pdc_prev_base;
 static struct pdc_pin_region *pdc_region;
 static int pdc_region_cnt;
-static unsigned int pdc_version;
+static void (*__pdc_enable_intr)(int pin_out, bool on);
 static bool pdc_x1e_quirk;
 
 static void pdc_base_reg_write(void __iomem *base, int reg, u32 i, u32 val)
@@ -121,14 +121,6 @@ static void pdc_enable_intr_cfg(int pin_out, bool on)
 	enable = pdc_reg_read(IRQ_i_CFG, pin_out);
 	__assign_bit(IRQ_i_CFG_IRQ_ENABLE, &enable, on);
 	pdc_reg_write(IRQ_i_CFG, pin_out, enable);
-}
-
-static void __pdc_enable_intr(int pin_out, bool on)
-{
-	if (pdc_version < PDC_VERSION_3_2)
-		pdc_enable_intr_bank(pin_out, on);
-	else
-		pdc_enable_intr_cfg(pin_out, on);
 }
 
 static void pdc_enable_intr(struct irq_data *d, bool on)
@@ -400,7 +392,8 @@ static int qcom_pdc_probe(struct platform_device *pdev, struct device_node *pare
 		goto fail;
 	}
 
-	pdc_version = pdc_reg_read(PDC_VERSION_REG, 0);
+	__pdc_enable_intr = (pdc_reg_read(PDC_VERSION_REG, 0) < PDC_VERSION_3_2) ?
+			pdc_enable_intr_bank : pdc_enable_intr_cfg;
 
 	parent_domain = irq_find_host(parent);
 	if (!parent_domain) {
