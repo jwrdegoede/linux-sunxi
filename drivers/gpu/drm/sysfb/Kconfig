@@ -46,6 +46,7 @@ config DRM_SIMPLEDRM
 	select DRM_GEM_SHMEM_HELPER
 	select DRM_KMS_HELPER
 	select DRM_SYSFB_HELPER
+	select DRM_SIMPLEFB_RESOURCES
 	help
 	  DRM driver for simple platform-provided framebuffers.
 
