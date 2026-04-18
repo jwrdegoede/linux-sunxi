@@ -348,3 +348,7 @@ endif
 # Separate option because drm_panel_orientation_quirks.c is shared with fbdev
 config DRM_PANEL_ORIENTATION_QUIRKS
 	tristate
+
+# Separate option because drm_simplefb_resources.c is shared with fbdev
+config DRM_SIMPLEFB_RESOURCES
+	tristate

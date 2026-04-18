@@ -98,6 +98,7 @@ obj-$(CONFIG_DRM)	+= drm.o
 
 obj-$(CONFIG_DRM_PANEL_ORIENTATION_QUIRKS) += drm_panel_orientation_quirks.o
 obj-$(CONFIG_DRM_PANEL_BACKLIGHT_QUIRKS) += drm_panel_backlight_quirks.o
+obj-$(CONFIG_DRM_SIMPLEFB_RESOURCES) += drm_simplefb_resources.o
 
 #
 # Memory-management helpers
