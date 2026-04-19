@@ -579,7 +579,7 @@ static int __init of_platform_default_populate_init(void)
 		}
 
 		node = of_get_compatible_child(of_chosen, "simple-framebuffer");
-		if (node) {
+		if (node && of_device_is_available(node)) {
 			/*
 			 * Since a "simple-framebuffer" device is already added
 			 * here, disable the Generic System Framebuffers (sysfb)
@@ -592,8 +592,8 @@ static int __init of_platform_default_populate_init(void)
 			 */
 			sysfb_disable(NULL);
 			of_platform_device_create(node, NULL, NULL);
-			of_node_put(node);
 		}
+		of_node_put(node);
 
 		/* Populate everything else. */
 		of_platform_default_populate(NULL, NULL, NULL);
