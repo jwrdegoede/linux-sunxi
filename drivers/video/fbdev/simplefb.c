@@ -13,20 +13,18 @@
  */
 
 #include <linux/aperture.h>
-#include <linux/clk.h>
 #include <linux/errno.h>
 #include <linux/fb.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/of_clk.h>
 #include <linux/of_platform.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/parser.h>
 #include <linux/platform_data/simplefb.h>
 #include <linux/platform_device.h>
-#include <linux/pm_domain.h>
-#include <linux/regulator/consumer.h>
+
+#include <drm/simplefb_resources.h>
 
 static const struct fb_fix_screeninfo simplefb_fix = {
 	.id		= "simple",
@@ -74,26 +72,8 @@ struct simplefb_par {
 	resource_size_t base;
 	resource_size_t size;
 	struct resource *mem;
-#if defined CONFIG_OF && defined CONFIG_COMMON_CLK
-	bool clks_enabled;
-	unsigned int clk_count;
-	struct clk **clks;
-#endif
-#if defined CONFIG_OF && defined CONFIG_PM_GENERIC_DOMAINS
-	unsigned int num_genpds;
-	struct device **genpds;
-	struct device_link **genpd_links;
-#endif
-#if defined CONFIG_OF && defined CONFIG_REGULATOR
-	bool regulators_enabled;
-	u32 regulator_count;
-	struct regulator **regulators;
-#endif
+	struct simplefb_resources resources;
 };
-
-static void simplefb_clocks_destroy(struct simplefb_par *par);
-static void simplefb_regulators_destroy(struct simplefb_par *par);
-static void simplefb_detach_genpds(void *res);
 
 /*
  * fb_ops.fb_destroy is called by the last put_fb_info() call at the end
@@ -104,9 +84,8 @@ static void simplefb_destroy(struct fb_info *info)
 	struct simplefb_par *par = info->par;
 	struct resource *mem = par->mem;
 
-	simplefb_regulators_destroy(info->par);
-	simplefb_clocks_destroy(info->par);
-	simplefb_detach_genpds(info->par);
+	simplefb_release_resources(&par->resources);
+
 	if (info->screen_base)
 		iounmap(info->screen_base);
 
@@ -216,319 +195,6 @@ static int simplefb_parse_pd(struct platform_device *pdev,
 	return 0;
 }
 
-#if defined CONFIG_OF && defined CONFIG_COMMON_CLK
-/*
- * Clock handling code.
- *
- * Here we handle the clocks property of our "simple-framebuffer" dt node.
- * This is necessary so that we can make sure that any clocks needed by
- * the display engine that the bootloader set up for us (and for which it
- * provided a simplefb dt node), stay up, for the life of the simplefb
- * driver.
- *
- * When the driver unloads, we cleanly disable, and then release the clocks.
- *
- * We only complain about errors here, no action is taken as the most likely
- * error can only happen due to a mismatch between the bootloader which set
- * up simplefb, and the clock definitions in the device tree. Chances are
- * that there are no adverse effects, and if there are, a clean teardown of
- * the fb probe will not help us much either. So just complain and carry on,
- * and hope that the user actually gets a working fb at the end of things.
- */
-static int simplefb_clocks_get(struct simplefb_par *par,
-			       struct platform_device *pdev)
-{
-	struct device_node *np = pdev->dev.of_node;
-	struct clk *clock;
-	int i;
-
-	if (dev_get_platdata(&pdev->dev) || !np)
-		return 0;
-
-	par->clk_count = of_clk_get_parent_count(np);
-	if (!par->clk_count)
-		return 0;
-
-	par->clks = kzalloc_objs(struct clk *, par->clk_count);
-	if (!par->clks)
-		return -ENOMEM;
-
-	for (i = 0; i < par->clk_count; i++) {
-		clock = of_clk_get(np, i);
-		if (IS_ERR(clock)) {
-			if (PTR_ERR(clock) == -EPROBE_DEFER) {
-				while (--i >= 0) {
-					clk_put(par->clks[i]);
-				}
-				kfree(par->clks);
-				return -EPROBE_DEFER;
-			}
-			dev_err(&pdev->dev, "%s: clock %d not found: %ld\n",
-				__func__, i, PTR_ERR(clock));
-			continue;
-		}
-		par->clks[i] = clock;
-	}
-
-	return 0;
-}
-
-static void simplefb_clocks_enable(struct simplefb_par *par,
-				   struct platform_device *pdev)
-{
-	int i, ret;
-
-	for (i = 0; i < par->clk_count; i++) {
-		if (par->clks[i]) {
-			ret = clk_prepare_enable(par->clks[i]);
-			if (ret) {
-				dev_err(&pdev->dev,
-					"%s: failed to enable clock %d: %d\n",
-					__func__, i, ret);
-				clk_put(par->clks[i]);
-				par->clks[i] = NULL;
-			}
-		}
-	}
-	par->clks_enabled = true;
-}
-
-static void simplefb_clocks_destroy(struct simplefb_par *par)
-{
-	int i;
-
-	if (!par->clks)
-		return;
-
-	for (i = 0; i < par->clk_count; i++) {
-		if (par->clks[i]) {
-			if (par->clks_enabled)
-				clk_disable_unprepare(par->clks[i]);
-			clk_put(par->clks[i]);
-		}
-	}
-
-	kfree(par->clks);
-}
-#else
-static int simplefb_clocks_get(struct simplefb_par *par,
-	struct platform_device *pdev) { return 0; }
-static void simplefb_clocks_enable(struct simplefb_par *par,
-	struct platform_device *pdev) { }
-static void simplefb_clocks_destroy(struct simplefb_par *par) { }
-#endif
-
-#if defined CONFIG_OF && defined CONFIG_REGULATOR
-
-#define SUPPLY_SUFFIX "-supply"
-
-/*
- * Regulator handling code.
- *
- * Here we handle the num-supplies and vin*-supply properties of our
- * "simple-framebuffer" dt node. This is necessary so that we can make sure
- * that any regulators needed by the display hardware that the bootloader
- * set up for us (and for which it provided a simplefb dt node), stay up,
- * for the life of the simplefb driver.
- *
- * When the driver unloads, we cleanly disable, and then release the
- * regulators.
- *
- * We only complain about errors here, no action is taken as the most likely
- * error can only happen due to a mismatch between the bootloader which set
- * up simplefb, and the regulator definitions in the device tree. Chances are
- * that there are no adverse effects, and if there are, a clean teardown of
- * the fb probe will not help us much either. So just complain and carry on,
- * and hope that the user actually gets a working fb at the end of things.
- */
-static int simplefb_regulators_get(struct simplefb_par *par,
-				   struct platform_device *pdev)
-{
-	struct device_node *np = pdev->dev.of_node;
-	struct property *prop;
-	struct regulator *regulator;
-	const char *p;
-	int count = 0, i = 0;
-
-	if (dev_get_platdata(&pdev->dev) || !np)
-		return 0;
-
-	/* Count the number of regulator supplies */
-	for_each_property_of_node(np, prop) {
-		p = strstr(prop->name, SUPPLY_SUFFIX);
-		if (p && p != prop->name)
-			count++;
-	}
-
-	if (!count)
-		return 0;
-
-	par->regulators = devm_kcalloc(&pdev->dev, count,
-				       sizeof(struct regulator *), GFP_KERNEL);
-	if (!par->regulators)
-		return -ENOMEM;
-
-	/* Get all the regulators */
-	for_each_property_of_node(np, prop) {
-		char name[32]; /* 32 is max size of property name */
-
-		p = strstr(prop->name, SUPPLY_SUFFIX);
-		if (!p || p == prop->name)
-			continue;
-
-		strscpy(name, prop->name,
-			strlen(prop->name) - strlen(SUPPLY_SUFFIX) + 1);
-		regulator = devm_regulator_get_optional(&pdev->dev, name);
-		if (IS_ERR(regulator)) {
-			if (PTR_ERR(regulator) == -EPROBE_DEFER)
-				return -EPROBE_DEFER;
-			dev_err(&pdev->dev, "regulator %s not found: %ld\n",
-				name, PTR_ERR(regulator));
-			continue;
-		}
-		par->regulators[i++] = regulator;
-	}
-	par->regulator_count = i;
-
-	return 0;
-}
-
-static void simplefb_regulators_enable(struct simplefb_par *par,
-				       struct platform_device *pdev)
-{
-	int i, ret;
-
-	/* Enable all the regulators */
-	for (i = 0; i < par->regulator_count; i++) {
-		ret = regulator_enable(par->regulators[i]);
-		if (ret) {
-			dev_err(&pdev->dev,
-				"failed to enable regulator %d: %d\n",
-				i, ret);
-			devm_regulator_put(par->regulators[i]);
-			par->regulators[i] = NULL;
-		}
-	}
-	par->regulators_enabled = true;
-}
-
-static void simplefb_regulators_destroy(struct simplefb_par *par)
-{
-	int i;
-
-	if (!par->regulators || !par->regulators_enabled)
-		return;
-
-	for (i = 0; i < par->regulator_count; i++)
-		if (par->regulators[i])
-			regulator_disable(par->regulators[i]);
-}
-#else
-static int simplefb_regulators_get(struct simplefb_par *par,
-	struct platform_device *pdev) { return 0; }
-static void simplefb_regulators_enable(struct simplefb_par *par,
-	struct platform_device *pdev) { }
-static void simplefb_regulators_destroy(struct simplefb_par *par) { }
-#endif
-
-#if defined CONFIG_OF && defined CONFIG_PM_GENERIC_DOMAINS
-static void simplefb_detach_genpds(void *res)
-{
-	struct simplefb_par *par = res;
-	unsigned int i = par->num_genpds;
-
-	if (par->num_genpds <= 1)
-		return;
-
-	while (i--) {
-		if (par->genpd_links[i])
-			device_link_del(par->genpd_links[i]);
-
-		if (!IS_ERR_OR_NULL(par->genpds[i]))
-			dev_pm_domain_detach(par->genpds[i], true);
-	}
-	par->num_genpds = 0;
-}
-
-static int simplefb_attach_genpds(struct simplefb_par *par,
-				  struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-	unsigned int i, num_genpds;
-	int err;
-
-	err = of_count_phandle_with_args(dev->of_node, "power-domains",
-					 "#power-domain-cells");
-	if (err < 0) {
-		/* Nothing wrong if optional PDs are missing */
-		if (err == -ENOENT)
-			return 0;
-
-		dev_err(dev, "failed to parse power-domains: %d\n", err);
-		return err;
-	}
-
-	num_genpds = err;
-
-	/*
-	 * Single power-domain devices are handled by the driver core, so
-	 * nothing to do here.
-	 */
-	if (num_genpds <= 1) {
-		par->num_genpds = num_genpds;
-		return 0;
-	}
-
-	par->genpds = devm_kcalloc(dev, num_genpds, sizeof(*par->genpds),
-				   GFP_KERNEL);
-	if (!par->genpds)
-		return -ENOMEM;
-
-	par->genpd_links = devm_kcalloc(dev, num_genpds,
-					sizeof(*par->genpd_links),
-					GFP_KERNEL);
-	if (!par->genpd_links)
-		return -ENOMEM;
-
-	/*
-	 * Set par->num_genpds only after genpds and genpd_links are allocated
-	 * to exit early from simplefb_detach_genpds() without full
-	 * initialisation.
-	 */
-	par->num_genpds = num_genpds;
-
-	for (i = 0; i < par->num_genpds; i++) {
-		par->genpds[i] = dev_pm_domain_attach_by_id(dev, i);
-		if (IS_ERR(par->genpds[i])) {
-			err = PTR_ERR(par->genpds[i]);
-			if (err == -EPROBE_DEFER) {
-				simplefb_detach_genpds(par);
-				return err;
-			}
-
-			dev_warn(dev, "failed to attach domain %u: %d\n", i, err);
-			continue;
-		}
-
-		par->genpd_links[i] = device_link_add(dev, par->genpds[i],
-						      DL_FLAG_STATELESS |
-						      DL_FLAG_PM_RUNTIME |
-						      DL_FLAG_RPM_ACTIVE);
-		if (!par->genpd_links[i])
-			dev_warn(dev, "failed to link power-domain %u\n", i);
-	}
-
-	return 0;
-}
-#else
-static void simplefb_detach_genpds(void *res) { }
-static int simplefb_attach_genpds(struct simplefb_par *par,
-				  struct platform_device *pdev)
-{
-	return 0;
-}
-#endif
-
 static int simplefb_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -607,20 +273,9 @@ static int simplefb_probe(struct platform_device *pdev)
 	}
 	info->pseudo_palette = par->palette;
 
-	ret = simplefb_clocks_get(par, pdev);
+	ret = simplefb_acquire_resources(&pdev->dev, &par->resources);
 	if (ret < 0)
 		goto error_unmap;
-
-	ret = simplefb_regulators_get(par, pdev);
-	if (ret < 0)
-		goto error_clocks;
-
-	ret = simplefb_attach_genpds(par, pdev);
-	if (ret < 0)
-		goto error_regulators;
-
-	simplefb_clocks_enable(par, pdev);
-	simplefb_regulators_enable(par, pdev);
 
 	dev_info(&pdev->dev, "framebuffer at 0x%lx, 0x%x bytes\n",
 			     info->fix.smem_start, info->fix.smem_len);
@@ -635,24 +290,20 @@ static int simplefb_probe(struct platform_device *pdev)
 	ret = devm_aperture_acquire_for_platform_device(pdev, par->base, par->size);
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to acquire aperture: %d\n", ret);
-		goto error_genpds;
+		goto error_resources;
 	}
 	ret = register_framebuffer(info);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to register simplefb: %d\n", ret);
-		goto error_genpds;
+		goto error_resources;
 	}
 
 	dev_info(&pdev->dev, "fb%d: simplefb registered!\n", info->node);
 
 	return 0;
 
-error_genpds:
-	simplefb_detach_genpds(par);
-error_regulators:
-	simplefb_regulators_destroy(par);
-error_clocks:
-	simplefb_clocks_destroy(par);
+error_resources:
+	simplefb_release_resources(&par->resources);
 error_unmap:
 	iounmap(info->screen_base);
 error_fb_release:
