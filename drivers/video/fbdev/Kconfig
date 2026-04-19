@@ -1779,6 +1779,7 @@ config FB_SIMPLE
 	depends on !DRM_SIMPLEDRM
 	select APERTURE_HELPERS
 	select FB_IOMEM_HELPERS
+	select DRM_SIMPLEFB_RESOURCES
 	help
 	  Say Y if you want support for a simple frame-buffer.
 
