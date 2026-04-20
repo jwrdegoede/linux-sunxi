@@ -429,9 +429,29 @@ __init void sysfb_apply_efi_quirks(struct screen_info *si)
 
 __init void sysfb_set_efifb_fwnode(const struct screen_info *si, struct platform_device *pd)
 {
-	if (si->orig_video_isVGA == VIDEO_TYPE_EFI && IS_ENABLED(CONFIG_PCI)) {
+	struct device_node *node;
+
+	if (si->orig_video_isVGA != VIDEO_TYPE_EFI)
+		return;
+
+	if (IS_ENABLED(CONFIG_PCI)) {
 		fwnode_init(&efifb_fwnode, &efifb_fwnode_ops);
 		pd->dev.fwnode = &efifb_fwnode;
 	}
+
+	/*
+	 * If a fully populated simple-framebuffer DT node is found, then
+	 * of_platform_default_populate_init() will call sysfb_disable()
+	 * and we never get here.
+	 *
+	 * If there is just a template simple-framebuffer DT node (without
+	 * framebuffer base-address and format), that is still useful to
+	 * have as of_node for the sysfb driver since it contains a list
+	 * of resources (clocks, regulators, etc.) which need to be kept
+	 * on to keep the firmware provided EFIFB working.
+	 */
+	node = of_get_compatible_child(of_chosen, "simple-framebuffer");
+	device_add_of_node(&pd->dev, node);
+	of_node_put(node);
 }
 #endif
