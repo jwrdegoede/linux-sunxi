@@ -10,6 +10,26 @@
 	compatible = "lenovo,thinkpad-t14s-lcd", "lenovo,thinkpad-t14s",
 		     "qcom,x1e78100", "qcom,x1e80100";
 
+	chosen {
+		simplefb: framebuffer {
+			compatible = "simple-framebuffer";
+			status = "disabled";
+
+			panel-supply = <&vreg_edp_3p3>;
+			backlight-supply = <&vreg_edp_bl>;
+			dp3-vdda-phy-supply = <&vreg_l3j_0p8>;
+			dp3-vdda-pll-supply = <&vreg_l2j_1p2>;
+
+			clocks = <&dispcc DISP_CC_MDSS_AHB_CLK>,
+				 <&gcc GCC_DISP_HF_AXI_CLK>,
+				 <&dispcc DISP_CC_MDSS_MDP_CLK>,
+				 <&dispcc DISP_CC_MDSS_DPTX3_AUX_CLK>,
+				 <&dispcc DISP_CC_MDSS_DPTX3_LINK_CLK>,
+				 <&dispcc DISP_CC_MDSS_DPTX3_LINK_INTF_CLK>,
+				 <&dispcc DISP_CC_MDSS_DPTX3_PIXEL0_CLK>;
+		};
+	};
+
 	backlight: backlight {
 		compatible = "pwm-backlight";
 		pwms = <&pmk8550_pwm 0 4266537>;
