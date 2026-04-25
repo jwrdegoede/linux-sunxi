@@ -52,7 +52,8 @@ static int simplefb_get_clocks(struct device *dev, struct simplefb_resources *re
 	for (i = 0; i < res->clk_count; ++i) {
 		clock = of_clk_get(dev->of_node, i);
 		if (IS_ERR(clock)) {
-			ret = dev_err_probe(dev, PTR_ERR(clock), "getting clock %u\n", i);
+			dev_err(dev, "Error %pe getting clock %u\n", clock, i);
+			ret = PTR_ERR(clock);
 			if (ret == -EPROBE_DEFER)
 				goto err;
 			continue;
@@ -156,8 +157,8 @@ static int simplefb_get_regulators(struct device *dev, struct simplefb_resources
 
 		regulator = regulator_get_optional(dev, name);
 		if (IS_ERR(regulator)) {
-			ret = dev_err_probe(dev, PTR_ERR(regulator),
-					    "getting regulator %s\n", name);
+			dev_err(dev, "Error %pe getting regulator %s\n", regulator, name);
+			ret = PTR_ERR(regulator);
 			if (ret == -EPROBE_DEFER)
 				goto err;
 			continue;
