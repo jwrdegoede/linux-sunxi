@@ -957,6 +957,17 @@ int clk_set_parent(struct clk *clk, struct clk *parent);
 struct clk *clk_get_parent(struct clk *clk);
 
 /**
+ * __clk_set_ignore_unused_flag - Set ignore-unused flag on this clock
+ * @clk: clock source
+ *
+ * Mark a clock to not be turned off when unused clocks get turned off by
+ * clk_disable_unused() which runs as late_initcall_sync().
+ * This function should only be used in special cases like keeping clocks
+ * used by firmware-framebuffers on. When in doubt do NOT use this function.
+ */
+void __clk_set_ignore_unused_flag(struct clk *clk);
+
+/**
  * clk_get_sys - get a clock based upon the device name
  * @dev_id: device name
  * @con_id: connection ID
@@ -1153,6 +1164,8 @@ static inline struct clk *clk_get_parent(struct clk *clk)
 {
 	return NULL;
 }
+
+static inline void __clk_set_ignore_unused_flag(struct clk *clk) {}
 
 static inline struct clk *clk_get_sys(const char *dev_id, const char *con_id)
 {

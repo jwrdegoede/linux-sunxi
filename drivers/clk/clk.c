@@ -4914,6 +4914,12 @@ int devm_clk_notifier_register(struct device *dev, struct clk *clk,
 }
 EXPORT_SYMBOL_GPL(devm_clk_notifier_register);
 
+void __clk_set_ignore_unused_flag(struct clk *clk)
+{
+	clk->core->flags |= CLK_IGNORE_UNUSED;
+}
+EXPORT_SYMBOL_GPL(__clk_set_ignore_unused_flag);
+
 #ifdef CONFIG_OF
 static void clk_core_reparent_orphans(void)
 {
