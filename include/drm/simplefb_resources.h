@@ -13,17 +13,11 @@
 
 #include <linux/kconfig.h>
 
-struct clk;
 struct device;
 struct device_link;
 struct regulator;
 
 struct simplefb_resources {
-#if defined CONFIG_OF && defined CONFIG_COMMON_CLK
-	/* clocks */
-	unsigned int clk_count;
-	struct clk **clks;
-#endif
 #if defined CONFIG_OF && defined CONFIG_REGULATOR
 	/* regulators */
 	unsigned int regulator_count;

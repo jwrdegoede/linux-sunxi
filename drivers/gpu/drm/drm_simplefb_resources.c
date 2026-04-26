@@ -26,7 +26,10 @@
  * provided a simplefb dt node), stay up, for the life of the simplefb
  * driver.
  *
- * When the driver unloads, we cleanly disable, and then release the clocks.
+ * Enabling the clocks would require disabling them on remove() to balance the
+ * enable-count, which may confuse the real display driver when it takes over.
+ * Instead set the ignore-unused flag to avoid them getting turned off by the
+ * clk_disable_unused() late initcall and otherwise leave the clocks alone.
  *
  * We only complain about errors here, no action is taken as the most likely
  * error can only happen due to a mismatch between the bootloader which set
@@ -35,68 +38,35 @@
  * the fb probe will not help us much either. So just complain and carry on,
  * and hope that the user actually gets a working fb at the end of things.
  */
-static int simplefb_get_clocks(struct device *dev, struct simplefb_resources *res)
+static int simplefb_init_clocks(struct device *dev, struct simplefb_resources *res)
 {
+	unsigned int i, clk_count;
 	struct clk *clock;
-	unsigned int i;
 	int ret;
 
-	res->clk_count = of_clk_get_parent_count(dev->of_node);
-	if (!res->clk_count)
+	clk_count = of_clk_get_parent_count(dev->of_node);
+	if (!clk_count)
 		return 0;
 
-	res->clks = kzalloc_objs(struct clk *, res->clk_count);
-	if (!res->clks)
-		return -ENOMEM;
-
-	for (i = 0; i < res->clk_count; ++i) {
+	for (i = 0; i < clk_count; ++i) {
 		clock = of_clk_get(dev->of_node, i);
 		if (IS_ERR(clock)) {
 			ret = dev_err_probe(dev, PTR_ERR(clock), "getting clock %u\n", i);
 			if (ret == -EPROBE_DEFER)
-				goto err;
+				return ret;
 			continue;
 		}
-		res->clks[i] = clock;
+		__clk_set_ignore_unused_flag(clock);
+		clk_put(clock);
 	}
 
 	return 0;
-
-err:
-	while (i--)
-		clk_put(res->clks[i]);
-
-	kfree(res->clks);
-	return ret;
-}
-
-static void simplefb_enable_clocks(struct device *dev, struct simplefb_resources *res)
-{
-	int ret;
-
-	for (unsigned int i = 0; i < res->clk_count; ++i) {
-		ret = clk_prepare_enable(res->clks[i]);
-		if (ret)
-			dev_err(dev, "Error %pe enabling clock %u\n", ERR_PTR(ret), i);
-	}
-}
-
-static void simplefb_release_clocks(struct simplefb_resources *res, bool enabled)
-{
-	for (unsigned int i = 0; i < res->clk_count; ++i) {
-		if (enabled)
-			clk_disable_unprepare(res->clks[i]);
-		clk_put(res->clks[i]);
-	}
-	kfree(res->clks);
 }
 #else
-static int simplefb_get_clocks(struct device *dev, struct simplefb_resources *res)
+static int simplefb_init_clocks(struct device *dev, struct simplefb_resources *res)
 {
 	return 0;
 }
-static void simplefb_enable_clocks(struct device *dev, struct simplefb_resources *res) { }
-static void simplefb_release_clocks(struct simplefb_resources *res, bool enabled) { }
 #endif
 
 #if defined CONFIG_OF && defined CONFIG_REGULATOR
@@ -303,24 +273,20 @@ int simplefb_acquire_resources(struct device *dev, struct simplefb_resources *re
 	if (!dev->of_node)
 		return 0;
 
-	ret = simplefb_get_clocks(dev, res);
+	ret = simplefb_init_clocks(dev, res);
 	if (ret)
 		return ret;
 
 	ret = simplefb_get_regulators(dev, res);
-	if (ret) {
-		simplefb_release_clocks(res, false);
+	if (ret)
 		return ret;
-	}
 
 	ret = simplefb_attach_genpd(dev, res);
 	if (ret) {
 		simplefb_release_regulators(res, false);
-		simplefb_release_clocks(res, false);
 		return ret;
 	}
 
-	simplefb_enable_clocks(dev, res);
 	simplefb_enable_regulators(dev, res);
 
 	return 0;
@@ -329,6 +295,5 @@ int simplefb_acquire_resources(struct device *dev, struct simplefb_resources *re
 void simplefb_release_resources(struct simplefb_resources *res)
 {
 	simplefb_release_regulators(res, true);
-	simplefb_release_clocks(res, true);
 	simplefb_detach_genpd(res);
 }
