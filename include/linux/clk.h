@@ -784,6 +784,19 @@ void clk_disable(struct clk *clk);
 void clk_bulk_disable(int num_clks, const struct clk_bulk_data *clks);
 
 /**
+ * __clk_disable_unprepare_counts_only - Decrement enable and prepare counts
+ *
+ * Like clk_disable_unprepare() but then only decrement the enable, prepare and
+ * protect counts of the clock and its parents without actually disabling any
+ * clocks.
+ *
+ * This function should only be used in special case where the clocks should
+ * stay on while handing control over from an early-boot driver like simpledrm
+ * to a later more featureful driver. When in doubt do NOT use this function.
+ */
+void __clk_disable_unprepare_counts_only(struct clk *clk);
+
+/**
  * clk_get_rate - obtain the current clock rate (in Hz) for a clock source.
  *		  This is only valid once the clock source has been enabled.
  * @clk: clock source
@@ -1099,6 +1112,7 @@ static inline int __must_check clk_bulk_enable(int num_clks,
 
 static inline void clk_disable(struct clk *clk) {}
 
+static inline void __clk_disable_unprepare_counts_only(struct clk *clk) {}
 
 static inline void clk_bulk_disable(int num_clks,
 				    const struct clk_bulk_data *clks) {}
