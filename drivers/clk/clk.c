@@ -1037,7 +1037,7 @@ int devm_clk_rate_exclusive_get(struct device *dev, struct clk *clk)
 }
 EXPORT_SYMBOL_GPL(devm_clk_rate_exclusive_get);
 
-static void clk_core_unprepare(struct clk_core *core)
+static void clk_core_unprepare(struct clk_core *core, bool call_unprepare_op)
 {
 	lockdep_assert_held(&prepare_lock);
 
@@ -1062,18 +1062,18 @@ static void clk_core_unprepare(struct clk_core *core)
 
 	trace_clk_unprepare(core);
 
-	if (core->ops->unprepare)
+	if (call_unprepare_op && core->ops->unprepare)
 		core->ops->unprepare(core->hw);
 
 	trace_clk_unprepare_complete(core);
-	clk_core_unprepare(core->parent);
+	clk_core_unprepare(core->parent, call_unprepare_op);
 	clk_pm_runtime_put(core);
 }
 
 static void clk_core_unprepare_lock(struct clk_core *core)
 {
 	clk_prepare_lock();
-	clk_core_unprepare(core);
+	clk_core_unprepare(core, true);
 	clk_prepare_unlock();
 }
 
@@ -1140,7 +1140,7 @@ static int clk_core_prepare(struct clk_core *core)
 
 	return 0;
 unprepare:
-	clk_core_unprepare(core->parent);
+	clk_core_unprepare(core->parent, true);
 runtime_put:
 	clk_pm_runtime_put(core);
 	return ret;
@@ -1178,7 +1178,7 @@ int clk_prepare(struct clk *clk)
 }
 EXPORT_SYMBOL_GPL(clk_prepare);
 
-static void clk_core_disable(struct clk_core *core)
+static void clk_core_disable(struct clk_core *core, bool call_disable_op)
 {
 	lockdep_assert_held(&enable_lock);
 
@@ -1197,12 +1197,12 @@ static void clk_core_disable(struct clk_core *core)
 
 	trace_clk_disable(core);
 
-	if (core->ops->disable)
+	if (call_disable_op && core->ops->disable)
 		core->ops->disable(core->hw);
 
 	trace_clk_disable_complete(core);
 
-	clk_core_disable(core->parent);
+	clk_core_disable(core->parent, call_disable_op);
 }
 
 static void clk_core_disable_lock(struct clk_core *core)
@@ -1210,7 +1210,7 @@ static void clk_core_disable_lock(struct clk_core *core)
 	unsigned long flags;
 
 	flags = clk_enable_lock();
-	clk_core_disable(core);
+	clk_core_disable(core, true);
 	clk_enable_unlock(flags);
 }
 
@@ -1234,6 +1234,23 @@ void clk_disable(struct clk *clk)
 	clk_core_disable_lock(clk->core);
 }
 EXPORT_SYMBOL_GPL(clk_disable);
+
+void __clk_disable_unprepare_counts_only(struct clk *clk)
+{
+	unsigned long flags;
+
+	if (IS_ERR_OR_NULL(clk))
+		return;
+
+	flags = clk_enable_lock();
+	clk_core_disable(clk->core, false);
+	clk_enable_unlock(flags);
+
+	clk_prepare_lock();
+	clk_core_unprepare(clk->core, false);
+	clk_prepare_unlock();
+}
+EXPORT_SYMBOL_GPL(__clk_disable_unprepare_counts_only);
 
 static int clk_core_enable(struct clk_core *core)
 {
@@ -1262,7 +1279,7 @@ static int clk_core_enable(struct clk_core *core)
 		trace_clk_enable_complete(core);
 
 		if (ret) {
-			clk_core_disable(core->parent);
+			clk_core_disable(core->parent, true);
 			return ret;
 		}
 	}
@@ -2451,7 +2468,7 @@ static void clk_change_rate(struct clk_core *core)
 
 	if (core->flags & CLK_SET_RATE_UNGATE) {
 		clk_core_disable_lock(core);
-		clk_core_unprepare(core);
+		clk_core_unprepare(core, true);
 	}
 
 	if (core->flags & CLK_OPS_PARENT_ENABLE)
@@ -4063,7 +4080,7 @@ static int __clk_core_init(struct clk_core *core)
 		if (ret) {
 			pr_warn("%s: critical clk '%s' failed to enable\n",
 			       __func__, core->name);
-			clk_core_unprepare(core);
+			clk_core_unprepare(core, true);
 			goto out;
 		}
 	}
