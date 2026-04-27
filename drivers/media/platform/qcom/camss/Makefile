@@ -37,3 +37,6 @@ qcom-camss-isp-objs := camss-isp-bufq.o \
 
 obj-$(CONFIG_VIDEO_QCOM_CAMSS_ISP) += qcom-camss-isp.o
 
+qcom-camss-ope-objs := camss-isp-ope.o
+
+obj-$(CONFIG_VIDEO_QCOM_CAMSS_OPE) += qcom-camss-ope.o
