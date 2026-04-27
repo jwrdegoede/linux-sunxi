@@ -100,9 +100,15 @@ enum icc_count {
 	ICC_SM8250_COUNT = 4,
 };
 
+struct camss_pm_clk {
+	const char *name;
+	unsigned long rate;	/* 0 = do not set rate */
+};
+
 struct camss_resources {
 	enum camss_version version;
 	const char *pd_name;
+	struct camss_pm_clk pm_clks[CAMSS_RES_MAX];
 	const struct camss_subdev_resources *csiphy_res;
 	const struct camss_subdev_resources *csid_res;
 	const struct camss_subdev_resources *ispif_res;

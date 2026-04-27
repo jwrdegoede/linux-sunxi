@@ -19,6 +19,7 @@
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
+#include <linux/pm_clock.h>
 #include <linux/slab.h>
 #include <linux/videodev2.h>
 
@@ -4591,6 +4592,49 @@ static void camss_genpd_cleanup(struct camss *camss)
 	dev_pm_domain_detach(camss->genpd, true);
 }
 
+static int camss_init_pm_clks(struct camss *camss)
+{
+	struct device *dev = camss->dev;
+	unsigned int i;
+	int ret;
+
+	if (!camss->res->pm_clks[0].name)
+		return 0;
+
+	ret = devm_pm_clk_create(dev);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < CAMSS_RES_MAX && camss->res->pm_clks[i].name; i++) {
+		const struct camss_pm_clk *entry = &camss->res->pm_clks[i];
+		struct clk *clk;
+
+		clk = clk_get(dev, entry->name);
+		if (IS_ERR(clk)) {
+			dev_warn(dev, "failed to get pm_clk %s: %pe\n",
+				 entry->name, clk);
+			continue;
+		}
+
+		if (entry->rate) {
+			ret = clk_set_rate(clk, entry->rate);
+			if (ret)
+				dev_warn(dev, "failed to set rate for pm_clk %s: %d\n",
+					 entry->name, ret);
+		}
+
+		/* PM takes ownership of the clock, no explicit clk_put() is required. */
+		ret = pm_clk_add_clk(dev, clk);
+		if (ret) {
+			dev_warn(dev, "failed to add pm_clk %s: %d\n",
+				 entry->name, ret);
+			clk_put(clk);
+		}
+	}
+
+	return 0;
+}
+
 /*
  * camss_probe - Probe CAMSS platform device
  * @pdev: Pointer to CAMSS platform device
@@ -4674,6 +4718,10 @@ static int camss_probe(struct platform_device *pdev)
 	v4l2_async_nf_init(&camss->notifier, &camss->v4l2_dev);
 
 	pm_runtime_enable(dev);
+
+	ret = camss_init_pm_clks(camss);
+	if (ret)
+		goto err_v4l2_device_unregister;
 
 	ret = camss_of_parse_ports(camss);
 	if (ret < 0)
@@ -4982,7 +5030,7 @@ static int __maybe_unused camss_runtime_suspend(struct device *dev)
 			return ret;
 	}
 
-	return 0;
+	return pm_clk_suspend(dev);
 }
 
 static int __maybe_unused camss_runtime_resume(struct device *dev)
@@ -4991,6 +5039,10 @@ static int __maybe_unused camss_runtime_resume(struct device *dev)
 	const struct resources_icc *icc_res = camss->res->icc_res;
 	int i;
 	int ret;
+
+	ret = pm_clk_resume(dev);
+	if (ret)
+		return ret;
 
 	for (i = 0; i < camss->res->icc_path_num; i++) {
 		ret = icc_set_bw(camss->icc_path[i],
