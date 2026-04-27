@@ -85,7 +85,7 @@ static void simplefb_release_clocks(struct simplefb_resources *res, bool enabled
 {
 	for (unsigned int i = 0; i < res->clk_count; ++i) {
 		if (enabled)
-			clk_disable_unprepare(res->clks[i]);
+			__clk_disable_unprepare_counts_only(res->clks[i]);
 		clk_put(res->clks[i]);
 	}
 	kfree(res->clks);
