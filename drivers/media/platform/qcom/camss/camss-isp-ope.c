@@ -1560,6 +1560,7 @@ static const struct ope_fmt *ope_fmt_try(struct ope_dev *ope, bool is_output,
 	unsigned int n = is_output ? ARRAY_SIZE(ope_output_fmts) : ARRAY_SIZE(ope_input_fmts);
 	const struct ope_fmt *fmt;
 	unsigned int max_w = OPE_MAX_W, max_h = OPE_MAX_H;
+	unsigned int bytesperline;
 
 	fmt = ope_find_fmt(fmts, n, pix->pixelformat);
 	if (!fmt) {
@@ -1580,9 +1581,27 @@ static const struct ope_fmt *ope_fmt_try(struct ope_dev *ope, bool is_output,
 	if (!pix->colorspace)
 		pix->colorspace = is_output ? V4L2_COLORSPACE_SRGB
 					    : V4L2_COLORSPACE_RAW;
-	if (pix->plane_fmt[0].bytesperline < pix->width * fmt->depth / 8)
-		pix->plane_fmt[0].bytesperline = pix->width * fmt->depth / 8;
-	pix->plane_fmt[0].sizeimage = (u64)fmt->depth * pix->width * pix->height / 8;
+
+	/*
+	 * Output formats are semi-planar or grey-scale (Y plane only) always
+	 * using 1 byte per Y value. pix->bytesperline stores the Y-plane bpl.
+	 * Depth tracks the total storage size including the second combined
+	 * Cb + Cr plane which directly follows the Y plane and is used for
+	 * sizeimage calculations rather then for bytesperline.
+	 */
+	if (is_output)
+		bytesperline = pix->width;
+	else
+		bytesperline = pix->width * fmt->depth / 8;
+
+	if (pix->plane_fmt[0].bytesperline < bytesperline)
+		pix->plane_fmt[0].bytesperline = bytesperline;
+
+	if (is_output)
+		pix->plane_fmt[0].sizeimage =
+			(u64)pix->plane_fmt[0].bytesperline * pix->height * fmt->depth / 8;
+	else
+		pix->plane_fmt[0].sizeimage = pix->plane_fmt[0].bytesperline * pix->height;
 
 	return fmt;
 }
@@ -2028,7 +2047,7 @@ static struct ope_ctx *ope_ctx_create(struct ope_dev *ope)
 	ctx->fmt_out.fmt	  = &ope_output_fmts[0];
 	ctx->fmt_out.width	  = OPE_MIN_W;
 	ctx->fmt_out.height	  = OPE_MIN_H;
-	ctx->fmt_out.bytesperline = OPE_MIN_W * ope_output_fmts[0].depth / 8;
+	ctx->fmt_out.bytesperline = OPE_MIN_W;
 	ctx->fmt_out.sizeimage	  = (u64)ope_output_fmts[0].depth *
 				    OPE_MIN_W * OPE_MIN_H / 8;
 	ctx->fmt_out.colorspace	  = V4L2_COLORSPACE_SRGB;
