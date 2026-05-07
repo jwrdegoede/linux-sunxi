@@ -194,6 +194,8 @@ static int isp_register_vdev(struct camss_isp_pipeline_entity *slot,
 		vdev->fops = desc->vdev.fops;
 	if (desc->vdev.ioctl_ops)
 		vdev->ioctl_ops = desc->vdev.ioctl_ops;
+	if (desc->vdev.entity_ops)
+		vdev->entity.ops = desc->vdev.entity_ops;
 
 	vdev->entity.obj_type = MEDIA_ENTITY_TYPE_VIDEO_DEVICE;
 	vdev->entity.function = desc->function ? desc->function : MEDIA_ENT_F_IO_V4L;
@@ -222,6 +224,10 @@ static int isp_register_subdev(struct camss_isp_pipeline_entity *slot,
 	strscpy(sd->name, desc->name, sizeof(sd->name));
 	sd->entity.function = desc->function ?
 			      desc->function : MEDIA_ENT_F_V4L2_SUBDEV_UNKNOWN;
+	/* Create a /dev/v4l-subdevN node so userspace can query pad formats */
+	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	if (desc->subdev.internal_ops)
+		sd->internal_ops = desc->subdev.internal_ops;
 
 	ret = media_entity_pads_init(&sd->entity, slot->num_pads, slot->pads);
 	if (ret)
@@ -348,6 +354,11 @@ int camss_isp_pipeline_register(struct camss_isp_pipeline *pipeline,
 				goto err_unregister;
 		}
 	}
+
+	/* Create /dev/v4l-subdevN nodes for all registered subdevs */
+	ret = v4l2_device_register_subdev_nodes(v4l2_dev);
+	if (ret)
+		goto err_unregister;
 
 	return 0;
 

@@ -76,10 +76,12 @@ struct camss_isp_entity_desc {
 			void					*drvdata;
 			const struct v4l2_file_operations	*fops;
 			const struct v4l2_ioctl_ops		*ioctl_ops;
+			const struct media_entity_operations	*entity_ops;
 		} vdev;
 		/* MEDIA_ENTITY_TYPE_V4L2_SUBDEV */
 		struct {
 			const struct v4l2_subdev_ops		*ops;
+			const struct v4l2_subdev_internal_ops	*internal_ops;
 		} subdev;
 	};
 };
