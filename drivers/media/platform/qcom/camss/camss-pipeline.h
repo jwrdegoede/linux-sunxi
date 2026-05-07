@@ -62,6 +62,7 @@ struct camss_isp_pad_desc {
  *
  * Fields used only for MEDIA_ENTITY_TYPE_V4L2_SUBDEV:
  * @subdev.ops: Subdev operations (may be NULL).
+ * @subdev.internal_ops: Internal subdev operations (may be NULL).
  */
 struct camss_isp_entity_desc {
 	const char				*name;
@@ -76,10 +77,13 @@ struct camss_isp_entity_desc {
 			void					*drvdata;
 			const struct v4l2_file_operations	*fops;
 			const struct v4l2_ioctl_ops		*ioctl_ops;
+			const struct media_entity_operations	*entity_ops;
 		} vdev;
 		/* MEDIA_ENTITY_TYPE_V4L2_SUBDEV */
 		struct {
 			const struct v4l2_subdev_ops		*ops;
+			const struct v4l2_subdev_internal_ops	*internal_ops;
+			const struct media_entity_operations	*entity_ops;
 		} subdev;
 	};
 };
