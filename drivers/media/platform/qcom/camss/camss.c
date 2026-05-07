@@ -18,6 +18,7 @@
 #include <linux/of_graph.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
+#include <linux/pm_clock.h>
 #include <linux/slab.h>
 #include <linux/videodev2.h>
 
@@ -4591,6 +4592,36 @@ static void camss_genpd_cleanup(struct camss *camss)
 }
 
 /*
+ * camss_init_pm_clks - register shared CAMSS clocks with the PM clock framework
+ *
+ * Clocks listed in res->pm_clks are shared across all CAMSS sub-devices (e.g.
+ * top_ahb, axi). We kept them on for the lifetime of any active child, managed
+ * automatically by the PM framework.
+ */
+static int camss_init_pm_clks(struct camss *camss)
+{
+	struct device *dev = camss->dev;
+	unsigned int i;
+	int ret;
+
+	if (!camss->res->pm_clks[0])
+		return 0;
+
+	ret = devm_pm_clk_create(dev);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < CAMSS_RES_MAX && camss->res->pm_clks[i]; i++) {
+		ret = pm_clk_add(dev, camss->res->pm_clks[i]);
+		if (ret)
+			dev_warn(dev, "failed to add pm_clk %s: %d\n",
+				 camss->res->pm_clks[i], ret);
+	}
+
+	return 0;
+}
+
+/*
  * camss_probe - Probe CAMSS platform device
  * @pdev: Pointer to CAMSS platform device
  *
@@ -4671,6 +4702,10 @@ static int camss_probe(struct platform_device *pdev)
 	v4l2_async_nf_init(&camss->notifier, &camss->v4l2_dev);
 
 	pm_runtime_enable(dev);
+
+	ret = camss_init_pm_clks(camss);
+	if (ret)
+		goto err_v4l2_device_unregister;
 
 	ret = camss_of_parse_ports(camss);
 	if (ret < 0)
@@ -4979,7 +5014,7 @@ static int __maybe_unused camss_runtime_suspend(struct device *dev)
 			return ret;
 	}
 
-	return 0;
+	return pm_clk_suspend(dev);
 }
 
 static int __maybe_unused camss_runtime_resume(struct device *dev)
@@ -4988,6 +5023,10 @@ static int __maybe_unused camss_runtime_resume(struct device *dev)
 	const struct resources_icc *icc_res = camss->res->icc_res;
 	int i;
 	int ret;
+
+	ret = pm_clk_resume(dev);
+	if (ret)
+		return ret;
 
 	for (i = 0; i < camss->res->icc_path_num; i++) {
 		ret = icc_set_bw(camss->icc_path[i],
