@@ -52,6 +52,14 @@ properties:
       - const: vfe1
       - const: vfe1_cphy_rx
 
+  "#address-cells":
+    const: 2
+
+  "#size-cells":
+    const: 2
+
+  ranges: true
+
   interrupts:
     maxItems: 8
 
@@ -116,6 +124,11 @@ properties:
 
             required:
               - data-lanes
+
+patternProperties:
+  "^isp@[0-9a-f]+$":
+    $ref: /schemas/media/qcom,qcm2290-camss-ope.yaml
+    unevaluatedProperties: false
 
 required:
   - compatible
