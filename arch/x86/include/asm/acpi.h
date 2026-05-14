@@ -25,6 +25,7 @@
 #endif
 
 #ifdef CONFIG_ACPI
+#define acpi_dt_hybrid 0	/* No ACPI-DT hybrid mode on x86 */
 extern int acpi_lapic;
 extern int acpi_ioapic;
 extern int acpi_noirq;

@@ -1290,7 +1290,7 @@ void __init acpi_early_init(void)
 {
 	acpi_status status;
 
-	if (acpi_disabled)
+	if (acpi_disabled && !acpi_dt_hybrid)
 		return;
 
 	pr_info("Core revision %08x\n", ACPI_CA_VERSION);
@@ -1361,7 +1361,7 @@ void __init acpi_subsystem_init(void)
 {
 	acpi_status status;
 
-	if (acpi_disabled)
+	if (acpi_disabled && !acpi_dt_hybrid)
 		return;
 
 	status = acpi_enable_subsystem(~ACPI_NO_ACPI_ENABLE);
@@ -1494,7 +1494,7 @@ static int __init acpi_init(void)
 {
 	int result;
 
-	if (acpi_disabled) {
+	if (acpi_disabled && !acpi_dt_hybrid) {
 		pr_info("Interpreter disabled.\n");
 		return -ENODEV;
 	}
