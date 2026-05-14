@@ -263,5 +263,8 @@ static struct acpi_scan_handler apd_handler = {
 
 void __init acpi_apd_init(void)
 {
+	if (acpi_disabled)
+		return;
+
 	acpi_scan_add_handler(&apd_handler);
 }

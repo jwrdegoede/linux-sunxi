@@ -22,7 +22,8 @@ typedef u64 phys_cpuid_t;
 void __iomem *acpi_os_ioremap(acpi_physical_address phys, acpi_size size);
 #define acpi_os_ioremap acpi_os_ioremap
 
-#define acpi_strict 1	/* No out-of-spec workarounds on RISC-V */
+#define acpi_strict 1		/* No out-of-spec workarounds on RISC-V */
+#define acpi_dt_hybrid 0	/* No DT-ACPI hybrid mode on RISC-V */
 extern int acpi_disabled;
 extern int acpi_noirq;
 extern int acpi_pci_disabled;
