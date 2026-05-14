@@ -43,11 +43,14 @@ EXPORT_SYMBOL(acpi_disabled);
 int acpi_pci_disabled = 1;	/* skip ACPI PCI scan and IRQ initialization */
 EXPORT_SYMBOL(acpi_pci_disabled);
 
+int acpi_dt_hybrid;		/* disable ACPI-DT hybrid mode */
+
 enum acpi_mode_t {
 	acpi_mode_unset,
 	acpi_mode_off,
 	acpi_mode_on,
 	acpi_mode_force,
+	acpi_mode_hybrid,
 };
 
 static enum acpi_mode_t param_acpi_mode __initdata;
@@ -65,6 +68,8 @@ static int __init parse_acpi(char *arg)
 		param_acpi_mode = acpi_mode_on;
 	else if (strcmp(arg, "force") == 0) /* force ACPI to be enabled */
 		param_acpi_mode = acpi_mode_force;
+	else if (strcmp(arg, "hybrid") == 0) /* ACPI-DT hybrid mode */
+		param_acpi_mode = acpi_mode_hybrid;
 	else if (strcmp(arg, "nospcr") == 0) /* disable SPCR as default console */
 		param_acpi_nospcr = true;
 	else
@@ -203,7 +208,7 @@ out:
 void __init acpi_boot_table_init(void)
 {
 	/*
-	 * When no ACPI mode (acpi=off|on|force) has been specified,
+	 * When no ACPI mode (acpi=off|on|force|hybrid) has been specified,
 	 * enable ACPI if the device tree is empty (it only has a /chosen
 	 * node, and a /hypervisor node when running on Xen).
 	 */
@@ -230,6 +235,9 @@ void __init acpi_boot_table_init(void)
 		pr_err("Failed to init ACPI tables\n");
 		if (param_acpi_mode != acpi_mode_force)
 			disable_acpi();
+	} else if (param_acpi_mode == acpi_mode_hybrid) {
+		acpi_dt_hybrid = 1;
+		disable_acpi();
 	}
 
 done:
@@ -257,10 +265,10 @@ done:
 		 */
 		acpi_parse_spcr(earlycon_acpi_spcr_enable,
 			!param_acpi_nospcr);
-
-		if (IS_ENABLED(CONFIG_ACPI_BGRT))
-			acpi_table_parse(ACPI_SIG_BGRT, acpi_parse_bgrt);
 	}
+
+	if ((!acpi_disabled || acpi_dt_hybrid) && IS_ENABLED(CONFIG_ACPI_BGRT))
+		acpi_table_parse(ACPI_SIG_BGRT, acpi_parse_bgrt);
 }
 
 static pgprot_t __acpi_get_writethrough_mem_attribute(void)
