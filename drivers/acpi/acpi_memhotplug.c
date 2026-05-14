@@ -365,6 +365,9 @@ static struct acpi_scan_handler memory_device_handler = {
 
 void __init acpi_memory_hotplug_init(void)
 {
+	if (acpi_disabled)
+		return;
+
 	acpi_scan_add_handler(&memory_device_handler);
 }
 

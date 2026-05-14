@@ -790,6 +790,9 @@ bool acpi_duplicate_processor_id(int proc_id)
 
 void __init acpi_processor_init(void)
 {
+	if (acpi_disabled)
+		return;
+
 	acpi_processor_check_duplicates();
 	acpi_scan_add_handler_with_hotplug(&processor_handler, "processor");
 	acpi_scan_add_handler(&processor_container_handler);

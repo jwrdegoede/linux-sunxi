@@ -30,7 +30,7 @@ void __init efi_bgrt_init(struct acpi_table_header *table)
 	struct bmp_header bmp_header;
 	struct acpi_table_bgrt *bgrt = &bgrt_tab;
 
-	if (acpi_disabled)
+	if (acpi_disabled && !acpi_dt_hybrid)
 		return;
 
 	if (!efi_enabled(EFI_MEMMAP))
