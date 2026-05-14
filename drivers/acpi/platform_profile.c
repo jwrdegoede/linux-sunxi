@@ -690,7 +690,7 @@ static int __init platform_profile_init(void)
 {
 	int err;
 
-	if (acpi_disabled)
+	if (acpi_disabled && !acpi_dt_hybrid)
 		return -EOPNOTSUPP;
 
 	err = class_register(&platform_profile_class);
