@@ -247,7 +247,7 @@ int __init_or_acpilib acpi_table_parse_entries_array(
 	int count;
 	u32 instance = 0;
 
-	if (acpi_disabled)
+	if (acpi_disabled && !acpi_dt_hybrid)
 		return -ENODEV;
 
 	if (!id)
@@ -330,7 +330,7 @@ int __init acpi_table_parse(char *id, acpi_tbl_table_handler handler)
 {
 	struct acpi_table_header *table = NULL;
 
-	if (acpi_disabled)
+	if (acpi_disabled && !acpi_dt_hybrid)
 		return -ENODEV;
 
 	if (!id || !handler)
