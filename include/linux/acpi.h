@@ -865,7 +865,17 @@ static inline bool is_acpi_device_node(const struct fwnode_handle *fwnode)
 	return false;
 }
 
+static inline bool is_acpi_device_node_any(const struct fwnode_handle *fwnode)
+{
+	return false;
+}
+
 static inline struct acpi_device *to_acpi_device_node(const struct fwnode_handle *fwnode)
+{
+	return NULL;
+}
+
+static inline struct acpi_device *to_acpi_device_node_any(const struct fwnode_handle *fwnode)
 {
 	return NULL;
 }
