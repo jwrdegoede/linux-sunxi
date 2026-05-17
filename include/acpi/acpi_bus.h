@@ -513,6 +513,7 @@ extern const struct fwnode_operations acpi_data_fwnode_ops;
 extern const struct fwnode_operations acpi_static_fwnode_ops;
 
 bool is_acpi_device_node(const struct fwnode_handle *fwnode);
+bool is_acpi_device_node_any(const struct fwnode_handle *fwnode);
 bool is_acpi_data_node(const struct fwnode_handle *fwnode);
 
 static inline bool is_acpi_node(const struct fwnode_handle *fwnode)
@@ -526,6 +527,21 @@ static inline bool is_acpi_node(const struct fwnode_handle *fwnode)
 									\
 		is_acpi_device_node(__to_acpi_device_node_fwnode) ?	\
 			container_of(__to_acpi_device_node_fwnode,	\
+				     struct acpi_device, fwnode) :	\
+			NULL;						\
+	})
+
+/* Like to_acpi_device_node() but also check the secondary fwnode */
+#define to_acpi_device_node_any(__fwnode)				\
+	({								\
+		typeof(__fwnode) __to_acpi_device_node_fwnode = __fwnode; \
+									\
+		IS_ERR_OR_NULL(__to_acpi_device_node_fwnode) ? NULL :	\
+		is_acpi_device_node(__to_acpi_device_node_fwnode) ?	\
+			container_of(__to_acpi_device_node_fwnode,	\
+				     struct acpi_device, fwnode) :	\
+		is_acpi_device_node(__to_acpi_device_node_fwnode->secondary) ? \
+			container_of(__to_acpi_device_node_fwnode->secondary, \
 				     struct acpi_device, fwnode) :	\
 			NULL;						\
 	})
