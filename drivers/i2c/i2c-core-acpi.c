@@ -322,7 +322,7 @@ void i2c_acpi_register_devices(struct i2c_adapter *adap)
 	struct acpi_device *adev;
 	acpi_status status;
 
-	if (!has_acpi_companion(&adap->dev))
+	if (!is_acpi_device_node_any(adap->dev.fwnode))
 		return;
 
 	status = acpi_walk_namespace(ACPI_TYPE_DEVICE, ACPI_ROOT_OBJECT,
@@ -413,13 +413,15 @@ u32 i2c_acpi_find_bus_speed(struct device *dev)
 {
 	struct i2c_acpi_lookup lookup;
 	struct i2c_board_info dummy;
+	struct acpi_device *adev;
 	acpi_status status;
 
-	if (!has_acpi_companion(dev))
+	adev = to_acpi_device_node_any(dev->fwnode);
+	if (!adev)
 		return 0;
 
 	memset(&lookup, 0, sizeof(lookup));
-	lookup.search_handle = ACPI_HANDLE(dev);
+	lookup.search_handle = adev->handle;
 	lookup.min_speed = UINT_MAX;
 	lookup.info = &dummy;
 	lookup.index = -1;
