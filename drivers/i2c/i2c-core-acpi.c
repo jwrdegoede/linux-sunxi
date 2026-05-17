@@ -323,7 +323,7 @@ void i2c_acpi_register_devices(struct i2c_adapter *adap)
 	struct acpi_device *adev;
 	acpi_status status;
 
-	if (!has_acpi_companion(&adap->dev))
+	if (!is_acpi_device_node_any(adap->dev.fwnode))
 		return;
 
 	status = acpi_walk_namespace(ACPI_TYPE_DEVICE, ACPI_ROOT_OBJECT,
@@ -336,7 +336,7 @@ void i2c_acpi_register_devices(struct i2c_adapter *adap)
 	if (!adap->dev.parent)
 		return;
 
-	adev = ACPI_COMPANION(adap->dev.parent);
+	adev = to_acpi_device_node_any(adap->dev.parent->fwnode);
 	if (!adev)
 		return;
 
@@ -415,13 +415,15 @@ u32 i2c_acpi_find_bus_speed(struct device *dev)
 {
 	struct i2c_acpi_lookup lookup;
 	struct i2c_board_info dummy;
+	struct acpi_device *adev;
 	acpi_status status;
 
-	if (!has_acpi_companion(dev))
+	adev = to_acpi_device_node_any(dev->fwnode);
+	if (!adev)
 		return 0;
 
 	memset(&lookup, 0, sizeof(lookup));
-	lookup.search_handle = ACPI_HANDLE(dev);
+	lookup.search_handle = adev->handle;
 	lookup.min_speed = UINT_MAX;
 	lookup.info = &dummy;
 	lookup.index = -1;
@@ -798,16 +800,15 @@ i2c_acpi_space_handler(u32 function, acpi_physical_address command,
 
 int i2c_acpi_install_space_handler(struct i2c_adapter *adapter)
 {
-	acpi_handle handle;
 	struct i2c_acpi_handler_data *data;
+	struct acpi_device *adev;
 	acpi_status status;
 
 	if (!adapter->dev.parent)
 		return -ENODEV;
 
-	handle = ACPI_HANDLE(adapter->dev.parent);
-
-	if (!handle)
+	adev = to_acpi_device_node_any(adapter->dev.parent->fwnode);
+	if (!adev)
 		return -ENODEV;
 
 	data = kzalloc_obj(struct i2c_acpi_handler_data);
@@ -815,20 +816,20 @@ int i2c_acpi_install_space_handler(struct i2c_adapter *adapter)
 		return -ENOMEM;
 
 	data->adapter = adapter;
-	status = acpi_bus_attach_private_data(handle, (void *)data);
+	status = acpi_bus_attach_private_data(adev->handle, (void *)data);
 	if (ACPI_FAILURE(status)) {
 		kfree(data);
 		return -ENOMEM;
 	}
 
-	status = acpi_install_address_space_handler(handle,
+	status = acpi_install_address_space_handler(adev->handle,
 				ACPI_ADR_SPACE_GSBUS,
 				&i2c_acpi_space_handler,
 				NULL,
 				data);
 	if (ACPI_FAILURE(status)) {
 		dev_err(&adapter->dev, "Error installing i2c space handler\n");
-		acpi_bus_detach_private_data(handle);
+		acpi_bus_detach_private_data(adev->handle);
 		kfree(data);
 		return -ENOMEM;
 	}
@@ -838,26 +839,25 @@ int i2c_acpi_install_space_handler(struct i2c_adapter *adapter)
 
 void i2c_acpi_remove_space_handler(struct i2c_adapter *adapter)
 {
-	acpi_handle handle;
 	struct i2c_acpi_handler_data *data;
+	struct acpi_device *adev;
 	acpi_status status;
 
 	if (!adapter->dev.parent)
 		return;
 
-	handle = ACPI_HANDLE(adapter->dev.parent);
-
-	if (!handle)
+	adev = to_acpi_device_node_any(adapter->dev.parent->fwnode);
+	if (!adev)
 		return;
 
-	acpi_remove_address_space_handler(handle,
+	acpi_remove_address_space_handler(adev->handle,
 				ACPI_ADR_SPACE_GSBUS,
 				&i2c_acpi_space_handler);
 
-	status = acpi_bus_get_private_data(handle, (void **)&data);
+	status = acpi_bus_get_private_data(adev->handle, (void **)&data);
 	if (ACPI_SUCCESS(status))
 		kfree(data);
 
-	acpi_bus_detach_private_data(handle);
+	acpi_bus_detach_private_data(adev->handle);
 }
 #endif /* CONFIG_ACPI_I2C_OPREGION */
