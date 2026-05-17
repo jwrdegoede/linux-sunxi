@@ -225,6 +225,15 @@ static void acpi_physnode_link_name(char *buf, unsigned int node_id)
 		strcpy(buf, PHYSICAL_NODE_STRING);
 }
 
+/* Like ACPI_COMPANION_SET() but set secondary fwnode if primary is an of_node */
+static void acpi_companion_set_any(struct device *dev, struct acpi_device *adev)
+{
+	if (is_of_node(dev->fwnode))
+		set_secondary_fwnode(dev, adev ? acpi_fwnode_handle(adev) : NULL);
+	else
+		set_primary_fwnode(dev, adev ? acpi_fwnode_handle(adev) : NULL);
+}
+
 int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
 {
 	struct acpi_device_physical_node *physical_node, *pn;
@@ -233,12 +242,12 @@ int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
 	unsigned int node_id;
 	int retval = -EINVAL;
 
-	if (has_acpi_companion(dev)) {
+	if (is_acpi_device_node_any(dev->fwnode)) {
 		if (acpi_dev) {
 			dev_warn(dev, "ACPI companion already set\n");
 			return -EINVAL;
 		} else {
-			acpi_dev = ACPI_COMPANION(dev);
+			acpi_dev = to_acpi_device_node_any(dev->fwnode);
 		}
 	}
 	if (!acpi_dev)
@@ -267,7 +276,7 @@ int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
 
 			dev_warn(dev, "Already associated with ACPI node\n");
 			kfree(physical_node);
-			if (ACPI_COMPANION(dev) != acpi_dev)
+			if (to_acpi_device_node_any(dev->fwnode) != acpi_dev)
 				goto err;
 
 			put_device(dev);
@@ -285,8 +294,8 @@ int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
 	list_add(&physical_node->node, physnode_list);
 	acpi_dev->physical_node_count++;
 
-	if (!has_acpi_companion(dev))
-		ACPI_COMPANION_SET(dev, acpi_dev);
+	if (!is_acpi_device_node_any(dev->fwnode))
+		acpi_companion_set_any(dev, acpi_dev);
 
 	acpi_physnode_link_name(physical_node_name, node_id);
 	retval = sysfs_create_link(&acpi_dev->dev.kobj, &dev->kobj,
@@ -303,13 +312,14 @@ int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
 
 	mutex_unlock(&acpi_dev->physical_node_lock);
 
-	if (acpi_dev->wakeup.flags.valid)
+	/* Don't set wakeup flag for devices where ACPI fwnode is secondary */
+	if (acpi_dev->wakeup.flags.valid && has_acpi_companion(dev))
 		device_set_wakeup_capable(dev, true);
 
 	return 0;
 
  err:
-	ACPI_COMPANION_SET(dev, NULL);
+	acpi_companion_set_any(dev, NULL);
 	put_device(dev);
 	acpi_dev_put(acpi_dev);
 	return retval;
@@ -318,7 +328,7 @@ EXPORT_SYMBOL_GPL(acpi_bind_one);
 
 int acpi_unbind_one(struct device *dev)
 {
-	struct acpi_device *acpi_dev = ACPI_COMPANION(dev);
+	struct acpi_device *acpi_dev = to_acpi_device_node_any(dev->fwnode);
 	struct acpi_device_physical_node *entry;
 
 	if (!acpi_dev)
@@ -336,7 +346,7 @@ int acpi_unbind_one(struct device *dev)
 			acpi_physnode_link_name(physnode_name, entry->node_id);
 			sysfs_remove_link(&acpi_dev->dev.kobj, physnode_name);
 			sysfs_remove_link(&dev->kobj, "firmware_node");
-			ACPI_COMPANION_SET(dev, NULL);
+			acpi_companion_set_any(dev, NULL);
 			/* Drop references taken by acpi_bind_one(). */
 			put_device(dev);
 			acpi_dev_put(acpi_dev);
@@ -353,6 +363,40 @@ void acpi_device_notify(struct device *dev)
 {
 	struct acpi_device *adev;
 	int ret;
+
+	if (acpi_dt_hybrid && is_of_node(dev->fwnode)) {
+		const char *acpi_path;
+		acpi_status status;
+		acpi_handle handle;
+
+		ret = of_property_read_string(dev->of_node, "acpi-path", &acpi_path);
+		if (ret)
+			return;
+
+		status = acpi_get_handle(NULL, acpi_path, &handle);
+		if (ACPI_FAILURE(status))
+			goto err_hybrid;
+
+		adev = acpi_fetch_acpi_dev(handle);
+		if (!adev)
+			goto err_hybrid;
+
+		/*
+		 * set_secondary_fwnode() + pass NULL to make this work for
+		 * child devices which share the fwnode with their parent.
+		 */
+		set_secondary_fwnode(dev, acpi_fwnode_handle(adev));
+		ret = acpi_bind_one(dev, NULL);
+		if (ret)
+			goto err_hybrid;
+
+		/* TODO change to dev_dbg() when DT-ACPI hybrid support is stable */
+		dev_info(dev, "Set secondary fwnode to acpi-path '%s'\n", acpi_path);
+		return;
+err_hybrid:
+		dev_warn(dev, "Failed to set ACPI fwnode for acpi-path '%s'\n", acpi_path);
+		return;
+	}
 
 	ret = acpi_bind_one(dev, NULL);
 	if (ret) {
@@ -400,8 +444,14 @@ err:
 
 void acpi_device_notify_remove(struct device *dev)
 {
-	struct acpi_device *adev = ACPI_COMPANION(dev);
+	struct acpi_device *adev;
 
+	if (acpi_dt_hybrid && is_of_node(dev->fwnode)) {
+		acpi_unbind_one(dev);
+		return;
+	}
+
+	adev = ACPI_COMPANION(dev);
 	if (!adev)
 		return;
 
