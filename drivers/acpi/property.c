@@ -1775,6 +1775,19 @@ bool is_acpi_device_node(const struct fwnode_handle *fwnode)
 }
 EXPORT_SYMBOL(is_acpi_device_node);
 
+/* Like is_acpi_device_node() but also check the secondary fwnode */
+bool is_acpi_device_node_any(const struct fwnode_handle *fwnode)
+{
+	if (IS_ERR_OR_NULL(fwnode))
+		return false;
+
+	if (fwnode->ops == &acpi_device_fwnode_ops)
+		return true;
+
+	return is_acpi_device_node(fwnode->secondary);
+}
+EXPORT_SYMBOL(is_acpi_device_node_any);
+
 bool is_acpi_data_node(const struct fwnode_handle *fwnode)
 {
 	return !IS_ERR_OR_NULL(fwnode) && fwnode->ops == &acpi_data_fwnode_ops;
