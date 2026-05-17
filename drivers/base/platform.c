@@ -235,8 +235,8 @@ int platform_get_irq_affinity(struct platform_device *dev, unsigned int num,
 	 * the device will only expose one IRQ, and this fallback
 	 * allows a common code path across either kind of resource.
 	 */
-	if (num == 0 && is_acpi_device_node(fwnode)) {
-		ret = acpi_dev_gpio_irq_get(to_acpi_device_node(fwnode), num);
+	if (num == 0 && is_acpi_device_node_any(fwnode)) {
+		ret = acpi_dev_gpio_irq_get(to_acpi_device_node_any(fwnode), num);
 		/* Our callers expect -ENXIO for missing IRQs. */
 		if (ret >= 0 || ret == -EPROBE_DEFER)
 			goto out;
