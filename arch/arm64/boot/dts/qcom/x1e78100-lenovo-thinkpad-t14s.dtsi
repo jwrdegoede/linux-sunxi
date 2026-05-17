@@ -1252,25 +1252,8 @@
 
 &i2c8 {
 	clock-frequency = <400000>;
-
+	acpi-path = "\\_SB.I2C9";
 	status = "okay";
-
-	/* ILIT2911 or GTCH1563 */
-	touchscreen@10 {
-		compatible = "hid-over-i2c";
-		reg = <0x10>;
-
-		hid-descr-addr = <0x1>;
-		interrupts-extended = <&tlmm 51 IRQ_TYPE_LEVEL_LOW>;
-
-		vdd-supply = <&vreg_misc_3p3>;
-		vddl-supply = <&vreg_l15b_1p8>;
-
-		pinctrl-0 = <&ts0_default>;
-		pinctrl-names = "default";
-	};
-
-	/* TODO: second-sourced touchscreen @ 0x41 */
 };
 
 &iris {
@@ -1598,6 +1581,8 @@
 };
 
 &tlmm {
+	acpi-path = "\\_SB.GIO0";
+
 	gpio-reserved-ranges = <34 2>, /* Unused */
 			       <44 4>, /* SPI (TPM) */
 			       <72 2>, /* Secure EC I2C connection (?) */
