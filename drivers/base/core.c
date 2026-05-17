@@ -5341,7 +5341,9 @@ EXPORT_SYMBOL(device_match_acpi_dev);
 
 int device_match_acpi_handle(struct device *dev, const void *handle)
 {
-	return handle && ACPI_HANDLE(dev) == handle;
+	struct acpi_device *adev = to_acpi_device_node_any(dev->fwnode);
+
+	return handle && adev && adev->handle == handle;
 }
 EXPORT_SYMBOL(device_match_acpi_handle);
 
