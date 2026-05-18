@@ -43,9 +43,14 @@ EXPORT_SYMBOL(acpi_disabled);
 int acpi_pci_disabled = 1;	/* skip ACPI PCI scan and IRQ initialization */
 EXPORT_SYMBOL(acpi_pci_disabled);
 
-static bool param_acpi_off __initdata;
-static bool param_acpi_on __initdata;
-static bool param_acpi_force __initdata;
+enum acpi_mode_t {
+	acpi_mode_unset,
+	acpi_mode_off,
+	acpi_mode_on,
+	acpi_mode_force,
+};
+
+static enum acpi_mode_t param_acpi_mode __initdata;
 static bool param_acpi_nospcr __initdata;
 
 static int __init parse_acpi(char *arg)
@@ -55,11 +60,11 @@ static int __init parse_acpi(char *arg)
 
 	/* "acpi=off" disables both ACPI table parsing and interpreter */
 	if (strcmp(arg, "off") == 0)
-		param_acpi_off = true;
+		param_acpi_mode = acpi_mode_off;
 	else if (strcmp(arg, "on") == 0) /* prefer ACPI over DT */
-		param_acpi_on = true;
+		param_acpi_mode = acpi_mode_on;
 	else if (strcmp(arg, "force") == 0) /* force ACPI to be enabled */
-		param_acpi_force = true;
+		param_acpi_mode = acpi_mode_force;
 	else if (strcmp(arg, "nospcr") == 0) /* disable SPCR as default console */
 		param_acpi_nospcr = true;
 	else
@@ -198,14 +203,14 @@ out:
 void __init acpi_boot_table_init(void)
 {
 	/*
-	 * Enable ACPI instead of device tree unless
-	 * - ACPI has been disabled explicitly (acpi=off), or
-	 * - the device tree is not empty (it has more than just a /chosen node,
-	 *   and a /hypervisor node when running on Xen)
-	 *   and ACPI has not been [force] enabled (acpi=on|force)
+	 * When no ACPI mode (acpi=off|on|force) has been specified,
+	 * enable ACPI if the device tree is empty (it only has a /chosen
+	 * node, and a /hypervisor node when running on Xen).
 	 */
-	if (param_acpi_off ||
-	    (!param_acpi_on && !param_acpi_force && !dt_is_stub()))
+	if (!param_acpi_mode)
+		param_acpi_mode = dt_is_stub() ? acpi_mode_on : acpi_mode_off;
+
+	if (param_acpi_mode == acpi_mode_off)
 		goto done;
 
 	/*
@@ -223,7 +228,7 @@ void __init acpi_boot_table_init(void)
 	 */
 	if (acpi_table_init() || acpi_fadt_sanity_check()) {
 		pr_err("Failed to init ACPI tables\n");
-		if (!param_acpi_force)
+		if (param_acpi_mode != acpi_mode_force)
 			disable_acpi();
 	}
 
