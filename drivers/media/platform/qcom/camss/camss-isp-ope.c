@@ -1800,7 +1800,7 @@ static int ope_enum_fmt_vid_cap(struct file *file, void *priv, struct v4l2_fmtde
 	unsigned int i, n = 0;
 
 	for (i = 0; i < ARRAY_SIZE(ope_output_fmts); i++) {
-		if (ope_output_fmts[i].mbus_code != ctx->proc_mbus_code)
+		if (f->mbus_code && ope_output_fmts[i].mbus_code != f->mbus_code)
 			continue;
 		if (n++ == f->index) {
 			f->pixelformat = ope_output_fmts[i].fourcc;
