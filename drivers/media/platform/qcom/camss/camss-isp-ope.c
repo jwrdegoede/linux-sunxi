@@ -1862,11 +1862,14 @@ static int ope_s_fmt_vid_cap(struct file *file, void *priv, struct v4l2_format *
 	ctx->fmt_out.quantization   = f->fmt.pix_mp.quantization;
 	/* Sync proc mbus code with selected pixel format */
 	ctx->proc_mbus_code = fmt->mbus_code;
+
+#if 0
 	/* Reset scaler output to full crop (no scaling) */
 	ctx->disp_compose.left = 0;
 	ctx->disp_compose.top = 0;
 	ctx->disp_compose.width = ctx->fmt_in.crop.width;
 	ctx->disp_compose.height = ctx->fmt_in.crop.height;
+#endif
 
 	return 0;
 }
@@ -2198,12 +2201,12 @@ valid:
 		ctx->disp_compose.width = fmt->format.width;
 		ctx->disp_compose.height = fmt->format.height;
 		/* Clip compose origin if it no longer fits */
-		ctx->disp_compose.left = clamp_t(int, ctx->disp_compose.left, 0,
+		ctx->disp_compose.left = 0; /*clamp_t(int, ctx->disp_compose.left, 0,
 						 (int)ctx->fmt_out.width -
-						 (int)ctx->disp_compose.width);
-		ctx->disp_compose.top = clamp_t(int, ctx->disp_compose.top, 0,
+						 (int)ctx->disp_compose.width); */
+		ctx->disp_compose.top = 0; /* clamp_t(int, ctx->disp_compose.top, 0,
 						(int)ctx->fmt_out.height -
-						(int)ctx->disp_compose.height);
+						(int)ctx->disp_compose.height); */
 	}
 
 	return 0;
