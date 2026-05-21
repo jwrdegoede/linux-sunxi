@@ -491,6 +491,7 @@ struct ope_ctx {
 
 	struct list_head	list;
 	bool			started;
+	bool			first_start;
 
 	struct ope_config	config;
 	u8			current_stripe;
@@ -1224,6 +1225,11 @@ static void ope_run_job(void *priv, bool ctx_changed)
 	dev_dbg(ope->dev, "start ctx=%p->%p src=%pad dst=%pad\n",
 		ope->hw_ctx, ctx, &src, &dst);
 
+	if (ctx->first_start) {
+		ctx_changed = true;
+		ctx->first_start = false;
+	}
+
 	ope_apply_params(ctx);
 	ope_gen_stripes(ctx, src, dst);
 
@@ -1562,6 +1568,7 @@ static int ope_start_streaming(struct vb2_queue *q, unsigned int count)
 	if (idx == OPE_QUEUE_FRAME_IN) {
 		ctx->fmt_in.sequence = 0;
 		ctx->started = true;
+		ctx->first_start = true;
 		ope_adjust_power(ctx->ope);
 		__ope_irq_init(ctx->ope);
 	}
