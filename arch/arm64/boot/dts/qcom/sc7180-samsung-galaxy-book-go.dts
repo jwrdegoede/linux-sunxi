@@ -1,0 +1,872 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+
+#include "sc7180.dtsi"
+
+#include "pm6150.dtsi"
+#include "pm6150l.dtsi"
+
+/delete-node/ &tz_mem;
+/delete-node/ &ipa_fw_mem;
+
+/ {
+	model = "Samsung Galaxy Book Go";
+	compatible = "samsung,galaxy-book-go", "qcom,sc7180";
+	chassis-type = "laptop";
+
+	aliases {
+// TODO - bluetooth seems to at least probe and start well
+		bluetooth0 = &bluetooth;
+		hsuart0 = &uart3;
+		wifi0 = &wifi;
+	};
+
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pm6150l_lpg 3 1703334>;
+//		enable-gpios = <&pmc8180c_gpios 8 GPIO_ACTIVE_HIGH>;
+	};
+
+// lets assume they are the same on the galaxy book go like on the aspire 1 for now
+	reserved-memory {
+		zap_mem: zap-shader@80840000 { /* From uefiplat.cfg */
+			reg = <0x0 0x80840000 0 0x10000>;
+			no-map;
+		};
+
+		/* uefiplat.cfg: 0x85B00000, 0x0EB00000, "PIL Reserved" */
+		venus_mem: venus@85b00000 {
+			reg = <0x0 0x85b00000 0 0x500000>;
+			no-map;
+		};
+
+		mpss_mem: mpss@86000000 {
+			reg = <0x0 0x86000000 0x0 0x2000000>;
+			no-map;
+		};
+
+		/* TODO: why not 0x88000000 ? */
+		adsp_mem: adsp@8e400000 {
+			reg = <0x0 0x8e400000 0x0 0x2800000>;
+			no-map;
+		};
+
+		/* TODO: why not 0x90c00000 ? */
+		wlan_mem: wlan@93900000 {
+			reg = <0x0 0x93900000 0x0 0x200000>;
+			no-map;
+		};
+	};
+
+#if 0
+// TODO - do we need this?
+	reg_brij_1p2: bridge-1p2-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "brij_1p2";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+
+		gpio = <&tlmm 19 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+
+		pinctrl-0 = <&reg_edp_1p2_en_default>;
+		pinctrl-names = "default";
+	};
+
+// TODO - do we need this?
+	reg_brij_1p8: bridge-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "brij_1p8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+
+		vin-supply = <&vreg_l8c_1p8>;
+
+		gpio = <&tlmm 20 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+
+		pinctrl-0 = <&reg_edp_1p8_en_default>;
+		pinctrl-names = "default";
+	};
+#endif
+
+// TODO - recheck if this is proper
+	vdd_touchpad: regulator-vdd-touchpad {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd-touchpad";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+// 0x20 = 32 in TPXC in dsl
+		gpio = <&tlmm 32 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		pinctrl-names = "default";
+		pinctrl-0 = <&reg_tp_en_default>;
+//		startup-delay-us = <150000>;
+	};
+};
+
+// I2C1 in dsl
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sn65dsi86_bridge: bridge@2c {
+		compatible = "ti,sn65dsi86";
+		reg = <0x2c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bridge_en_default>,
+			<&edp_bridge_irq_default>;
+//			<&bridge_suspend_default>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		#pwm-cells = <1>;
+
+		interrupt-parent = <&tlmm>;
+// TODO - no clear info from dsl
+		interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;
+
+// TODO: acer has TLMGPIO 0x56 and 0x57 - galaxy has 0x22 and 0x23 - how to mape those?
+		enable-gpios = <&tlmm 51 GPIO_ACTIVE_HIGH>;
+//		suspend-gpios = <&tlmm 22 GPIO_ACTIVE_LOW>;
+
+		vpll-supply = <&vreg_l8c_1p8>;
+		vccio-supply = <&vreg_l8c_1p8>;
+		vcca-supply = <&vreg_l3c_1p2>;
+		vcc-supply = <&vreg_l3c_1p2>;
+
+		clocks = <&rpmhcc RPMH_LN_BB_CLK3>;
+		clock-names = "refclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				sn65dsi86_in: endpoint {
+					remote-endpoint = <&mdss_dsi0_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				sn65dsi86_out: endpoint {
+					data-lanes = <0 1>;
+					remote-endpoint = <&panel_in_edp>;
+				};
+			};
+		};
+
+		aux-bus {
+			panel: panel {
+				compatible = "edp-panel";
+				backlight = <&backlight>;
+
+				port {
+					panel_in_edp: endpoint {
+						remote-endpoint = <&sn65dsi86_out>;
+					};
+				};
+			};
+		};
+	};
+};
+
+// unknown EMEC ec controller in dsl
+&i2c1 {
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+// unknown EMEC ec controller in dsl
+&i2c2 {
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+// unknown EMEC ec controller in dsl
+&i2c4 {
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+// unknown EMEC ec controller in dsl
+&i2c5 {
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&i2c6 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	keyboard@5 {
+		compatible = "hid-over-i2c";
+		reg = <0x5>;
+		hid-descr-addr = <0x20>;
+		interrupts-extended = <&tlmm 104 IRQ_TYPE_LEVEL_LOW>;
+		wakeup-source;
+	};
+};
+
+// unknown EMEC ec controller in dsl
+&i2c7 {
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+// touchpad - not working yet
+&i2c10 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	touchpad@40 {
+		compatible = "hid-over-i2c";
+		reg = <0x40>;
+		hid-descr-addr = <0x0e>;
+
+		interrupts-extended = <&tlmm 31 IRQ_TYPE_LEVEL_LOW>;
+
+		pinctrl-0 = <&hid_touchpad_default>;
+		pinctrl-names = "default";
+
+		vdd-supply = <&vdd_touchpad>;
+		vddl-supply = <&vreg_l10a_1p8>;
+		post-power-on-delay-ms = <150>;
+
+		wakeup-source;
+	};
+};
+
+&gpu {
+	status = "okay";
+
+	zap-shader {
+		memory-region = <&zap_mem>;
+		firmware-name = "qcom/sc7180/samsung/galaxy-book-go/qcdxkmsuc7180.mbn";
+	};
+};
+
+&mdss {
+	status = "okay";
+};
+
+&mdss_dsi0 {
+	vdda-supply = <&vreg_l3c_1p2>;
+	status = "okay";
+};
+
+&mdss_dsi0_out {
+	remote-endpoint = <&sn65dsi86_in>;
+	data-lanes = <0 1 2 3>;
+};
+
+&mdss_dsi0_phy {
+	vdds-supply = <&vreg_l4a_0p8>;
+	status = "okay";
+};
+
+// TODO - do we need this?
+&pm6150_adc {
+	channel@4e {
+		reg = <ADC5_AMUX_THM2_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		label = "thermistor";
+	};
+
+	channel@4f {
+		reg = <ADC5_AMUX_THM3_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		label = "charger_thermistor";
+	};
+};
+
+// TODO - do we need this?
+&pm6150_adc_tm {
+	status = "okay";
+
+	charger-thermistor@0 {
+		reg = <0>;
+		io-channels = <&pm6150_adc ADC5_AMUX_THM3_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time-us = <200>;
+	};
+
+	thermistor@1 {
+		reg = <1>;
+		io-channels = <&pm6150_adc ADC5_AMUX_THM2_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time-us = <200>;
+	};
+};
+
+&pm6150l_lpg {
+	status = "okay";
+};
+
+#if 0
+// TODO - do we need this?
+&pm6150_pon {
+	status = "disabled";
+};
+#endif
+
+&qupv3_id_0 {
+	status = "okay";
+};
+
+&qupv3_id_1 {
+	status = "okay";
+};
+
+&remoteproc_adsp {
+	memory-region = <&adsp_mem>;
+	firmware-name = "qcom/sc7180//samsung/galaxy-book-go/qcadsp7180.mbn";
+	status = "okay";
+};
+
+&remoteproc_mpss {
+	firmware-name = "qcom/sc7180/samsung/galaxy-book-go/qcmpss7180_nm.mbn";
+	status = "okay";
+};
+
+// sd card
+&sdhc_2 {
+	status = "okay";
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+	vmmc-supply = <&vreg_l9c_2p9>;
+	vqmmc-supply = <&vreg_l6c_2p9>;
+
+	cd-gpios = <&tlmm 69 GPIO_ACTIVE_LOW>;
+};
+
+// TODO - bluetooth seems to at least probe and start well
+&uart3 {
+	/delete-property/interrupts;
+	interrupts-extended = <&intc GIC_SPI 604 IRQ_TYPE_LEVEL_HIGH>,
+			      <&tlmm 41 IRQ_TYPE_EDGE_FALLING>;
+
+	pinctrl-1 = <&qup_uart3_sleep>;
+	pinctrl-names = "default", "sleep";
+
+	status = "okay";
+
+	bluetooth: bluetooth {
+		compatible = "qcom,wcn3991-bt";
+		vddio-supply = <&vreg_l10a_1p8>;
+		vddxo-supply = <&vreg_l1c_1p8>;
+		vddrf-supply = <&vreg_l2c_1p3>;
+		vddch0-supply = <&vreg_l10c_3p3>;
+		max-speed = <3200000>;
+	};
+};
+
+// TODO - do we need this? - this is set to okay in aspire dts
+&uart8 {
+	status = "disabled";
+};
+
+// TODO - check if usb works with those newer aspire settings and they are slightly different now
+&usb_1 {
+	status = "okay";
+};
+
+&usb_1_dwc3 {
+	dr_mode = "host";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	usb_hub_2_x: hub@1 {
+		compatible = "usbbda,5411";
+		reg = <1>;
+		peer-hub = <&usb_hub_3_x>;
+	};
+
+	usb_hub_3_x: hub@2 {
+		compatible = "usbbda,411";
+		reg = <2>;
+		peer-hub = <&usb_hub_2_x>;
+	};
+};
+
+&usb_1_hsphy {
+	vdd-supply = <&vreg_l4a_0p8>;
+	vdda-pll-supply = <&vreg_l11a_1p8>;
+	vdda-phy-dpdm-supply = <&vreg_l17a_3p0>;
+	qcom,imp-res-offset-value = <8>;
+	qcom,preemphasis-level = <QUSB2_V2_PREEMPHASIS_15_PERCENT>;
+	qcom,preemphasis-width = <QUSB2_V2_PREEMPHASIS_WIDTH_HALF_BIT>;
+	qcom,bias-ctrl-value = <0x22>;
+	qcom,charge-ctrl-value = <3>;
+	qcom,hsdisc-trim-value = <0>;
+
+	status = "okay";
+};
+
+&usb_1_qmpphy {
+	vdda-phy-supply = <&vreg_l3c_1p2>;
+	vdda-pll-supply = <&vreg_l4a_0p8>;
+
+	status = "okay";
+};
+
+&venus {
+	firmware-name = "qcom/sc7180/samsung/galaxy-book-go/qcvss7180.mbn";
+};
+
+&wifi {
+	vdd-0.8-cx-mx-supply = <&vreg_l9a_0p6>;
+	vdd-1.8-xo-supply = <&vreg_l1c_1p8>;
+	vdd-1.3-rfa-supply = <&vreg_l2c_1p3>;
+	vdd-3.3-ch0-supply = <&vreg_l10c_3p3>;
+	vdd-3.3-ch1-supply = <&vreg_l11c_3p3>;
+
+	status = "okay";
+};
+
+// TODO - to be carefully rechecked
+&apps_rsc {
+	regulators-0 {
+		compatible = "qcom,pm6150-rpmh-regulators";
+		qcom,pmic-id = "a";
+
+		vreg_s1a_1p1: smps1 { /* Not listed in PEP0 */
+			regulator-min-microvolt = <1128000>;
+			regulator-max-microvolt = <1128000>;
+		};
+
+		vreg_l4a_0p8: ldo4 { /* PEP0: 880000 ųV */
+			regulator-min-microvolt = <824000>;
+			regulator-max-microvolt = <928000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l9a_0p6: ldo9 { /* PEP0: 664000 ųV */
+			regulator-min-microvolt = <488000>;
+			regulator-max-microvolt = <800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l10a_1p8: ldo10 { /* PEP0: 1800000 ųV */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		vreg_l11a_1p8: ldo11 { /* PEP0: 1800000 ųV */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l12a_1p8: ldo12 { /* PEP0: 1800000 ųV */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l13a_1p8: ldo13 { /* PEP0: 1800000 ųV */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l14a_1p8: ldo14 { /* Not listed in PEP0 */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l15a_1p8: ldo15 { /* PEP0: 1800000 ųV */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l16a_2p7: ldo16 { /* Not listed in PEP0 */
+			regulator-min-microvolt = <2496000>;
+			regulator-max-microvolt = <3304000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l17a_3p0: ldo17 { /* PEP0: 3088000 ųV */
+			regulator-min-microvolt = <2920000>;
+			regulator-max-microvolt = <3232000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l18a_2p8: ldo18 { /* Not listed in PEP0 */
+			regulator-min-microvolt = <2496000>;
+			regulator-max-microvolt = <3304000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l19a_2p9: ldo19 { /* PEP0: 2960000 ųV */
+			regulator-min-microvolt = <2960000>;
+			regulator-max-microvolt = <2960000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	regulators-1 {
+		compatible = "qcom,pm6150l-rpmh-regulators";
+		qcom,pmic-id = "c";
+
+		vreg_s8c_1p3: smps8 { /* Not listed in PEP0 */
+			regulator-min-microvolt = <1120000>;
+			regulator-max-microvolt = <1408000>;
+		};
+
+		vreg_l1c_1p8: ldo1 { /* PEP0: 1800000 ųV */
+			regulator-min-microvolt = <1616000>;
+			regulator-max-microvolt = <1984000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l2c_1p3: ldo2 { /* PEP0: 1304000 ųV */
+			regulator-min-microvolt = <1168000>;
+			regulator-max-microvolt = <1304000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l3c_1p2: ldo3 { /* PEP0: 1200000 ųV */
+			regulator-min-microvolt = <1144000>;
+			regulator-max-microvolt = <1304000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l4c_1p8: ldo4 { /* Not listed in PEP0 */
+			regulator-min-microvolt = <1648000>;
+			regulator-max-microvolt = <3304000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+
+		vreg_l5c_1p8: ldo5 { /* Not listed in PEP0 */
+			regulator-min-microvolt = <1648000>;
+			regulator-max-microvolt = <3304000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+
+		vreg_l6c_2p9: ldo6 { /* PEP0: 1800000 ųV or 2950000 ųV (vqmmc) */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2950000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l7c_3p0: ldo7 { /* Not listed in PEP0 */
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3312000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+
+		vreg_l8c_1p8: ldo8 { /* PEP0: 1800000 ųV */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l9c_2p9: ldo9 { /* PEP0: 2960000 ųV */
+			regulator-min-microvolt = <2960000>;
+			regulator-max-microvolt = <2960000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l10c_3p3: ldo10 { /* PEP0: 3304000 ųV */
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3400000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l11c_3p3: ldo11 { /* Not listed in PEP0 */
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3400000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_bob: bob {
+			regulator-min-microvolt = <3008000>;
+			regulator-max-microvolt = <3960000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
+		};
+	};
+};
+
+&qup_i2c0_default {
+	drive-strength = <16>;
+
+	/* Has external pullup */
+	bias-disable;
+};
+
+&qup_i2c2_default {
+	drive-strength = <2>;
+
+	/* Has external pullup */
+	bias-disable;
+};
+
+// TODO - check if these settings are working as they were different before, most probably on old acer dts as well
+&qup_i2c4_default {
+	drive-strength = <2>;
+
+	/* Has external pullup */
+	bias-disable;
+};
+
+// TODO - maybe pins not required and lower drive-strength as above now?
+// I2C6 in dsl
+&qup_i2c5_default {
+	drive-strength = <16>;
+
+	/* Has external pullup */
+	bias-disable;
+};
+
+// TODO - maybe pins not required and lower drive-strength as above now?
+// I2C7 in dsl
+&qup_i2c6_default {
+//	drive-strength = <16>;
+
+	/* Has external pullup */
+//	bias-disable;
+};
+
+// TODO - maybe pins not required and lower drive-strength as above now?
+// I2C8 in dsl
+&qup_i2c7_default {
+	drive-strength = <16>;
+
+	/* Has external pullup */
+	bias-disable;
+};
+
+// TODO - maybe pins not required and lower drive-strength as above now?
+// IC11 in dsl
+&qup_i2c10_default {
+	drive-strength = <16>;
+
+	/* Has external pullup */
+	bias-disable;
+};
+
+&tlmm {
+// TODO - this from the aspire dts does not seem to apply here as it
+//        seems to block the keyboard somehow - so lets ignore it for now
+//	/*
+//	 * The TZ seem to protect those because some boards can have
+//	 * fingerprint sensor connected to this range. Not connected
+//	 * on this board
+//	 */
+//	gpio-reserved-ranges = <58 5>;
+
+// TODO - what to do with this?
+//	amp_sd_mode_default: amp-sd-mode-default-state {
+//		pins = "gpio23";
+//		function = "gpio";
+//		drive-strength = <16>;
+//		bias-disable;
+//	};
+
+// TODO - not completely sure yet if this is correct, but at least the display is working
+	bridge_en_default: bridge-en-default-state {
+		pins = "gpio51";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-disable;
+	};
+
+// TODO - not completely sure yet if this is correct, but at least the display is working
+	bridge_suspend_default: bridge-suspend-default-state {
+		pins = "gpio22";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-pull-up;
+	};
+
+// TODO - not completely sure yet if this is correct, but at least the display is working
+	edp_bridge_irq_default: edp-bridge-irq-default-state {
+		pins = "gpio11";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+
+// TODO - what to do with this? values unclear - lets keep it disabled for now
+// 	codec_irq_default: codec-irq-default-state {
+//		pins = "gpio28";
+//		function = "gpio";
+//		drive-strength = <2>;
+//		bias-disable;
+//	};
+
+	hid_touchpad_default: hid-touchpad-default-state {
+		pins = "gpio31";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+	};
+
+// TODO - bluetooth seems to at least probe and start well
+	qup_uart3_sleep: qup-uart3-sleep-state {
+		cts-pins {
+			/*
+			 * Configure a pull-down on CTS to match the pull of
+			 * the Bluetooth module.
+			 */
+			pins = "gpio38";
+			function = "gpio";
+			bias-pull-down;
+		};
+
+		rts-pins {
+			/*
+			 * Configure pull-down on RTS. As RTS is active low
+			 * signal, pull it low to indicate the BT SoC that it
+			 * can wakeup the system anytime from suspend state by
+			 * pulling RX low (by sending wakeup bytes).
+			 */
+			pins = "gpio39";
+			function = "gpio";
+			bias-pull-down;
+		};
+
+		tx-pins {
+			/*
+			 * Configure pull-up on TX when it isn't actively driven
+			 * to prevent BT SoC from receiving garbage during sleep.
+			 */
+			pins = "gpio40";
+			function = "gpio";
+			bias-pull-up;
+		};
+
+		rx-pins {
+			/*
+			 * Configure a pull-up on RX. This is needed to avoid
+			 * garbage data when the TX pin of the Bluetooth module
+			 * is floating which may cause spurious wakeups.
+			 */
+			pins = "gpio41";
+			function = "gpio";
+			bias-pull-up;
+		};
+	};
+
+// TODO - not completely sure yet if this is correct, but at least the display is working
+	reg_edp_1p2_en_default: reg-edp-1p2-en-default-state {
+		pins = "gpio19";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-disable;
+	};
+
+// TODO - not completely sure yet if this is correct, but at least the display is working
+	reg_edp_1p8_en_default: reg-edp-1p8-en-default-state {
+		pins = "gpio20";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-disable;
+	};
+
+// TODO - what to do with this? - unclear if relevant for galaxy
+//	reg_lcm_en_default: reg-lcm-en-default-state {
+//		pins = "gpio26";
+//		function = "gpio";
+//		drive-strength = <16>;
+//		bias-disable;
+//	};
+
+// TODO - not completely sure yet if this is correct, but at least the touchpad is working
+	reg_tp_en_default: reg-tp-en-default-state {
+		// 0x20 = 32 in TPXC in dsl
+		pins = "gpio32";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+	};
+
+// TODO - what to do with this? - unclear if relevant for galaxy - maybe?
+//	soc_bkoff_default: soc-bkoff-default-state {
+//		pins = "gpio10";
+//		function = "gpio";
+//		drive-strength = <16>;
+//		bias-disable;
+//	};
+
+	sdc2_on: sdc2-on {
+		pinconf-clk {
+			pins = "sdc2_clk";
+			bias-disable;
+			drive-strength = <16>;
+		};
+
+		pinconf-cmd {
+			pins = "sdc2_cmd";
+			bias-pull-up;
+			drive-strength = <10>;
+		};
+
+		pinconf-data {
+			pins = "sdc2_data";
+			bias-pull-up;
+			drive-strength = <10>;
+		};
+
+		pinconf-sd-cd {
+			pins = "gpio69";
+			bias-pull-up;
+			drive-strength = <2>;
+		};
+	};
+
+	sdc2_off: sdc2-off {
+		pinconf-clk {
+			pins = "sdc2_clk";
+			bias-disable;
+			drive-strength = <2>;
+		};
+
+		pinconf-cmd {
+			pins = "sdc2_cmd";
+			bias-pull-up;
+			drive-strength = <2>;
+		};
+
+		pinconf-data {
+			pins = "sdc2_data";
+			bias-pull-up;
+			drive-strength = <2>;
+		};
+
+		pinconf-sd-cd {
+			pins = "gpio69";
+			bias-pull-up;
+			drive-strength = <2>;
+		};
+	};
+};
+
+&ufs_mem_hc {
+	status = "okay";
+
+	vcc-supply = <&vreg_l19a_2p9>;
+	vccq2-supply = <&vreg_l12a_1p8>;
+};
+
+&ufs_mem_phy {
+	status = "okay";
+
+	vdda-phy-supply = <&vreg_l4a_0p8>;
+	vdda-pll-supply = <&vreg_l3c_1p2>;
+};
