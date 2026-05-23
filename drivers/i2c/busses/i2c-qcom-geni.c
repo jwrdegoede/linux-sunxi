@@ -1034,6 +1034,8 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		}
 	}
 
+	dev_info(dev, "ACPI Bus frequency: %d\n", i2c_acpi_find_bus_speed(dev));
+
 	gi2c->irq = platform_get_irq(pdev, 0);
 	if (gi2c->irq < 0)
 		return gi2c->irq;

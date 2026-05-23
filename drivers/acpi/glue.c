@@ -313,8 +313,10 @@ int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
 	mutex_unlock(&acpi_dev->physical_node_lock);
 
 	/* Don't set wakeup flag for devices where ACPI fwnode is secondary */
-	if (acpi_dev->wakeup.flags.valid && has_acpi_companion(dev))
+	if (acpi_dev->wakeup.flags.valid && has_acpi_companion(dev)) {
+		dev_info(dev, "Setting wake-capable based on ACPI fwnode\n");
 		device_set_wakeup_capable(dev, true);
+	}
 
 	return 0;
 
