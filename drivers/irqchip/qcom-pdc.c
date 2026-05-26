@@ -201,10 +201,13 @@ static void pdc_x1e_irq_enable_write(u32 bank, u32 enable)
 static void pdc_enable_intr_bank(int pin_out, bool on)
 {
 	unsigned long enable;
+	unsigned long flags;
 	u32 index, mask;
 
 	index = FIELD_GET(GENMASK(31, 5), pin_out);
 	mask = FIELD_GET(GENMASK(4, 0), pin_out);
+
+	raw_spin_lock_irqsave(&pdc->lock, flags);
 
 	enable = pdc_reg_read(pdc->regs->irq_en_reg, index);
 	__assign_bit(mask, &enable, on);
@@ -213,6 +216,8 @@ static void pdc_enable_intr_bank(int pin_out, bool on)
 		pdc_x1e_irq_enable_write(index, enable);
 	else
 		pdc_reg_write(pdc->regs->irq_en_reg, index, enable);
+
+	raw_spin_unlock_irqrestore(&pdc->lock, flags);
 }
 
 static void pdc_enable_intr_cfg(int pin_out, bool on)
@@ -227,24 +232,15 @@ static void pdc_enable_intr_cfg(int pin_out, bool on)
 	pdc_reg_write(pdc->regs->irq_cfg_reg, pin_out, enable);
 }
 
-static void pdc_enable_intr(struct irq_data *d, bool on)
-{
-	unsigned long flags;
-
-	raw_spin_lock_irqsave(&pdc->lock, flags);
-	pdc->enable_intr(d->hwirq, on);
-	raw_spin_unlock_irqrestore(&pdc->lock, flags);
-}
-
 static void qcom_pdc_gic_disable(struct irq_data *d)
 {
-	pdc_enable_intr(d, false);
+	pdc->enable_intr(d->hwirq, false);
 	irq_chip_disable_parent(d);
 }
 
 static void qcom_pdc_gic_enable(struct irq_data *d)
 {
-	pdc_enable_intr(d, true);
+	pdc->enable_intr(d->hwirq, true);
 	irq_chip_enable_parent(d);
 }
 
