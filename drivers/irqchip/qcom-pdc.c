@@ -61,6 +61,11 @@
  * |                   |    [4] GPIO_STATUS|    [4] GPIO_MASK      |
  * |   [31:3] Unused   |    [3] GPIO_MASK  |    [3] IRQ_ENABLE     |
  * |    [0:2] Type     |  [0:2] Type       |  [0:2] Type           |
+ * |---------------------------------------------------------------|
+ * |   IRQ_PARAM       | IRQ_PARAM         | IRQ_PARAM             |
+ * |                   |                                           |
+ * |   [15:8] NUM_GPIO | [15:8] NUM_GPIO   | [15:8] NUM_GPIO       |
+ * |    [7:0] NUM_SPI  |  [7:0] NUM_SPI    |  [7:0] NUM_SPI        |
  * +---------------------------------------------------------------+
  */
 
@@ -69,10 +74,12 @@
  *
  * @irq_en_reg:     IRQ_ENABLE_BANK register location
  * @irq_cfg_reg:    IRQ_CFG register location
+ * @irq_param_reg:  IRQ_PARAM register location
  */
 struct pdc_regs {
 	u32 irq_en_reg;
 	u32 irq_cfg_reg;
+	u32 irq_param_reg;
 };
 
 /**
@@ -92,6 +99,8 @@ struct pdc_cfg {
  * @base:           PDC base register for DRV2 / HLOS
  * @prev_base:      PDC DRV1 base, applicable only for x1e RTL bug.
  * @version:        PDC version
+ * @num_spis:       Total number of direct SPI interrupts
+ * @num_gpios:      Total number of GPIOs forwarded as SPI interrupts
  * @region:         PDC interrupt continuous range
  * @region_cnt:     Total PDC ranges
  * @x1e_quirk:      x1e H/W Bug handling
@@ -104,6 +113,8 @@ struct pdc_desc {
 	void __iomem *base;
 	void __iomem *prev_base;
 	u32 version;
+	u32 num_spis;
+	u32 num_gpios;
 
 	struct pdc_pin_region *region;
 	int region_cnt;
@@ -120,6 +131,7 @@ struct pdc_desc {
 
 static const struct pdc_regs pdc_v3_2 = {
 	.irq_cfg_reg = 0x110,
+	.irq_param_reg = 0x100c,
 };
 
 static const struct pdc_cfg pdc_cfg_v3_2 = {
@@ -130,6 +142,7 @@ static const struct pdc_cfg pdc_cfg_v3_2 = {
 static const struct pdc_regs pdc_v3_0 = {
 	.irq_en_reg = 0x10,
 	.irq_cfg_reg = 0x110,
+	.irq_param_reg = 0x100c,
 };
 
 static const struct pdc_cfg pdc_cfg_v3_0 = {
@@ -139,6 +152,7 @@ static const struct pdc_cfg pdc_cfg_v3_0 = {
 static const struct pdc_regs pdc_v2_7 = {
 	.irq_en_reg = 0x10,
 	.irq_cfg_reg = 0x110,
+	.irq_param_reg = 0x100c,
 };
 
 static const struct pdc_cfg pdc_cfg_v2_7 = {
@@ -457,6 +471,7 @@ static int qcom_pdc_probe(struct platform_device *pdev, struct device_node *pare
 	struct device_node *node = pdev->dev.of_node;
 	resource_size_t res_size;
 	struct resource res;
+	u32 irq_param;
 	int ret;
 
 	/* compat with old sm8150 DT which had very small region for PDC */
@@ -514,6 +529,10 @@ static int qcom_pdc_probe(struct platform_device *pdev, struct device_node *pare
 
 		pdc->x1e_quirk = true;
 	}
+
+	irq_param = pdc_reg_read(pdc->regs->irq_param_reg, 0);
+	pdc->num_spis = FIELD_GET(GENMASK(7, 0), irq_param);
+	pdc->num_gpios = FIELD_GET(GENMASK(15, 8), irq_param);
 
 	parent_domain = irq_find_host(parent);
 	if (!parent_domain) {
