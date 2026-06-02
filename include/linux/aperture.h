@@ -5,13 +5,18 @@
 
 #include <linux/types.h>
 
+struct device;
 struct pci_dev;
 struct platform_device;
 
 #if defined(CONFIG_APERTURE_HELPERS)
 int devm_aperture_acquire_for_platform_device(struct platform_device *pdev,
 					      resource_size_t base,
-					      resource_size_t size);
+					      resource_size_t size,
+					      void (*disable)(struct device *));
+
+void aperture_disable_conflicting_devices(resource_size_t base, resource_size_t size,
+					  const char *name);
 
 int aperture_remove_conflicting_devices(resource_size_t base, resource_size_t size,
 					const char *name);
@@ -22,10 +27,14 @@ int aperture_remove_conflicting_pci_devices(struct pci_dev *pdev, const char *na
 #else
 static inline int devm_aperture_acquire_for_platform_device(struct platform_device *pdev,
 							    resource_size_t base,
-							    resource_size_t size)
+							    resource_size_t size,
+							    void (*disable)(struct device *))
 {
 	return 0;
 }
+
+static inline void aperture_disable_conflicting_devices(resource_size_t base, resource_size_t size,
+							const char *name) { }
 
 static inline int aperture_remove_conflicting_devices(resource_size_t base, resource_size_t size,
 						      const char *name)
@@ -43,6 +52,18 @@ static inline int aperture_remove_conflicting_pci_devices(struct pci_dev *pdev, 
 	return 0;
 }
 #endif
+
+/**
+ * aperture_disable_all_conflicting_devices - disable all existing framebuffers
+ * @name: a descriptive name of the requesting driver
+ *
+ * This function disables all graphics device drivers. Use this function on systems
+ * that can have their framebuffer located anywhere in memory.
+ */
+static inline void aperture_disable_all_conflicting_devices(const char *name)
+{
+	aperture_disable_conflicting_devices(0, (resource_size_t)-1, name);
+}
 
 /**
  * aperture_remove_all_conflicting_devices - remove all existing framebuffers

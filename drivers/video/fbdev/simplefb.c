@@ -287,7 +287,7 @@ static int simplefb_probe(struct platform_device *pdev)
 	if (mem != res)
 		par->mem = mem; /* release in clean-up handler */
 
-	ret = devm_aperture_acquire_for_platform_device(pdev, par->base, par->size);
+	ret = devm_aperture_acquire_for_platform_device(pdev, par->base, par->size, NULL);
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to acquire aperture: %d\n", ret);
 		goto error_resources;
