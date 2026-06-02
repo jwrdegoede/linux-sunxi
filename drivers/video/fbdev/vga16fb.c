@@ -1384,7 +1384,8 @@ static int vga16fb_probe(struct platform_device *dev)
 
 	vga16fb_update_fix(info);
 
-	ret = devm_aperture_acquire_for_platform_device(dev, VGA_FB_PHYS_BASE, VGA_FB_PHYS_SIZE);
+	ret = devm_aperture_acquire_for_platform_device(dev, VGA_FB_PHYS_BASE,
+							VGA_FB_PHYS_SIZE, NULL);
 	if (ret)
 		goto err_check_var;
 	if (register_framebuffer(info) < 0) {

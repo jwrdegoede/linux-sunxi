@@ -513,7 +513,7 @@ static void offb_init_fb(struct platform_device *parent, const char *name,
 
 	fb_alloc_cmap(&info->cmap, 256, 0);
 
-	if (devm_aperture_acquire_for_platform_device(parent, par->base, par->size) < 0)
+	if (devm_aperture_acquire_for_platform_device(parent, par->base, par->size, NULL) < 0)
 		goto out_err;
 	if (register_framebuffer(info) < 0)
 		goto out_err;
