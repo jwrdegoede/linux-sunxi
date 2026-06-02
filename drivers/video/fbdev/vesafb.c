@@ -480,7 +480,7 @@ static int vesafb_probe(struct platform_device *dev)
 		err = -ENOMEM;
 		goto err_release_region;
 	}
-	err = devm_aperture_acquire_for_platform_device(dev, par->base, par->size);
+	err = devm_aperture_acquire_for_platform_device(dev, par->base, par->size, NULL);
 	if (err)
 		goto err_fb_dealloc_cmap;
 	if (register_framebuffer(info)<0) {

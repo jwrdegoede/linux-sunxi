@@ -568,7 +568,7 @@ static int efifb_probe(struct platform_device *dev)
 		goto err_unmap;
 	}
 
-	err = devm_aperture_acquire_for_platform_device(dev, par->base, par->size);
+	err = devm_aperture_acquire_for_platform_device(dev, par->base, par->size, NULL);
 	if (err) {
 		pr_err("efifb: cannot acquire aperture\n");
 		goto err_fb_dealloc_cmap;

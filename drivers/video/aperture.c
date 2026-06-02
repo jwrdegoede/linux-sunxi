@@ -135,6 +135,7 @@ struct aperture_range {
 	resource_size_t base;
 	resource_size_t size;
 	struct list_head lh;
+	void (*disable)(struct device *dev);
 	void (*detach)(struct device *dev);
 };
 
@@ -162,6 +163,7 @@ static void devm_aperture_acquire_release(void *data)
 
 static int devm_aperture_acquire(struct device *dev,
 				 resource_size_t base, resource_size_t size,
+				 void (*disable)(struct device *),
 				 void (*detach)(struct device *))
 {
 	size_t end = base + size;
@@ -187,6 +189,7 @@ static int devm_aperture_acquire(struct device *dev,
 	ap->dev = dev;
 	ap->base = base;
 	ap->size = size;
+	ap->disable = disable;
 	ap->detach = detach;
 	INIT_LIST_HEAD(&ap->lh);
 
@@ -222,6 +225,7 @@ static void aperture_detach_platform_device(struct device *dev)
  * @pdev:	the platform device to own the aperture
  * @base:	the aperture's byte offset in physical memory
  * @size:	the aperture size in bytes
+ * @disable:    optional disable callback
  *
  * Installs the given device as the new owner of the aperture. The function
  * expects the aperture to be provided by a platform device. If another
@@ -233,18 +237,27 @@ static void aperture_detach_platform_device(struct device *dev)
  * owned by another device. To evict current owners, callers should use
  * remove_conflicting_devices() et al. before calling this function.
  *
+ * An optional disable callback may be specified for 2 step removal
+ * of the aperture when another driver wants to take over the aperture.
+ * With the disable step unregistering the fbdev/kms and the aperture mem
+ * region claim, but keeping the platform_device and shared resource
+ * like clocks and regulators around until the remove step.
+ *
  * Returns:
  * 0 on success, or a negative errno value otherwise.
  */
 int devm_aperture_acquire_for_platform_device(struct platform_device *pdev,
 					      resource_size_t base,
-					      resource_size_t size)
+					      resource_size_t size,
+					      void (*disable)(struct device *))
 {
-	return devm_aperture_acquire(&pdev->dev, base, size, aperture_detach_platform_device);
+	return devm_aperture_acquire(&pdev->dev, base, size,
+				     disable, aperture_detach_platform_device);
 }
 EXPORT_SYMBOL(devm_aperture_acquire_for_platform_device);
 
-static void aperture_detach_devices(resource_size_t base, resource_size_t size)
+static void aperture_detach_devices(resource_size_t base, resource_size_t size,
+				    bool detach)
 {
 	resource_size_t end = base + size;
 	struct list_head *pos, *n;
@@ -261,14 +274,46 @@ static void aperture_detach_devices(resource_size_t base, resource_size_t size)
 		if (!overlap(base, end, ap->base, ap->base + ap->size))
 			continue;
 
-		ap->dev = NULL; /* detach from device */
-		list_del(&ap->lh);
+		if (ap->disable) {
+			ap->disable(dev);
+			ap->disable = NULL; /* Avoid 2nd disable() on remove */
+		} else {
+			/* Detach on disable for sysfb-s without a disable() */
+			detach = true;
+		}
 
-		ap->detach(dev);
+		if (detach) {
+			ap->dev = NULL; /* detach from device */
+			list_del(&ap->lh);
+
+			ap->detach(dev);
+		}
 	}
 
 	mutex_unlock(&apertures_lock);
 }
+
+/**
+ * aperture_disable_conflicting_devices - disable devices in the given range
+ * @base: the aperture's base address in physical memory
+ * @size: aperture size in bytes
+ * @name: a descriptive name of the requesting driver
+ *
+ * This function disables devices that own apertures within @base and @size,
+ * unregistering sysfb/drm devices and releasing the aperture IO resource.
+ * Shareable resources like clocks and regulators are left enabled until
+ * aperture_remove_conflicting_devices() gets called.
+ *
+ * Returns:
+ * 0 on success, or a negative errno code otherwise
+ */
+void aperture_disable_conflicting_devices(resource_size_t base, resource_size_t size,
+					  const char *name)
+{
+	sysfb_disable(NULL, false);
+	aperture_detach_devices(base, size, false);
+}
+EXPORT_SYMBOL(aperture_disable_conflicting_devices);
 
 /**
  * aperture_remove_conflicting_devices - remove devices in the given range
@@ -295,7 +340,7 @@ int aperture_remove_conflicting_devices(resource_size_t base, resource_size_t si
 	 */
 	sysfb_disable(NULL, true);
 
-	aperture_detach_devices(base, size);
+	aperture_detach_devices(base, size, true);
 
 	return 0;
 }
@@ -325,7 +370,7 @@ EXPORT_SYMBOL(aperture_remove_conflicting_devices);
 int __aperture_remove_legacy_vga_devices(struct pci_dev *pdev)
 {
 	/* VGA framebuffer */
-	aperture_detach_devices(VGA_FB_PHYS_BASE, VGA_FB_PHYS_SIZE);
+	aperture_detach_devices(VGA_FB_PHYS_BASE, VGA_FB_PHYS_SIZE, true);
 
 	/* VGA textmode console */
 	return vga_remove_vgacon(pdev);
@@ -357,7 +402,7 @@ int aperture_remove_conflicting_pci_devices(struct pci_dev *pdev, const char *na
 
 		base = pci_resource_start(pdev, bar);
 		size = pci_resource_len(pdev, bar);
-		aperture_detach_devices(base, size);
+		aperture_detach_devices(base, size, true);
 	}
 
 	/*

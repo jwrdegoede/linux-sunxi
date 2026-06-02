@@ -950,7 +950,7 @@ static struct ofdrm_device *ofdrm_device_create(struct drm_driver *drv,
 	fb_pgbase = round_down(fb_base, PAGE_SIZE);
 	fb_pgsize = fb_base - fb_pgbase + round_up(fb_size, PAGE_SIZE);
 
-	ret = devm_aperture_acquire_for_platform_device(pdev, fb_pgbase, fb_pgsize);
+	ret = devm_aperture_acquire_for_platform_device(pdev, fb_pgbase, fb_pgsize, NULL);
 	if (ret) {
 		drm_err(dev, "could not acquire memory range %pr: error %d\n", &res, ret);
 		return ERR_PTR(ret);

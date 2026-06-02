@@ -361,7 +361,8 @@ static struct simpledrm_device *simpledrm_device_create(struct drm_driver *drv,
 		void *screen_base;
 
 		ret = devm_aperture_acquire_for_platform_device(pdev, mem->start,
-								resource_size(mem));
+								resource_size(mem),
+								NULL);
 		if (ret) {
 			drm_err(dev, "could not acquire memory range %pr: %d\n", mem, ret);
 			return ERR_PTR(ret);
@@ -382,7 +383,8 @@ static struct simpledrm_device *simpledrm_device_create(struct drm_driver *drv,
 			return ERR_PTR(-EINVAL);
 
 		ret = devm_aperture_acquire_for_platform_device(pdev, res->start,
-								resource_size(res));
+								resource_size(res),
+								NULL);
 		if (ret) {
 			drm_err(dev, "could not acquire memory range %pr: %d\n", res, ret);
 			return ERR_PTR(ret);

@@ -222,7 +222,7 @@ static struct efidrm_device *efidrm_device_create(struct drm_driver *drv,
 	 * Memory management
 	 */
 
-	ret = devm_aperture_acquire_for_platform_device(pdev, res->start, vsize);
+	ret = devm_aperture_acquire_for_platform_device(pdev, res->start, vsize, NULL);
 	if (ret) {
 		drm_err(dev, "could not acquire memory range %pr: %d\n", res, ret);
 		return ERR_PTR(ret);
