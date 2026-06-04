@@ -202,6 +202,8 @@ simplefb_get_memory_of(struct drm_device *dev, struct device_node *of_node)
 struct simpledrm_device {
 	struct drm_sysfb_device sysfb;
 	struct simplefb_resources resources;
+	struct resource *mem_res;
+	bool disabled;
 
 	/* modesetting */
 	u32 formats[DRM_SYSFB_PLANE_NFORMATS(1)];
@@ -214,6 +216,22 @@ struct simpledrm_device {
 static void simpledrm_device_release_resources(void *res)
 {
 	simplefb_release_resources(res);
+}
+
+static void simpledrm_device_disable(struct device *dev)
+{
+	struct simpledrm_device *sdev = dev_get_drvdata(dev);
+
+	if (sdev->disabled)
+		return;
+
+	drm_dev_unplug(&sdev->sysfb.dev);
+
+	if (sdev->mem_res)
+		devm_release_mem_region(dev, sdev->mem_res->start,
+					resource_size(sdev->mem_res));
+
+	sdev->disabled = true;
 }
 
 /*
@@ -362,7 +380,7 @@ static struct simpledrm_device *simpledrm_device_create(struct drm_driver *drv,
 
 		ret = devm_aperture_acquire_for_platform_device(pdev, mem->start,
 								resource_size(mem),
-								NULL);
+								simpledrm_device_disable);
 		if (ret) {
 			drm_err(dev, "could not acquire memory range %pr: %d\n", mem, ret);
 			return ERR_PTR(ret);
@@ -384,7 +402,7 @@ static struct simpledrm_device *simpledrm_device_create(struct drm_driver *drv,
 
 		ret = devm_aperture_acquire_for_platform_device(pdev, res->start,
 								resource_size(res),
-								NULL);
+								simpledrm_device_disable);
 		if (ret) {
 			drm_err(dev, "could not acquire memory range %pr: %d\n", res, ret);
 			return ERR_PTR(ret);
@@ -394,7 +412,9 @@ static struct simpledrm_device *simpledrm_device_create(struct drm_driver *drv,
 
 		mem = devm_request_mem_region(&pdev->dev, res->start, resource_size(res),
 					      drv->name);
-		if (!mem) {
+		if (mem) {
+			sdev->mem_res = mem;
+		} else {
 			/*
 			 * We cannot make this fatal. Sometimes this comes from magic
 			 * spaces our resource handlers simply don't know about. Use
@@ -528,10 +548,12 @@ static int simpledrm_probe(struct platform_device *pdev)
 
 static void simpledrm_remove(struct platform_device *pdev)
 {
-	struct simpledrm_device *sdev = platform_get_drvdata(pdev);
-	struct drm_device *dev = &sdev->sysfb.dev;
-
-	drm_dev_unplug(dev);
+	/*
+	 * Ensure drm_dev_unplug() happens when simpledrm_remove() gets called
+	 * without going through aperture_remove_conflicting_devices(), e.g.
+	 * manual unbind from sysfs.
+	 */
+	simpledrm_device_disable(&pdev->dev);
 }
 
 static const struct of_device_id simpledrm_of_match_table[] = {
