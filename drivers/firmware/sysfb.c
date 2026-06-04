@@ -55,16 +55,18 @@ static bool sysfb_unregister(void)
 /**
  * sysfb_disable() - disable the Generic System Framebuffers support
  * @dev:	the device to check if non-NULL
+ * @remove:	also unregister the sysfb device when true
  *
  * This disables the registration of system framebuffer devices that match the
  * generic drivers that make use of the system framebuffer set up by firmware.
  *
- * It also unregisters a device if this was already registered by sysfb_init().
+ * When @remove is true this also unregisters a device if this was already
+ * registered by sysfb_init().
  *
  * Context: The function can sleep. A @disable_lock mutex is acquired to serialize
  *          against sysfb_init(), that registers a system framebuffer device.
  */
-void sysfb_disable(struct device *dev)
+void sysfb_disable(struct device *dev, bool remove)
 {
 	struct screen_info *si = &sysfb_primary_display.screen;
 	struct device *parent;
@@ -72,7 +74,8 @@ void sysfb_disable(struct device *dev)
 	mutex_lock(&disable_lock);
 	parent = sysfb_parent_dev(si);
 	if (!dev || !parent || dev == parent) {
-		sysfb_unregister();
+		if (remove)
+			sysfb_unregister();
 		disabled = true;
 	}
 	mutex_unlock(&disable_lock);
