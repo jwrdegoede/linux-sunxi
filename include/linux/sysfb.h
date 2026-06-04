@@ -74,13 +74,13 @@ extern struct sysfb_display_info sysfb_primary_display;
 
 #ifdef CONFIG_SYSFB
 
-void sysfb_disable(struct device *dev);
+void sysfb_disable(struct device *dev, bool remove);
 
 bool sysfb_handles_screen_info(void);
 
 #else /* CONFIG_SYSFB */
 
-static inline void sysfb_disable(struct device *dev)
+static inline void sysfb_disable(struct device *dev, bool remove)
 {
 }
 
