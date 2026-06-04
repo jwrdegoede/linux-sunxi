@@ -269,9 +269,7 @@ int msm_drm_kms_init(struct device *dev, const struct drm_driver *drv)
 	int ret;
 
 	/* the fw fb could be anywhere in memory */
-	ret = aperture_remove_all_conflicting_devices(drv->name);
-	if (ret)
-		return ret;
+	aperture_disable_all_conflicting_devices(drv->name);
 
 	ret = msm_disp_snapshot_init(ddev);
 	if (ret) {
@@ -377,7 +375,7 @@ void msm_kms_shutdown(struct platform_device *pdev)
 		drm_atomic_helper_shutdown(drm);
 }
 
-void msm_drm_kms_post_init(struct device *dev)
+void msm_drm_kms_post_init(struct device *dev, const struct drm_driver *drv)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct msm_drm_private *priv = platform_get_drvdata(pdev);
@@ -385,4 +383,5 @@ void msm_drm_kms_post_init(struct device *dev)
 
 	drm_kms_helper_poll_init(ddev);
 	drm_client_setup(ddev, NULL);
+	aperture_remove_all_conflicting_devices(drv->name);
 }

@@ -177,7 +177,7 @@ static int msm_drm_init(struct device *dev, const struct drm_driver *drv,
 		goto err_msm_uninit;
 
 	if (priv->kms_init)
-		msm_drm_kms_post_init(dev);
+		msm_drm_kms_post_init(dev, drv);
 
 	return 0;
 
