@@ -338,6 +338,7 @@
 
 &pcieport0 {
 	reset-gpios = <&tlmm 2 GPIO_ACTIVE_LOW>;
+	wake-gpios = <&tlmm 0 GPIO_ACTIVE_HIGH>;
 
 	pci@0,0 {
 		#address-cells = <3>;
@@ -366,6 +367,7 @@
 
 &pcieport1 {
 	reset-gpios = <&tlmm 23 GPIO_ACTIVE_LOW>;
+	wake-gpios = <&tlmm 21 GPIO_ACTIVE_HIGH>;
 };
 
 &tlmm {
@@ -447,6 +449,12 @@
 		pins = "gpio93";
 		function = "gpio";
 		bias-pull-up;
+	};
+
+	wireless-pcie-ao {
+		gpio-hog;
+		gpios = <56 0>;
+		output-high;
 	};
 };
 
