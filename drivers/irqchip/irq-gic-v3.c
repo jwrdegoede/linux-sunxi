@@ -1974,6 +1974,23 @@ static void gic_enable_nmi_support(void)
 		gic_chip.flags |= IRQCHIP_SUPPORTS_NMI;
 }
 
+#ifdef CONFIG_ACPI
+static struct fwnode_handle *gsi_domain_handle;
+
+static struct fwnode_handle *gic_v3_get_gsi_domain_id(u32 gsi)
+{
+	return gsi_domain_handle;
+}
+
+static void gic_set_acpi_irq_model(struct fwnode_handle *handle)
+{
+	gsi_domain_handle = handle;
+	acpi_set_irq_model(ACPI_IRQ_MODEL_GIC, gic_v3_get_gsi_domain_id);
+}
+#else
+static void gic_set_acpi_irq_model(struct fwnode_handle *handle) { }
+#endif
+
 static int __init gic_init_bases(phys_addr_t dist_phys_base,
 				 void __iomem *dist_base,
 				 struct redist_region *rdist_regs,
@@ -2062,6 +2079,9 @@ static int __init gic_init_bases(phys_addr_t dist_phys_base,
 		if (IS_ENABLED(CONFIG_ARM_GIC_V2M))
 			gicv2m_init(handle, gic_data.domain);
 	}
+
+	/* Also do this when enumerated through DT for DT-ACPI hybrid mode */
+	gic_set_acpi_irq_model(handle);
 
 	return 0;
 
@@ -2534,13 +2554,6 @@ static void __init gic_acpi_setup_kvm_info(void)
 	vgic_set_kvm_info(&gic_v3_kvm_info);
 }
 
-static struct fwnode_handle *gsi_domain_handle;
-
-static struct fwnode_handle *gic_v3_get_gsi_domain_id(u32 gsi)
-{
-	return gsi_domain_handle;
-}
-
 static int __init
 gic_acpi_init(union acpi_subtable_headers *header, const unsigned long end)
 {
@@ -2587,8 +2600,6 @@ gic_acpi_init(union acpi_subtable_headers *header, const unsigned long end)
 			     0, gsi_domain_handle);
 	if (err)
 		goto out_fwhandle_free;
-
-	acpi_set_irq_model(ACPI_IRQ_MODEL_GIC, gic_v3_get_gsi_domain_id);
 
 	if (static_branch_likely(&supports_deactivate_key))
 		gic_acpi_setup_kvm_info();
