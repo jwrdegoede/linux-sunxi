@@ -189,6 +189,15 @@
 				remote-endpoint = <&imx219_1_ep>;
 			};
 		};
+
+		port@2 {
+			reg = <2>;
+
+			csiphy2_ep: endpoint {
+				data-lanes = <0 1>;
+				remote-endpoint = <&ov5647_2_ep>;
+			};
+		};
 	};
 };
 
@@ -243,6 +252,34 @@
 				clock-lanes = <0>;
 				data-lanes = <1 2>;
 				link-frequencies = /bits/ 64 <456000000>;
+			};
+		};
+	};
+};
+
+&cci2 {
+	status = "okay";
+};
+
+&cci2_i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	sensor@36 {
+		compatible = "ovti,ov5647";
+		reg = <0x36>;
+		clocks = <&cam24m>;
+		status = "okay";
+
+		pwdn-gpios = <&tlmm 82 GPIO_ACTIVE_HIGH>;
+
+		port {
+			/* MIPI CSI-2 bus endpoint */
+			ov5647_2_ep: endpoint {
+				remote-endpoint = <&csiphy2_ep>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <297000000>;
 			};
 		};
 	};
