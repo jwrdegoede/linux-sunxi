@@ -145,6 +145,7 @@
 
 		cpu4: cpu@400 {
 			device_type = "cpu";
+			nopauth;
 			compatible = "arm,cortex-x1c";
 			reg = <0x0 0x400>;
 			clocks = <&cpufreq_hw 1>;
@@ -168,6 +169,7 @@
 
 		cpu5: cpu@500 {
 			device_type = "cpu";
+			nopauth;
 			compatible = "arm,cortex-x1c";
 			reg = <0x0 0x500>;
 			clocks = <&cpufreq_hw 1>;
@@ -191,6 +193,7 @@
 
 		cpu6: cpu@600 {
 			device_type = "cpu";
+			nopauth;
 			compatible = "arm,cortex-x1c";
 			reg = <0x0 0x600>;
 			clocks = <&cpufreq_hw 1>;
@@ -214,6 +217,7 @@
 
 		cpu7: cpu@700 {
 			device_type = "cpu";
+			nopauth;
 			compatible = "arm,cortex-x1c";
 			reg = <0x0 0x700>;
 			clocks = <&cpufreq_hw 1>;
