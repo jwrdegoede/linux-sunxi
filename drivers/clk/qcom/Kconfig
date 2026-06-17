@@ -66,6 +66,17 @@ config CLK_GLYMUR_DISPCC
 	  Say Y if you want to support display devices and functionality such as
 	  splash screen.
 
+config CLK_GLYMUR_EVACC
+	tristate "Glymur EVA Clock Controller"
+	depends on ARM64 || COMPILE_TEST
+	default m if ARCH_QCOM
+	select CLK_GLYMUR_GCC
+	help
+	  Support for the Enhanced Video Analytics (EVA) clock controller on
+	  Qualcomm Technologies, Inc. Glymur devices.
+	  Say Y if you want to support EVA devices and functionality such as
+	  vision processing.
+
 config CLK_GLYMUR_GCC
 	tristate "Glymur Global Clock Controller"
 	depends on ARM64 || COMPILE_TEST
