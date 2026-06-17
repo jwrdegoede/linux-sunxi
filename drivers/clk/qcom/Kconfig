@@ -75,7 +75,6 @@ config CLK_GLYMUR_EVACC
 	depends on ARM64 || COMPILE_TEST
 	default m if ARCH_QCOM
 	select CLK_GLYMUR_GCC
-	default m if ARCH_QCOM
 	help
 	  Support for the Enhanced Video Analytics (EVA) clock controller on
 	  Qualcomm Technologies, Inc. Glymur devices.
