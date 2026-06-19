@@ -21,6 +21,7 @@
 #include <linux/dmi.h>
 #include <linux/dma-map-ops.h>
 #include <linux/platform_data/x86/apple.h>
+#include <linux/platform_device.h>
 #include <linux/pgtable.h>
 #include <linux/crc32.h>
 #include <linux/dma-direct.h>
@@ -2818,6 +2819,22 @@ static void __init acpi_get_spcr_uart_addr(void)
 	acpi_put_table((struct acpi_table_header *)spcr_ptr);
 }
 
+static int acpi_scan_retry_of_acpi_binding(struct device *dev, void *data)
+{
+	struct fwnode_handle *fwnode = dev_fwnode(dev);
+	const char *acpi_path;
+
+	/* Check primary fwnode is OF and secondary fwnode is not yet ACPI */
+	if (!is_of_node(fwnode) || is_acpi_device_node(fwnode->secondary))
+		return 0;
+
+	/* If there is an "acpi-path" property retry binding ACPI fwnode */
+	if (of_property_read_string(dev->of_node, "acpi-path", &acpi_path) == 0)
+		acpi_device_notify(dev);
+
+	return 0;
+}
+
 static bool acpi_scan_initialized;
 
 void __init acpi_scan_init(void)
@@ -2880,6 +2897,18 @@ void __init acpi_scan_init(void)
 	/* Fixed feature devices do not exist on HW-reduced platform */
 	if (!acpi_gbl_reduced_hardware)
 		acpi_bus_scan_fixed();
+
+	/*
+	 * of_platform_default_populate_init creates DT platform devices from
+	 * an arch_initcall(), so before acpi_scan_init() runs this causing
+	 * acpi_device_notify() to be unable to honor "acpi-path" properties
+	 * in DT-ACPI hybrid mode. Re-call acpi_device_notify() to fix this up.
+	 * Note this relies on the driver which may use the bound ACPI fwnode
+	 * to only register after subsys_initcall(acpi_init) has run.
+	 */
+	if (acpi_dt_hybrid)
+		bus_for_each_dev(&platform_bus_type, NULL, NULL,
+				 acpi_scan_retry_of_acpi_binding);
 
 	acpi_turn_off_unused_power_resources();
 
