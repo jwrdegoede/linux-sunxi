@@ -1045,8 +1045,6 @@ static void msm_gpio_irq_init_valid_mask(struct gpio_chip *gc,
 	const struct msm_pingroup *g;
 	int i;
 
-	bitmap_fill(valid_mask, ngpios);
-
 	for (i = 0; i < ngpios; i++) {
 		g = &pctrl->soc->groups[i];
 
