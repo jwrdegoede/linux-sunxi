@@ -10,6 +10,7 @@
 
 #include <linux/pinctrl/pinctrl.h>
 
+struct gpio_chip;
 struct platform_device;
 
 struct pinctrl_pin_desc;
@@ -181,9 +182,43 @@ struct msm_pinctrl_soc_data {
 	unsigned int egpio_func;
 };
 
+#define MSM_GPIO_WOA_ACPI_MAX_VIRT_GPIOS	32
+
+/**
+ * struct msm_gpio_woa_acpi_data - Data for mapping virtual WoA ACPI PDC IRQ GPIOs
+ * @map:	Map to translate virtual ACPI GPIO offsets to TLMM pin offsets
+ * @nmap:	Number of valid entried in @map
+ */
+struct msm_gpio_woa_acpi_data {
+	unsigned int map[MSM_GPIO_WOA_ACPI_MAX_VIRT_GPIOS];
+	unsigned int nmap;
+};
+
 extern const struct dev_pm_ops msm_pinctrl_dev_pm_ops;
 
 int msm_pinctrl_probe(struct platform_device *pdev,
 		      const struct msm_pinctrl_soc_data *soc_data);
 
+#ifdef CONFIG_ACPI
+int msm_gpio_woa_acpi_init(struct gpio_chip *chip, struct msm_gpio_woa_acpi_data *data,
+			   const struct msm_pinctrl_soc_data *soc_data);
+void msm_gpio_woa_acpi_valid_mask(struct gpio_chip *chip,
+				  struct msm_gpio_woa_acpi_data *data,
+				  unsigned long *valid_mask,
+				  unsigned int soc_ngpio);
+unsigned int msm_gpio_woa_acpi_map(struct msm_gpio_woa_acpi_data *data, unsigned int offset);
+#else
+static inline int
+msm_gpio_woa_acpi_init(struct gpio_chip *chip, struct msm_gpio_woa_acpi_data *data,
+		       const struct msm_pinctrl_soc_data *soc_data)
+{ return 0; }
+static inline void msm_gpio_woa_acpi_valid_mask(struct gpio_chip *chip,
+						struct msm_gpio_woa_acpi_data *data,
+						unsigned long *valid_mask,
+						unsigned int soc_ngpio) { }
+static inline unsigned int
+msm_gpio_woa_acpi_map(struct msm_gpio_woa_acpi_data *data, unsigned int offset)
+{ return 0; }
 #endif
+
+#endif /* ifndef __PINCTRL_MSM_H__ */

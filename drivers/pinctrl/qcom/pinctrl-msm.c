@@ -45,6 +45,7 @@
  * @pctrl:          pinctrl handle.
  * @chip:           gpiochip handle.
  * @desc:           pin controller descriptor
+ * @woa_acpi:       data for mapping virtual WoA ACPI PDC IRQ GPIOs
  * @irq:            parent irq for the TLMM irq_chip.
  * @intr_target_use_scm: route irq to application cpu using scm calls
  * @lock:           Spinlock to protect register resources as well
@@ -64,6 +65,7 @@ struct msm_pinctrl {
 	struct pinctrl_dev *pctrl;
 	struct gpio_chip chip;
 	struct pinctrl_desc desc;
+	struct msm_gpio_woa_acpi_data woa_acpi;
 
 	int irq;
 
@@ -553,12 +555,24 @@ static const struct pinconf_ops msm_pinconf_ops = {
 	.pin_config_group_set	= msm_config_group_set,
 };
 
+static unsigned int msm_gpio_map(struct gpio_chip *chip, unsigned int offset)
+{
+	struct msm_pinctrl *pctrl = gpiochip_get_data(chip);
+
+	if (offset < pctrl->soc->ngpios)
+		return offset;
+
+	return msm_gpio_woa_acpi_map(&pctrl->woa_acpi, offset);
+}
+
 static int msm_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 {
 	const struct msm_pingroup *g;
 	struct msm_pinctrl *pctrl = gpiochip_get_data(chip);
 	unsigned long flags;
 	u32 val;
+
+	offset = msm_gpio_map(chip, offset);
 
 	g = &pctrl->soc->groups[offset];
 
@@ -579,6 +593,8 @@ static int msm_gpio_direction_output(struct gpio_chip *chip, unsigned offset, in
 	struct msm_pinctrl *pctrl = gpiochip_get_data(chip);
 	unsigned long flags;
 	u32 val;
+
+	offset = msm_gpio_map(chip, offset);
 
 	g = &pctrl->soc->groups[offset];
 
@@ -606,6 +622,8 @@ static int msm_gpio_get_direction(struct gpio_chip *chip, unsigned int offset)
 	const struct msm_pingroup *g;
 	u32 val;
 
+	offset = msm_gpio_map(chip, offset);
+
 	g = &pctrl->soc->groups[offset];
 
 	val = msm_readl_ctl(pctrl, g);
@@ -620,6 +638,8 @@ static int msm_gpio_get(struct gpio_chip *chip, unsigned offset)
 	struct msm_pinctrl *pctrl = gpiochip_get_data(chip);
 	u32 val;
 
+	offset = msm_gpio_map(chip, offset);
+
 	g = &pctrl->soc->groups[offset];
 
 	val = msm_readl_io(pctrl, g);
@@ -632,6 +652,8 @@ static int msm_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
 	struct msm_pinctrl *pctrl = gpiochip_get_data(chip);
 	unsigned long flags;
 	u32 val;
+
+	offset = msm_gpio_map(chip, offset);
 
 	g = &pctrl->soc->groups[offset];
 
@@ -717,10 +739,11 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 
 static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 {
+	struct msm_pinctrl *pctrl = gpiochip_get_data(chip);
 	unsigned gpio = chip->base;
 	unsigned i;
 
-	for (i = 0; i < chip->ngpio; i++, gpio++)
+	for (i = 0; i < pctrl->soc->ngpios; i++, gpio++)
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
 }
 
@@ -737,6 +760,10 @@ static int msm_gpio_init_valid_mask(struct gpio_chip *gc,
 	unsigned int len, i;
 	const int *reserved = pctrl->soc->reserved_gpios;
 	u16 *tmp;
+
+	/* WOA ACPI handles virtual PDC GPIO range, only handle real GPIOs here */
+	ngpios = pctrl->soc->ngpios;
+	msm_gpio_woa_acpi_valid_mask(gc, &pctrl->woa_acpi, valid_mask, ngpios);
 
 	/* Remove driver-provided reserved GPIOs from valid_mask */
 	if (reserved) {
@@ -1045,6 +1072,10 @@ static void msm_gpio_irq_init_valid_mask(struct gpio_chip *gc,
 	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
 	const struct msm_pingroup *g;
 	int i;
+
+	/* WOA ACPI handles virtual PDC GPIO range, only handle real GPIOs here */
+	ngpios = pctrl->soc->ngpios;
+	msm_gpio_woa_acpi_valid_mask(gc, &pctrl->woa_acpi, valid_mask, ngpios);
 
 	for (i = 0; i < ngpios; i++) {
 		g = &pctrl->soc->groups[i];
@@ -1387,6 +1418,9 @@ static bool msm_gpio_needs_valid_mask(struct msm_pinctrl *pctrl)
 	if (pctrl->soc->reserved_gpios)
 		return true;
 
+	if (pctrl->chip.ngpio != pctrl->soc->ngpios)
+		return true;
+
 	return device_property_count_u16(pctrl->dev, "gpios") > 0;
 }
 
@@ -1428,8 +1462,6 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	chip->label = dev_name(pctrl->dev);
 	chip->parent = pctrl->dev;
 	chip->owner = THIS_MODULE;
-	if (msm_gpio_needs_valid_mask(pctrl))
-		chip->init_valid_mask = msm_gpio_init_valid_mask;
 
 	np = of_parse_phandle(pctrl->dev->of_node, "wakeup-parent", 0);
 	if (np) {
@@ -1450,6 +1482,13 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 		}
 	}
 
+	ret = msm_gpio_woa_acpi_init(chip, &pctrl->woa_acpi, pctrl->soc);
+	if (ret)
+		return ret;
+
+	if (msm_gpio_needs_valid_mask(pctrl))
+		chip->init_valid_mask = msm_gpio_init_valid_mask;
+
 	girq = &chip->irq;
 	gpio_irq_chip_set_chip(girq, &msm_gpio_irq_chip);
 	girq->parent_handler = msm_gpio_irq_handler;
@@ -1463,6 +1502,8 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	girq->handler = handle_bad_irq;
 	girq->parents[0] = pctrl->irq;
 	girq->init_valid_mask = msm_gpio_irq_init_valid_mask;
+	if (pctrl->chip.ngpio != pctrl->soc->ngpios)
+		girq->child_offset_to_irq = msm_gpio_map;
 
 	ret = devm_gpiochip_add_data(pctrl->dev, &pctrl->chip, pctrl);
 	if (ret) {
