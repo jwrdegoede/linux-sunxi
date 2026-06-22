@@ -28,6 +28,7 @@ qcom-camss-objs += \
 		camss-video.o \
 		camss-format.o \
 		camss-pipeline.o \
+		camss-params.o \
 
 obj-$(CONFIG_VIDEO_QCOM_CAMSS) += qcom-camss.o
 
