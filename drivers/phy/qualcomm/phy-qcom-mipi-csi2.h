@@ -81,8 +81,7 @@ struct mipi_csi2phy_device {
 	u32 timer_clk_rate;
 
 	struct regulator_bulk_data *supplies;
-	struct device **pds;
-	unsigned int num_pds;
+	struct dev_pm_domain_list *pd_list;
 
 	const struct mipi_csi2phy_soc_cfg *soc_cfg;
 	struct mipi_csi2phy_stream_cfg stream_cfg;

@@ -41,10 +41,10 @@ phy_qcom_mipi_csi2_set_clock_rates(struct mipi_csi2phy_device *csi2phy,
 		return PTR_ERR(opp);
 	}
 
-	for (int i = 0; i < csi2phy->num_pds; i++) {
+	for (int i = 0; i < csi2phy->pd_list->num_pds; i++) {
 		unsigned int perf = dev_pm_opp_get_required_pstate(opp, i);
 
-		ret = dev_pm_genpd_set_performance_state(csi2phy->pds[i], perf);
+		ret = dev_pm_genpd_set_performance_state(csi2phy->pd_list->pd_devs[i], perf);
 		if (ret) {
 			dev_err(csi2phy->dev, "Couldn't set perf state %u\n",
 				perf);
@@ -144,8 +144,8 @@ static int phy_qcom_mipi_csi2_power_off(struct phy *phy)
 	struct mipi_csi2phy_device *csi2phy = phy_get_drvdata(phy);
 	int i;
 
-	for (i = 0; i < csi2phy->num_pds; i++)
-		dev_pm_genpd_set_performance_state(csi2phy->pds[i], 0);
+	for (i = 0; i < csi2phy->pd_list->num_pds; i++)
+		dev_pm_genpd_set_performance_state(csi2phy->pd_list->pd_devs[i], 0);
 
 	clk_bulk_disable_unprepare(csi2phy->soc_cfg->num_clk,
 				   csi2phy->clks);
@@ -179,7 +179,7 @@ static struct phy *qcom_csi2_phy_xlate(struct device *dev,
 
 static int phy_qcom_mipi_csi2_probe(struct platform_device *pdev)
 {
-	unsigned int i, num_clk, num_supplies, num_pds;
+	unsigned int i, num_clk, num_supplies;
 	struct mipi_csi2phy_device *csi2phy;
 	struct phy_provider *phy_provider;
 	struct device *dev = &pdev->dev;
@@ -203,24 +203,14 @@ static int phy_qcom_mipi_csi2_probe(struct platform_device *pdev)
 	if (!csi2phy->clks)
 		return -ENOMEM;
 
-	num_pds = csi2phy->soc_cfg->num_genpd_names;
-	if (!num_pds)
-		return -EINVAL;
+	const struct dev_pm_domain_attach_data pd_data = {
+		.pd_names = csi2phy->soc_cfg->genpd_names,
+		.num_pd_names = csi2phy->soc_cfg->num_genpd_names,
+	};
 
-	csi2phy->pds = devm_kzalloc(dev, sizeof(*csi2phy->pds) * num_pds, GFP_KERNEL);
-	if (!csi2phy->pds)
-		return -ENOMEM;
-
-	for (i = 0; i < num_pds; i++) {
-		csi2phy->pds[i] = dev_pm_domain_attach_by_name(dev,
-							       csi2phy->soc_cfg->genpd_names[i]);
-		if (IS_ERR(csi2phy->pds[i])) {
-			return dev_err_probe(dev, PTR_ERR(csi2phy->pds[i]),
-					     "Failed to attach %s\n",
-					     csi2phy->soc_cfg->genpd_names[i]);
-		}
-	}
-	csi2phy->num_pds = num_pds;
+	ret = devm_pm_domain_attach_list(csi2phy->dev, &pd_data, &csi2phy->pd_list);
+	if (ret < 0 && ret != -EEXIST)
+		return dev_err_probe(dev, ret, "Failed to attach power-domains\n");
 
 	for (i = 0; i < num_clk; i++)
 		csi2phy->clks[i].id = csi2phy->soc_cfg->clk_names[i];
