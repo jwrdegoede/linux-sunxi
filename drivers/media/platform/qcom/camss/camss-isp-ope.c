@@ -522,7 +522,6 @@ struct ope_ctx {
 	unsigned int		framerate;
 	struct ope_fmt_state	fmt_in;
 	struct ope_fmt_state	fmt_out;
-	u32			proc_mbus_code;
 
 	struct list_head	list;
 	bool			started;
@@ -2305,12 +2304,14 @@ static void ope_proc_set_src_fmt(struct v4l2_subdev_state *state,
 	src_fmt = v4l2_subdev_state_get_format(state, OPE_PROC_PAD_SOURCE);
 	compose = v4l2_subdev_state_get_compose(state, OPE_PROC_PAD_SOURCE);
 
-	src_fmt->code = format->code;
-	for (i = 0; i < ARRAY_SIZE(ope_output_fmts); i++)
-		if (ope_output_fmts[i].mbus_code == src_fmt->code)
-			goto valid;
 	src_fmt->code = MEDIA_BUS_FMT_YUYV8_1_5X8;
-valid:
+	for (i = 0; i < ARRAY_SIZE(ope_output_fmts); i++) {
+		if (ope_output_fmts[i].mbus_code == format->code) {
+			src_fmt->code = format->code;
+			break;
+		}
+	}
+
 	src_fmt->width      = compose->width;
 	src_fmt->height     = compose->height;
 	src_fmt->field      = V4L2_FIELD_NONE;
@@ -2322,19 +2323,21 @@ static void ope_proc_set_src_compose(struct v4l2_subdev_state *state, struct v4l
 {
 	const struct v4l2_mbus_framefmt *sink_fmt;
 	struct v4l2_mbus_framefmt *src_fmt;
+	struct v4l2_rect *sink_crop;
 	struct v4l2_rect *compose;
 	struct v4l2_rect bounds;
 
-	src_fmt  = v4l2_subdev_state_get_format(state, OPE_PROC_PAD_SOURCE);
-	compose  = v4l2_subdev_state_get_compose(state, OPE_PROC_PAD_SOURCE);
-	sink_fmt = v4l2_subdev_state_get_format(state, OPE_PROC_PAD_SINK_IN);
+	compose   = v4l2_subdev_state_get_compose(state, OPE_PROC_PAD_SOURCE);
+	sink_fmt  = v4l2_subdev_state_get_format(state, OPE_PROC_PAD_SINK_IN);
+	sink_crop = v4l2_subdev_state_get_crop(state, OPE_PROC_PAD_SINK_IN);
 
-	bounds = (struct v4l2_rect){ 0, 0, sink_fmt->width, sink_fmt->height };
+	bounds = (struct v4l2_rect){ 0, 0, sink_crop->width, sink_crop->height };
 	*compose = *r;
 	ope_sd_adjust_crop_rect(compose, &bounds);
 	*r = *compose;
 
 	/* Propagate to out format */
+	src_fmt = v4l2_subdev_state_get_format(state, OPE_PROC_PAD_SOURCE);
 	ope_proc_set_src_fmt(state, src_fmt);
 }
 
@@ -2347,13 +2350,13 @@ static void ope_proc_set_sink_crop(struct v4l2_subdev_state *state,
 
 	crop = v4l2_subdev_state_get_crop(state, OPE_PROC_PAD_SINK_IN);
 	sink_fmt = v4l2_subdev_state_get_format(state, OPE_PROC_PAD_SINK_IN);
-	compose = v4l2_subdev_state_get_compose(state, OPE_PROC_PAD_SOURCE);
 
 	*crop = *r;
 	ope_sd_adjust_crop(crop, sink_fmt);
 	*r = *crop;
 
 	/* Propagate to out format */
+	compose = v4l2_subdev_state_get_compose(state, OPE_PROC_PAD_SOURCE);
 	ope_proc_set_src_compose(state, compose);
 }
 
@@ -2365,14 +2368,15 @@ static void ope_proc_set_sink_fmt(struct v4l2_subdev_state *state,
 	unsigned int i;
 
 	sink_fmt = v4l2_subdev_state_get_format(state, OPE_PROC_PAD_SINK_IN);
-	crop = v4l2_subdev_state_get_crop(state, OPE_PROC_PAD_SINK_IN);
 
-	sink_fmt->code = format->code;
-	for (i = 0; i < ARRAY_SIZE(ope_input_fmts); i++)
-		if (ope_input_fmts[i].mbus_code == sink_fmt->code)
-			goto valid;
 	sink_fmt->code = ope_input_fmts[0].mbus_code;
-valid:
+	for (i = 0; i < ARRAY_SIZE(ope_input_fmts); i++) {
+		if (ope_input_fmts[i].mbus_code == format->code) {
+			sink_fmt->code = format->code;
+			break;
+		}
+	}
+
 	sink_fmt->width  = clamp(format->width,  (u32)OPE_MIN_W, (u32)OPE_MAX_W);
 	sink_fmt->height = clamp(format->height, (u32)OPE_MIN_H, (u32)OPE_MAX_H);
 	sink_fmt->field      = V4L2_FIELD_NONE;
@@ -2380,6 +2384,7 @@ valid:
 	*format = *sink_fmt;
 
 	/* Propagate to in crop */
+	crop = v4l2_subdev_state_get_crop(state, OPE_PROC_PAD_SINK_IN);
 	ope_proc_set_sink_crop(state, crop);
 }
 
@@ -2416,9 +2421,6 @@ static int ope_proc_set_fmt(struct v4l2_subdev *sd,
 			    struct v4l2_subdev_state *state,
 			    struct v4l2_subdev_format *fmt)
 {
-	struct ope_dev *ope = container_of(sd->v4l2_dev, struct ope_dev, v4l2_dev);
-	struct ope_ctx *ctx = ope->shared_ctx;
-
 	if (fmt->pad == OPE_PROC_PAD_SINK_PAR)
 		return v4l2_subdev_get_fmt(sd, state, fmt);
 
@@ -2428,8 +2430,6 @@ static int ope_proc_set_fmt(struct v4l2_subdev *sd,
 	}
 
 	ope_proc_set_src_fmt(state, &fmt->format);
-	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE && ctx)
-		ctx->proc_mbus_code = fmt->format.code;
 
 	return 0;
 }
@@ -2548,14 +2548,18 @@ static int ope_disp_set_fmt(struct v4l2_subdev *sd,
 			    struct v4l2_subdev_state *state,
 			    struct v4l2_subdev_format *fmt)
 {
+	u32 requested_mbus_code = fmt->format.code;
 	struct v4l2_mbus_framefmt *pad_fmt;
 	unsigned int i;
 
-	for (i = 0; i < ARRAY_SIZE(ope_output_fmts); i++)
-		if (ope_output_fmts[i].mbus_code == fmt->format.code)
-			goto valid;
 	fmt->format.code = MEDIA_BUS_FMT_YUYV8_1_5X8;
-valid:
+	for (i = 0; i < ARRAY_SIZE(ope_output_fmts); i++) {
+		if (ope_output_fmts[i].mbus_code == requested_mbus_code) {
+			fmt->format.code = requested_mbus_code;
+			break;
+		}
+	}
+
 	v4l_bound_align_image(&fmt->format.width,  OPE_MIN_W, OPE_MAX_W, 0,
 			      &fmt->format.height, OPE_MIN_H, OPE_MAX_H, 0, 0);
 	fmt->format.field      = V4L2_FIELD_NONE;
@@ -2789,7 +2793,6 @@ static struct ope_ctx *ope_ctx_create(struct ope_dev *ope)
 	ctx->fmt_out.bytesperline = OPE_MIN_W;
 	ctx->fmt_out.sizeimage	  = (u64)ope_output_fmts[0].depth * OPE_MIN_W * OPE_MIN_H / 8;
 	ctx->fmt_out.colorspace	  = V4L2_COLORSPACE_SRGB;
-	ctx->proc_mbus_code	  = ope_output_fmts[0].mbus_code;
 
 	for (i = 0; i < OPE_QUEUE_COUNT; i++) {
 		INIT_LIST_HEAD(&ctx->queues[i].rdy_queue);
