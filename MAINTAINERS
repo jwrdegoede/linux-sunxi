@@ -23167,6 +23167,13 @@ L:	linux-pm@vger.kernel.org
 S:	Maintained
 F:	drivers/devfreq/scmi-qcom-memlat-devfreq.c
 
+QUALCOMM SPEL POWERCAP DRIVER
+M:	Manaf Meethalavalappu Pallikunhi <manaf.pallikunhi@oss.qualcomm.com>
+L:	linux-arm-msm@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/power/limits/power-limit-controller.yaml
+F:	Documentation/devicetree/bindings/power/limits/qcom,glymur-spel.yaml
+
 QUALCOMM SPMI CONTROLLER (PMIC ARBITER) DRIVER
 M:	Abel Vesa <abelvesa@kernel.org>
 M:	David Collins <david.collins@oss.qualcomm.com>
