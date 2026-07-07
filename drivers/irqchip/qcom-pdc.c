@@ -20,11 +20,17 @@
 #include <linux/spinlock.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/firmware/qcom/qcom_scm.h>
 
 #define PDC_MAX_IRQS			256
 #define IRQ_ENABLE_BANK_MAX		BITS_TO_BYTES(PDC_MAX_IRQS)
 #define IRQ_ENABLE_BANK_INDEX_MASK	GENMASK(31, 5)
 #define IRQ_ENABLE_BANK_BIT_MASK	GENMASK(4, 0)
+
+/* Secure DRV register to configure the PDC mode via qcom_scm_io_writel() */
+#define PDC_GPIO_INT_CTL_ENABLE		0xb2045e8
+#define PDC_PASS_THROUGH_MODE		0x0
+#define PDC_SECONDARY_MODE		0x1
 
 #define PDC_DRV_SIZE			0x10000
 #define PDC_VERSION_REG			0x1000
@@ -85,10 +91,14 @@ struct pdc_regs {
 /**
  * struct pdc_irq_cfg: bit fields for PDC IRQ_CFG register
  *
+ * @gpio_irq_sts:   bit number for GPIO_STATUS field
+ * @gpio_irq_mask:  bit number for GPIO_MASK field
  * @irq_enable:     bit number for IRQ_ENABLE field
  * @irq_type:       GENMASK for IRQ_TYPE field
  */
 struct pdc_irq_cfg {
+	u32 gpio_irq_sts;
+	u32 gpio_irq_mask;
 	u32 irq_enable;
 	u32 irq_type;
 };
@@ -102,11 +112,14 @@ struct pdc_irq_cfg {
  * @num_spis:       Total number of direct SPI interrupts
  * @region:         PDC interrupt continuous range
  * @region_cnt:     Total PDC ranges
+ * @mode:           PDC_PASS_THROUGH_MODE or PDC_SECONDARY_MODE
  * @x1e_quirk:      x1e H/W Bug handling
  * @lock:           lock for IRQ_ENABLE_BANK protection
  * @regs:           PDC regs (IRQ_ENABLE_BANK and IRQ_CFG)
  * @cfg_fields:     Fields of IRQ_CFG reg
  * @enable_intr:    pointer to enable function based on PDC version
+ * @unmask_gpio:    pointer to GPIO irq unmask function
+ * @clear_gpio:     pointer to GPIO irq clear function
  */
 struct pdc_desc {
 	void __iomem			*base;
@@ -119,12 +132,15 @@ struct pdc_desc {
 
 	bool				x1e_quirk;
 
+	u8				mode;
 	raw_spinlock_t			lock;
 
 	const struct pdc_regs		*regs;
 	const struct pdc_irq_cfg	*cfg_fields;
 
 	void (*enable_intr)(int pin_out, bool on);
+	void (*unmask_gpio)(int pin_out, bool on);
+	void (*clear_gpio)(int pin_out);
 };
 
 static const struct pdc_regs pdc_v3_2 = {
@@ -133,6 +149,8 @@ static const struct pdc_regs pdc_v3_2 = {
 };
 
 static const struct pdc_irq_cfg pdc_cfg_v3_2 = {
+	.gpio_irq_sts	= 5,
+	.gpio_irq_mask	= 4,
 	.irq_enable	= 3,
 	.irq_type	= GENMASK(2, 0),
 };
@@ -144,6 +162,8 @@ static const struct pdc_regs pdc_v3_0 = {
 };
 
 static const struct pdc_irq_cfg pdc_cfg_v3_0 = {
+	.gpio_irq_sts	= 4,
+	.gpio_irq_mask	= 3,
 	.irq_type	= GENMASK(2, 0),
 };
 
@@ -180,6 +200,15 @@ static void pdc_reg_write(int reg, u32 i, u32 val)
 static u32 pdc_reg_read(int reg, u32 i)
 {
 	return readl_relaxed(pdc->base + reg + i * sizeof(u32));
+}
+
+static inline bool pdc_pin_is_gpio(int pin_out)
+{
+	/*
+	 * PDC allocates direct SPIs at the beginning and
+	 * all GPIOs as SPIs are allocated after direct SPIs.
+	 */
+	return pin_out >= pdc->num_spis;
 }
 
 static void pdc_x1e_irq_enable_write(u32 bank, u32 enable)
@@ -229,12 +258,37 @@ static void pdc_enable_intr_bank(int pin_out, bool on)
 		pdc_reg_write(pdc->regs->irq_en_reg, index, enable);
 }
 
+static void pdc_clear_gpio_cfg(int pin_out)
+{
+	unsigned long gpio_sts;
+
+	gpio_sts = pdc_reg_read(pdc->regs->irq_cfg_reg, pin_out);
+	__clear_bit(pdc->cfg_fields->gpio_irq_sts, &gpio_sts);
+	pdc_reg_write(pdc->regs->irq_cfg_reg, pin_out, gpio_sts);
+}
+
+static void pdc_unmask_gpio_cfg(int pin_out, bool unmask)
+{
+	unsigned long gpio_mask;
+
+	gpio_mask = pdc_reg_read(pdc->regs->irq_cfg_reg, pin_out);
+	__assign_bit(pdc->cfg_fields->gpio_irq_mask, &gpio_mask, !unmask);
+	pdc_reg_write(pdc->regs->irq_cfg_reg, pin_out, gpio_mask);
+}
+
 static void pdc_enable_intr_cfg(int pin_out, bool on)
 {
 	unsigned long enable = pdc_reg_read(pdc->regs->irq_cfg_reg, pin_out);
 
 	__assign_bit(pdc->cfg_fields->irq_enable, &enable, on);
 	pdc_reg_write(pdc->regs->irq_cfg_reg, pin_out, enable);
+}
+
+static void qcom_pdc_gic_secondary_disable(struct irq_data *d)
+{
+	pdc->enable_intr(d->hwirq, false);
+	pdc->unmask_gpio(d->hwirq, false);
+	irq_chip_disable_parent(d);
 }
 
 static void qcom_pdc_gic_disable(struct irq_data *d)
@@ -247,6 +301,41 @@ static void qcom_pdc_gic_enable(struct irq_data *d)
 {
 	pdc->enable_intr(d->hwirq, true);
 	irq_chip_enable_parent(d);
+}
+
+static void qcom_pdc_gic_secondary_enable(struct irq_data *d)
+{
+	pdc->enable_intr(d->hwirq, true);
+	pdc->unmask_gpio(d->hwirq, true);
+	irq_chip_enable_parent(d);
+}
+
+static void qcom_pdc_secondary_ack(struct irq_data *d)
+{
+	if (!irqd_is_level_type(d))
+		pdc->clear_gpio(d->hwirq);
+}
+
+static void qcom_pdc_gic_secondary_eoi(struct irq_data *d)
+{
+	if (irqd_is_level_type(d))
+		pdc->clear_gpio(d->hwirq);
+
+	irq_chip_eoi_parent(d);
+}
+
+static void qcom_pdc_secondary_mask(struct irq_data *d)
+{
+	pdc->enable_intr(d->hwirq, false);
+	pdc->unmask_gpio(d->hwirq, false);
+	irq_chip_mask_parent(d);
+}
+
+static void qcom_pdc_secondary_unmask(struct irq_data *d)
+{
+	pdc->enable_intr(d->hwirq, true);
+	pdc->unmask_gpio(d->hwirq, true);
+	irq_chip_unmask_parent(d);
 }
 
 /*
@@ -275,18 +364,18 @@ enum pdc_irq_config_bits {
 /**
  * qcom_pdc_gic_set_type: Configure PDC for the interrupt
  *
- * @d: the interrupt data
+ * @d:    the interrupt data
  * @type: the interrupt type
  *
- * If @type is edge triggered, forward that as Rising edge as PDC
- * takes care of converting falling edge to rising edge signal
+ * If @type is edge triggered, forward that as rising edge as PDC
+ * takes care of converting all edge types to rising edge signal
  * If @type is level, then forward that as level high as PDC
- * takes care of converting falling edge to rising edge signal
+ * takes care of converting all level types to level high signal
  */
 static int qcom_pdc_gic_set_type(struct irq_data *d, unsigned int type)
 {
-	enum pdc_irq_config_bits pdc_type;
 	enum pdc_irq_config_bits old_pdc_type;
+	enum pdc_irq_config_bits pdc_type;
 	int ret;
 
 	switch (type) {
@@ -336,6 +425,72 @@ static int qcom_pdc_gic_set_type(struct irq_data *d, unsigned int type)
 	return 0;
 }
 
+/**
+ * qcom_pdc_gic_set_type: Configure PDC for the interrupt
+ *
+ * @d:    the interrupt data
+ * @type: the interrupt type
+ *
+ * All @type are forwarded as level high type to parent GIC
+ */
+static int qcom_pdc_gic_secondary_set_type(struct irq_data *d, unsigned int type)
+{
+	enum pdc_irq_config_bits old_pdc_type;
+	enum pdc_irq_config_bits pdc_type;
+	int ret;
+
+	switch (type) {
+	case IRQ_TYPE_EDGE_RISING:
+		pdc_type = PDC_EDGE_RISING;
+		break;
+	case IRQ_TYPE_EDGE_FALLING:
+		pdc_type = PDC_EDGE_FALLING;
+		break;
+	case IRQ_TYPE_EDGE_BOTH:
+		pdc_type = PDC_EDGE_DUAL;
+		break;
+	case IRQ_TYPE_LEVEL_HIGH:
+		pdc_type = PDC_LEVEL_HIGH;
+		break;
+	case IRQ_TYPE_LEVEL_LOW:
+		pdc_type = PDC_LEVEL_LOW;
+		break;
+	default:
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
+	old_pdc_type = pdc_reg_read(pdc->regs->irq_cfg_reg, d->hwirq);
+	pdc_type |= (old_pdc_type & ~pdc->cfg_fields->irq_type);
+	pdc_reg_write(pdc->regs->irq_cfg_reg, d->hwirq, pdc_type);
+
+	/*
+	 * PDC forwards GPIOs as level high to GIC in secondary
+	 * mode. Update the type and clear any previously latched
+	 * phantom interrupt at PDC.
+	 */
+	type = IRQ_TYPE_LEVEL_HIGH;
+	pdc->clear_gpio(d->hwirq);
+
+	ret = irq_chip_set_type_parent(d, type);
+	if (ret)
+		return ret;
+
+	/*
+	 * When we change types the PDC can give a phantom interrupt.
+	 * Clear it.  Specifically the phantom shows up when reconfiguring
+	 * polarity of interrupt without changing the state of the signal
+	 * but let's be consistent and clear it always.
+	 *
+	 * Doing this works because we have IRQCHIP_SET_TYPE_MASKED so the
+	 * interrupt will be cleared before the rest of the system sees it.
+	 */
+	if (old_pdc_type != pdc_type)
+		irq_chip_set_parent_state(d, IRQCHIP_STATE_PENDING, false);
+
+	return 0;
+}
+
 static struct irq_chip qcom_pdc_gic_chip = {
 	.name			= "PDC",
 	.irq_eoi		= irq_chip_eoi_parent,
@@ -347,6 +502,26 @@ static struct irq_chip qcom_pdc_gic_chip = {
 	.irq_set_irqchip_state	= irq_chip_set_parent_state,
 	.irq_retrigger		= irq_chip_retrigger_hierarchy,
 	.irq_set_type		= qcom_pdc_gic_set_type,
+	.flags			= IRQCHIP_MASK_ON_SUSPEND |
+				  IRQCHIP_SET_TYPE_MASKED |
+				  IRQCHIP_SKIP_SET_WAKE |
+				  IRQCHIP_ENABLE_WAKEUP_ON_SUSPEND,
+	.irq_set_vcpu_affinity	= irq_chip_set_vcpu_affinity_parent,
+	.irq_set_affinity	= irq_chip_set_affinity_parent,
+};
+
+static struct irq_chip qcom_pdc_gic_secondary_chip = {
+	.name			= "PDC",
+	.irq_ack		= qcom_pdc_secondary_ack,
+	.irq_eoi		= qcom_pdc_gic_secondary_eoi,
+	.irq_mask		= qcom_pdc_secondary_mask,
+	.irq_unmask		= qcom_pdc_secondary_unmask,
+	.irq_disable		= qcom_pdc_gic_secondary_disable,
+	.irq_enable		= qcom_pdc_gic_secondary_enable,
+	.irq_get_irqchip_state	= irq_chip_get_parent_state,
+	.irq_set_irqchip_state	= irq_chip_set_parent_state,
+	.irq_retrigger		= irq_chip_retrigger_hierarchy,
+	.irq_set_type		= qcom_pdc_gic_secondary_set_type,
 	.flags			= IRQCHIP_MASK_ON_SUSPEND |
 				  IRQCHIP_SET_TYPE_MASKED |
 				  IRQCHIP_SKIP_SET_WAKE |
@@ -388,15 +563,37 @@ static int qcom_pdc_alloc(struct irq_domain *domain, unsigned int virq,
 	if (ret)
 		return ret;
 
+	/*
+	 * PDC secondary chip is only set for the GPIO interrupts as SPIs.
+	 * Direct SPI interrupts are still in pass through mode (no latching
+	 * at PDC).
+	 */
+	if (pdc->mode == PDC_SECONDARY_MODE && pdc_pin_is_gpio(hwirq)) {
+		ret = irq_domain_set_hwirq_and_chip(domain, virq, hwirq,
+						    &qcom_pdc_gic_secondary_chip,
+						    NULL);
+		if (ret)
+			return ret;
+
+		/* Secondary mode converts all interrupts to LEVEL HIGH type */
+		type = IRQ_TYPE_LEVEL_HIGH;
+	} else {
+		ret = irq_domain_set_hwirq_and_chip(domain, virq, hwirq,
+						    &qcom_pdc_gic_chip,
+						    NULL);
+		if (ret)
+			return ret;
+
+		if (type & IRQ_TYPE_EDGE_BOTH)
+			type = IRQ_TYPE_EDGE_RISING;
+
+		if (type & IRQ_TYPE_LEVEL_MASK)
+			type = IRQ_TYPE_LEVEL_HIGH;
+	}
+
 	region = get_pin_region(hwirq);
 	if (!region)
 		return irq_domain_disconnect_hierarchy(domain->parent, virq);
-
-	if (type & IRQ_TYPE_EDGE_BOTH)
-		type = IRQ_TYPE_EDGE_RISING;
-
-	if (type & IRQ_TYPE_LEVEL_MASK)
-		type = IRQ_TYPE_LEVEL_HIGH;
 
 	parent_fwspec.fwnode      = domain->parent->fwnode;
 	parent_fwspec.param_count = 3;
@@ -443,8 +640,13 @@ static int pdc_setup_pin_mapping(struct device *dev)
 		if (ret)
 			return ret;
 
-		for (int i = 0; i < pdc->region[n].cnt; i++)
-			pdc->enable_intr(i + pdc->region[n].pin_base, 0);
+		for (int i = 0; i < pdc->region[n].cnt; i++) {
+			if (pdc_pin_is_gpio(i + pdc->region[n].pin_base) &&
+			    pdc->mode == PDC_SECONDARY_MODE)
+				pdc->clear_gpio(i + pdc->region[n].pin_base);
+
+			pdc->enable_intr(i + pdc->region[n].pin_base, false);
+		}
 	}
 
 	return 0;
@@ -495,6 +697,8 @@ static int qcom_pdc_probe(struct platform_device *pdev, struct device_node *pare
 		pdc->enable_intr = pdc_enable_intr_bank;
 	}
 
+	pdc->mode = PDC_PASS_THROUGH_MODE;
+
 	/*
 	 * PDC has multiple DRV regions, each one provides the same set of
 	 * registers for a particular client in the system. Due to a hardware
@@ -512,6 +716,16 @@ static int qcom_pdc_probe(struct platform_device *pdev, struct device_node *pare
 		}
 
 		pdc->x1e_quirk = true;
+
+		if (!qcom_scm_is_available())
+			return -EPROBE_DEFER;
+
+		ret = qcom_scm_io_writel(PDC_GPIO_INT_CTL_ENABLE, PDC_PASS_THROUGH_MODE);
+		if (ret) {
+			pdc->mode = PDC_SECONDARY_MODE;
+			pdc->unmask_gpio = pdc_unmask_gpio_cfg;
+			pdc->clear_gpio = pdc_clear_gpio_cfg;
+		}
 	}
 
 	irq_param = pdc_reg_read(pdc->regs->irq_param_reg, 0);
