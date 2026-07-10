@@ -7,3 +7,21 @@ config VIDEO_QCOM_CAMSS
 	select VIDEO_V4L2_SUBDEV_API
 	select VIDEOBUF2_DMA_SG
 	select V4L2_FWNODE
+
+config VIDEO_QCOM_CAMSS_OPE
+	tristate "Qualcomm Offline Processing Engine (OPE) driver"
+	depends on VIDEO_QCOM_CAMSS
+	depends on V4L_PLATFORM_DRIVERS
+	depends on VIDEO_DEV
+	depends on (ARCH_QCOM && IOMMU_DMA) || COMPILE_TEST
+	select V4L2_ISP
+	select VIDEOBUF2_DMA_CONTIG
+	select VIDEOBUF2_VMALLOC
+	help
+	  Enable support for the Qualcomm Offline Processing Engine (OPE).
+	  OPE is a memory-to-memory ISP block that converts raw Bayer frames
+	  to YUV, performing white balance, demosaic, chroma enhancement and
+	  downscaling. Found on QCM2290 and related SoCs.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called qcom-camss-ope.
