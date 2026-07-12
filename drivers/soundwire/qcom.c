@@ -176,6 +176,7 @@ struct qcom_swrm_port_config {
 	u8 word_length;
 	u8 blk_group_count;
 	u8 lane_control;
+	u8 ch_mask;
 };
 
 /*
@@ -1299,10 +1300,24 @@ static int qcom_swrm_port_enable(struct sdw_bus *bus,
 
 	qcom_swrm_port_reg_read(ctrl, enable_ch->port_num, reg, &val);
 
-	if (enable_ch->enable)
-		val |= (enable_ch->ch_mask << SWRM_DP_PORT_CTRL_EN_CHAN_SHFT);
-	else
+	if (enable_ch->enable) {
+		u8 ch_mask = ctrl->pconfig[enable_ch->port_num].ch_mask;
+
+		/*
+		 * Prefer the per-port ch_mask from DT (qcom,ports-ch-mask) when
+		 * present.  The SDCA stream setup path arrives here with
+		 * enable_ch->ch_mask reflecting stream-level ch_count, which
+		 * for a mono PCM opening a stereo port only enables channel 0
+		 * on the wire.  The DT value describes the port's intrinsic
+		 * channel layout (e.g. 0x3 for a 2-channel stereo port) so both
+		 * slots are transmitted regardless of PCM channel count.
+		 */
+		if (ch_mask == SWR_INVALID_PARAM)
+			ch_mask = enable_ch->ch_mask;
+		val |= (ch_mask << SWRM_DP_PORT_CTRL_EN_CHAN_SHFT);
+	} else {
 		val &= ~(0xff << SWRM_DP_PORT_CTRL_EN_CHAN_SHFT);
+	}
 
 	return qcom_swrm_port_reg_write(ctrl, enable_ch->port_num, reg, val);
 }
@@ -1673,6 +1688,7 @@ static int qcom_swrm_get_port_config(struct qcom_swrm_ctrl *ctrl)
 		pcfg->word_length = SWR_INVALID_PARAM;
 		pcfg->blk_group_count = SWR_INVALID_PARAM;
 		pcfg->lane_control = SWR_INVALID_PARAM;
+		pcfg->ch_mask = SWR_INVALID_PARAM;
 
 		of_property_read_u8_index(np, "qcom,ports-hstart", i, &pcfg->hstart);
 
@@ -1684,6 +1700,8 @@ static int qcom_swrm_get_port_config(struct qcom_swrm_ctrl *ctrl)
 					i, &pcfg->blk_group_count);
 
 		of_property_read_u8_index(np, "qcom,ports-lane-control", i, &pcfg->lane_control);
+
+		of_property_read_u8_index(np, "qcom,ports-ch-mask", i, &pcfg->ch_mask);
 	}
 
 	return 0;
