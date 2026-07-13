@@ -161,12 +161,18 @@ static const struct drm_dmi_panel_orientation_data lcd1600x2560_rightside_up = {
 };
 
 static const struct dmi_system_id orientation_data[] = {
-	{	/* Acer One 10 (S1003) */
+	{	/* Acer One 10 (S1003) (HD) */
 		.matches = {
 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Acer"),
 		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "One S1003"),
 		},
 		.driver_data = (void *)&lcd800x1280_rightside_up,
+	}, {	/* Acer One 10 (S1003) (FHD) */
+		.matches = {
+		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Acer"),
+		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "One S1003"),
+		},
+		.driver_data = (void *)&lcd1200x1920_rightside_up,
 	}, {	/* Acer Switch V 10 (SW5-017) */
 		.matches = {
 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Acer"),
