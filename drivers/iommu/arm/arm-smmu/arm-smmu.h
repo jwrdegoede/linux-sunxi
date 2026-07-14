@@ -359,6 +359,7 @@ struct arm_smmu_cfg {
 	enum arm_smmu_cbar_type		cbar;
 	enum arm_smmu_context_fmt	fmt;
 	bool				flush_walk_prefer_tlbiasid;
+	bool				force_min_tlbival_granule;
 };
 #define ARM_SMMU_INVALID_IRPTNDX	0xff
 

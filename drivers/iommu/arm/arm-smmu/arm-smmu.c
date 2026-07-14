@@ -286,6 +286,16 @@ static void arm_smmu_tlb_inv_range_s1(unsigned long iova, size_t size,
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	int idx = cfg->cbndx;
 
+	/*
+	 * Override the step granule with the minimum supported page size.
+	 * Placed here (rather than in tlb_add_page alone) to cover both
+	 * TLBIVAL and TLBIVA paths.
+	 */
+	if (cfg->force_min_tlbival_granule) {
+		WARN_ON_ONCE(!smmu_domain->domain.pgsize_bitmap);
+		granule = 1UL << __ffs(smmu_domain->domain.pgsize_bitmap);
+	}
+
 	if (smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
 		wmb();
 
