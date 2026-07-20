@@ -13,6 +13,7 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
 #include <linux/reset.h>
 
@@ -44,6 +45,7 @@ struct msm_mdss {
 	struct icc_path *mdp_path[2];
 	u32 num_mdp_paths;
 	struct icc_path *reg_bus_path;
+	struct dev_pm_domain_list *pd_list;
 };
 
 static int msm_mdss_parse_data_bus_icc_path(struct device *dev,
@@ -249,6 +251,21 @@ static int msm_mdss_enable(struct msm_mdss *msm_mdss)
 	u32 hw_rev;
 
 	/*
+	 * Platforms with two power domains (e.g. Kaanapali, Glymur) need both
+	 * GDSCs enabled explicitly; the core framework only auto-attaches a
+	 * single power domain.
+	 */
+	if (msm_mdss->pd_list) {
+		ret = pm_runtime_resume_and_get(msm_mdss->pd_list->pd_devs[0]);
+		if (ret < 0)
+			return ret;
+
+		ret = pm_runtime_resume_and_get(msm_mdss->pd_list->pd_devs[1]);
+		if (ret < 0)
+			goto err_put_core;
+	}
+
+	/*
 	 * Several components have AXI clocks that can only be turned on if
 	 * the interconnect is enabled (non-zero bandwidth). Let's make sure
 	 * that the interconnects are at least at a minimum amount.
@@ -270,7 +287,7 @@ static int msm_mdss_enable(struct msm_mdss *msm_mdss)
 	ret = clk_bulk_prepare_enable(msm_mdss->num_clocks, msm_mdss->clocks);
 	if (ret) {
 		dev_err(msm_mdss->dev, "clock enable failed, ret:%d\n", ret);
-		return ret;
+		goto err_put_int2;
 	}
 
 	/*
@@ -291,6 +308,14 @@ static int msm_mdss_enable(struct msm_mdss *msm_mdss)
 	/* else UBWC 1.0 or none, no params to program */
 
 	return ret;
+
+err_put_int2:
+	if (msm_mdss->pd_list)
+		pm_runtime_put_sync(msm_mdss->pd_list->pd_devs[1]);
+err_put_core:
+	if (msm_mdss->pd_list)
+		pm_runtime_put_sync(msm_mdss->pd_list->pd_devs[0]);
+	return ret;
 }
 
 static int msm_mdss_disable(struct msm_mdss *msm_mdss)
@@ -304,6 +329,11 @@ static int msm_mdss_disable(struct msm_mdss *msm_mdss)
 
 	if (msm_mdss->reg_bus_path)
 		icc_set_bw(msm_mdss->reg_bus_path, 0, 0);
+
+	if (msm_mdss->pd_list) {
+		pm_runtime_put_sync(msm_mdss->pd_list->pd_devs[1]);
+		pm_runtime_put_sync(msm_mdss->pd_list->pd_devs[0]);
+	}
 
 	return 0;
 }
@@ -435,6 +465,27 @@ static struct msm_mdss *msm_mdss_init(struct platform_device *pdev, bool is_mdp5
 
 	irq_set_chained_handler_and_data(irq, msm_mdss_irq,
 					 msm_mdss);
+
+	/*
+	 * When two power domains are listed in DT, the core framework does not
+	 * auto-attach either of them.  Attach and manage both explicitly so
+	 * that INT2_GDSC (needed for VIG2/VIG3) is enabled alongside the main
+	 * CORE_GDSC.  Single-domain platforms are unaffected.
+	 */
+	if (of_count_phandle_with_args(pdev->dev.of_node, "power-domains",
+				       "#power-domain-cells") > 1) {
+		static const char * const mdss_pd_names[] = { "core", "int2" };
+		static const struct dev_pm_domain_attach_data pd_data = {
+			.pd_names = mdss_pd_names,
+			.num_pd_names = ARRAY_SIZE(mdss_pd_names),
+			.pd_flags = PD_FLAG_NO_DEV_LINK,
+		};
+
+		ret = devm_pm_domain_attach_list(&pdev->dev, &pd_data,
+						 &msm_mdss->pd_list);
+		if (ret < 0)
+			return ERR_PTR(ret);
+	}
 
 	pm_runtime_enable(&pdev->dev);
 
