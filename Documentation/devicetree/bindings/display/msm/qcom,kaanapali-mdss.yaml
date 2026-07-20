@@ -40,6 +40,16 @@ properties:
       - const: mdp0-mem
       - const: cpu-cfg
 
+  power-domains:
+    items:
+      - description: MDSS core GDSC power domain
+      - description: MDSS INT2 GDSC power domain
+
+  power-domain-names:
+    items:
+      - const: core
+      - const: int2
+
 patternProperties:
   "^display-controller@[0-9a-f]+$":
     type: object
@@ -89,7 +99,8 @@ examples:
                  <&disp_cc_mdss_ahb_swi_clk>;
         resets = <&disp_cc_mdss_core_bcr>;
 
-        power-domains = <&mdss_gdsc>;
+        power-domains = <&mdss_gdsc>, <&mdss_int2_gdsc>;
+        power-domain-names = "core", "int2";
 
         iommus = <&apps_smmu 0x800 0x2>;
 

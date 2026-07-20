@@ -31,7 +31,8 @@ properties:
     const: mdss
 
   power-domains:
-    maxItems: 1
+    minItems: 1
+    maxItems: 2
 
   clocks:
     minItems: 2
