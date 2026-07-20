@@ -3636,7 +3636,9 @@
 			interconnect-names = "mdp0-mem",
 					     "cpu-cfg";
 
-			power-domains = <&dispcc DISP_CC_MDSS_CORE_GDSC>;
+			power-domains = <&dispcc DISP_CC_MDSS_CORE_GDSC>,
+					<&dispcc DISP_CC_MDSS_CORE_INT2_GDSC>;
+			power-domain-names = "core", "int2";
 
 			iommus = <&apps_smmu 0x800 0x2>;
 
