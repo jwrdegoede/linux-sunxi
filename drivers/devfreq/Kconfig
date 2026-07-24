@@ -169,6 +169,21 @@ config ARM_SUN8I_A33_MBUS_DEVFREQ
 	  This adds the DEVFREQ driver for the MBUS controller in some
 	  Allwinner sun8i (A33 through H3) and sun50i (A64 and H5) SoCs.
 
+config SCMI_QCOM_MEMLAT_DEVFREQ
+	tristate "Qualcomm SCMI memory latency (memlat) devfreq driver"
+	depends on QCOM_SCMI_GENERIC_EXT || COMPILE_TEST
+	select DEVFREQ_GOV_REMOTE
+	help
+	  Enable memory-bus (DDR/LLCC/DDR_QOS) scaling on Qualcomm Glymur,
+	  X1E/X1P-class and Kaanapali SoCs. The scaling algorithm itself runs
+	  autonomously on the CPU Control Processor (CPUCP); this driver only
+	  configures and starts it at boot and then exposes each bus as a
+	  devfreq device so its operating point is visible via trans_stat and
+	  tunable from userspace.
+
+	  Nothing else needs to be enabled for the scaling to take effect. Say Y
+	  or M here on the affected Qualcomm SoCs; otherwise say N.
+
 source "drivers/devfreq/event/Kconfig"
 
 endif # PM_DEVFREQ

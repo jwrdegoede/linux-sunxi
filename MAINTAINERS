@@ -23159,6 +23159,14 @@ F:	Documentation/networking/device_drivers/cellular/qualcomm/rmnet.rst
 F:	drivers/net/ethernet/qualcomm/rmnet/
 F:	include/linux/if_rmnet.h
 
+QUALCOMM SCMI MEMLAT DEVFREQ DRIVER
+M:	Pragnesh Papaniya <pragnesh.papaniya@oss.qualcomm.com>
+M:	Sibi Sankar <sibi.sankar@oss.qualcomm.com>
+L:	linux-arm-msm@vger.kernel.org
+L:	linux-pm@vger.kernel.org
+S:	Maintained
+F:	drivers/devfreq/scmi-qcom-memlat-devfreq.c
+
 QUALCOMM SPMI CONTROLLER (PMIC ARBITER) DRIVER
 M:	Abel Vesa <abelvesa@kernel.org>
 M:	David Collins <david.collins@oss.qualcomm.com>
