@@ -495,6 +495,10 @@ static const struct of_device_id iris_dt_match[] = {
 		.data = &milos_data,
 	},
 	{
+		.compatible = "qcom,glymur-iris",
+		.data = &glymur_data,
+	},
+	{
 		.compatible = "qcom,qcs8300-iris",
 		.data = &qcs8300_data,
 	},
