@@ -494,6 +494,10 @@ static const struct dev_pm_ops iris_pm_ops = {
 
 static const struct of_device_id iris_dt_match[] = {
 	{
+		.compatible = "qcom,glymur-iris",
+		.data = &glymur_data,
+	},
+	{
 		.compatible = "qcom,qcs8300-iris",
 		.data = &qcs8300_data,
 	},
