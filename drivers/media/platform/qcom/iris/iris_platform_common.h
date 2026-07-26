@@ -61,26 +61,6 @@ extern const struct iris_platform_data sm8650_data;
 extern const struct iris_platform_data sm8750_data;
 extern const struct iris_platform_data x1p42100_data;
 
-enum platform_clk_type {
-	IRIS_AXI_CLK, /* AXI0 in case of platforms with multiple AXI clocks */
-	IRIS_CTRL_CLK,
-	IRIS_AHB_CLK,
-	IRIS_HW_CLK,
-	IRIS_HW_AHB_CLK,
-	IRIS_AXI1_CLK,
-	IRIS_CTRL_FREERUN_CLK,
-	IRIS_HW_FREERUN_CLK,
-	IRIS_BSE_HW_CLK,
-	IRIS_VPP0_HW_CLK,
-	IRIS_VPP1_HW_CLK,
-	IRIS_APV_HW_CLK,
-};
-
-struct platform_clk_data {
-	enum platform_clk_type clk_type;
-	const char *clk_name;
-};
-
 struct tz_cp_config {
 	u32 cp_start;
 	u32 cp_size;
@@ -228,12 +208,11 @@ struct icc_vote_data {
 	u32 fps;
 };
 
-enum platform_pm_domain_type {
-	IRIS_CTRL_POWER_DOMAIN,
-	IRIS_HW_POWER_DOMAIN,
-	IRIS_VPP0_HW_POWER_DOMAIN,
-	IRIS_VPP1_HW_POWER_DOMAIN,
-	IRIS_APV_HW_POWER_DOMAIN,
+struct iris_power_domain_data {
+	const char * const *pd_names;
+	unsigned int pd_cnt;
+	const char * const *clk_names;
+	unsigned int clk_cnt;
 };
 
 struct iris_firmware_data {
@@ -300,13 +279,14 @@ struct iris_platform_data {
 	unsigned int icc_tbl_size;
 	const struct bw_info *bw_tbl_dec;
 	unsigned int bw_tbl_dec_size;
-	const char * const *pmdomain_tbl;
-	unsigned int pmdomain_tbl_size;
+	const struct iris_power_domain_data *ctrl_data;
+	const struct iris_power_domain_data *vcodec_data;
+	const struct iris_power_domain_data *vcodec_vpp0_data;
+	const struct iris_power_domain_data *vcodec_vpp1_data;
+	const struct iris_power_domain_data *apv_data;
 	const char * const *opp_pd_tbl;
 	unsigned int opp_pd_tbl_size;
-	const struct platform_clk_data *clk_tbl;
 	const char * const *opp_clk_tbl;
-	unsigned int clk_tbl_size;
 	const char * const *clk_rst_tbl;
 	unsigned int clk_rst_tbl_size;
 	const char * const *controller_rst_tbl;
@@ -320,6 +300,7 @@ struct iris_platform_data {
 	u32 num_vpp_pipe;
 	bool no_aon;
 	u32 max_session_count;
+	u32 num_cores;
 	/* max number of macroblocks per frame supported */
 	u32 max_core_mbpf;
 	/* max number of macroblocks per second supported */

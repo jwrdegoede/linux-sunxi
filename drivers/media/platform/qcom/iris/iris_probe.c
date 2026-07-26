@@ -40,15 +40,42 @@ static int iris_init_icc(struct iris_core *core)
 	return devm_of_icc_bulk_get(core->dev, core->icc_count, core->icc_tbl);
 }
 
+static int iris_init_power_domains_per_block(struct iris_core *core,
+					     struct iris_power_domain *pd,
+					     const struct iris_power_domain_data *pd_data)
+{
+	struct dev_pm_domain_attach_data iris_pd_data = {};
+	struct dev_pm_domain_list *pmdomain_tbl;
+	int ret, i;
+
+	if (!pd_data->pd_cnt)
+		return -EINVAL;
+
+	iris_pd_data.pd_names = pd_data->pd_names;
+	iris_pd_data.num_pd_names = pd_data->pd_cnt;
+	iris_pd_data.pd_flags = PD_FLAG_NO_DEV_LINK;
+
+	ret = devm_pm_domain_attach_list(core->dev, &iris_pd_data, &pmdomain_tbl);
+	if (ret < 0)
+		return ret;
+
+	pd->pd_cnt = ret;
+
+	pd->dev = devm_kzalloc(core->dev, pd->pd_cnt * sizeof(*pd->dev), GFP_KERNEL);
+	if (!pd->dev)
+		return -ENOMEM;
+
+	for (i = 0; i < pd->pd_cnt; i++)
+		pd->dev[i] = pmdomain_tbl->pd_devs[i];
+
+	return 0;
+}
+
 static int iris_init_power_domains(struct iris_core *core)
 {
-	int ret;
-
-	struct dev_pm_domain_attach_data iris_pd_data = {
-		.pd_names = core->iris_platform_data->pmdomain_tbl,
-		.num_pd_names = core->iris_platform_data->pmdomain_tbl_size,
-		.pd_flags = PD_FLAG_NO_DEV_LINK,
-	};
+	const struct iris_platform_data *plat = core->iris_platform_data;
+	unsigned int num_cores = max(plat->num_cores, 1);
+	int i, ret;
 
 	struct dev_pm_domain_attach_data iris_opp_pd_data = {
 		.pd_names = core->iris_platform_data->opp_pd_tbl,
@@ -61,9 +88,56 @@ static int iris_init_power_domains(struct iris_core *core)
 		.config_clks = dev_pm_opp_config_clks_simple,
 	};
 
-	ret = devm_pm_domain_attach_list(core->dev, &iris_pd_data, &core->pmdomain_tbl);
-	if (ret < 0)
+	core->ctrl = devm_kzalloc(core->dev, sizeof(*core->ctrl), GFP_KERNEL);
+	if (!core->ctrl)
+		return -ENOMEM;
+
+	ret = iris_init_power_domains_per_block(core, core->ctrl, plat->ctrl_data);
+	if (ret)
 		return ret;
+
+	core->vcodec = devm_kzalloc(core->dev, num_cores * sizeof(*core->vcodec), GFP_KERNEL);
+	if (!core->vcodec)
+		return -ENOMEM;
+
+	for (i = 0; i < num_cores; i++) {
+		ret = iris_init_power_domains_per_block(core, &core->vcodec[i],
+							&plat->vcodec_data[i]);
+		if (ret)
+			return ret;
+	}
+
+	if (plat->vcodec_vpp0_data) {
+		core->vcodec_vpp0 = devm_kzalloc(core->dev, sizeof(*core->vcodec_vpp0), GFP_KERNEL);
+		if (!core->vcodec_vpp0)
+			return -ENOMEM;
+
+		ret = iris_init_power_domains_per_block(core, core->vcodec_vpp0,
+							plat->vcodec_vpp0_data);
+		if (ret)
+			return ret;
+	}
+
+	if (plat->vcodec_vpp1_data) {
+		core->vcodec_vpp1 = devm_kzalloc(core->dev, sizeof(*core->vcodec_vpp1), GFP_KERNEL);
+		if (!core->vcodec_vpp1)
+			return -ENOMEM;
+
+		ret = iris_init_power_domains_per_block(core, core->vcodec_vpp1,
+							plat->vcodec_vpp1_data);
+		if (ret)
+			return ret;
+	}
+
+	if (plat->apv_data) {
+		core->apv = devm_kzalloc(core->dev, sizeof(*core->apv), GFP_KERNEL);
+		if (!core->apv)
+			return -ENOMEM;
+
+		ret = iris_init_power_domains_per_block(core, core->apv, plat->apv_data);
+		if (ret)
+			return ret;
+	}
 
 	ret =  devm_pm_domain_attach_list(core->dev, &iris_opp_pd_data, &core->opp_pmdomain_tbl);
 	/* backwards compatibility for incomplete ABI SM8250 */
@@ -83,17 +157,51 @@ static int iris_init_power_domains(struct iris_core *core)
 	return devm_pm_opp_of_add_table(core->dev);
 }
 
+static int iris_init_clocks_per_block(struct iris_core *core, struct iris_power_domain *pd,
+				      const struct iris_power_domain_data *pd_data)
+{
+	unsigned int i;
+
+	if (!pd_data)
+		return 0;
+
+	pd->clk_cnt = pd_data->clk_cnt;
+	pd->clocks = devm_kcalloc(core->dev, pd->clk_cnt, sizeof(*pd->clocks), GFP_KERNEL);
+	if (!pd->clocks)
+		return -ENOMEM;
+
+	for (i = 0; i < pd->clk_cnt; i++)
+		pd->clocks[i].id = pd_data->clk_names[i];
+
+	return devm_clk_bulk_get(core->dev, pd->clk_cnt, pd->clocks);
+}
+
 static int iris_init_clocks(struct iris_core *core)
 {
+	const struct iris_platform_data *plat = core->iris_platform_data;
+	unsigned int num_cores = max(plat->num_cores, 1);
+	unsigned int i;
 	int ret;
 
-	ret = devm_clk_bulk_get_all(core->dev, &core->clock_tbl);
-	if (ret < 0)
+	ret = iris_init_clocks_per_block(core, core->ctrl, plat->ctrl_data);
+	if (ret)
 		return ret;
 
-	core->clk_count = ret;
+	for (i = 0; i < num_cores; i++) {
+		ret = iris_init_clocks_per_block(core, &core->vcodec[i], &plat->vcodec_data[i]);
+		if (ret)
+			return ret;
+	}
 
-	return 0;
+	ret = iris_init_clocks_per_block(core, core->vcodec_vpp0, plat->vcodec_vpp0_data);
+	if (ret)
+		return ret;
+
+	ret = iris_init_clocks_per_block(core, core->vcodec_vpp1, plat->vcodec_vpp1_data);
+	if (ret)
+		return ret;
+
+	return iris_init_clocks_per_block(core, core->apv, plat->apv_data);
 }
 
 static int iris_init_reset_table(struct iris_core *core,
