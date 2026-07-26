@@ -16,6 +16,13 @@
 #include "iris_resources.h"
 #include "iris_state.h"
 
+struct iris_power_domain {
+	struct device		**dev;
+	unsigned int		pd_cnt;
+	struct clk_bulk_data	*clocks;
+	unsigned int		clk_cnt;
+};
+
 struct icc_info {
 	const char		*name;
 	u32			bw_min_kbps;
@@ -51,10 +58,12 @@ struct qcom_ubwc_cfg_data;
  * @iris_vb2_ops: iris vb2 ops
  * @icc_tbl: table of iris interconnects
  * @icc_count: count of iris interconnects
- * @pmdomain_tbl: table of iris power domains
+ * @ctrl: power domain and clocks for the controller
+ * @vcodec: power domain and clocks for the vcodec
+ * @vcodec_vpp0: power domain and clocks for the vcodec VPP0
+ * @vcodec_vpp1: power domain and clocks for the vcodec VPP1
+ * @apv: power domain and clocks for the APV hardware block
  * @opp_pmdomain_tbl: table of opp power domains
- * @clock_tbl: table of iris clocks
- * @clk_count: count of iris clocks
  * @resets: table of iris reset clocks
  * @controller_resets: table of controller reset clocks
  * @iris_platform_data: a structure for platform data
@@ -100,10 +109,12 @@ struct iris_core {
 	const struct vb2_ops			*iris_vb2_ops;
 	struct icc_bulk_data			*icc_tbl;
 	u32					icc_count;
-	struct dev_pm_domain_list		*pmdomain_tbl;
+	struct iris_power_domain		*ctrl;
+	struct iris_power_domain		*vcodec;
+	struct iris_power_domain		*vcodec_vpp0;
+	struct iris_power_domain		*vcodec_vpp1;
+	struct iris_power_domain		*apv;
 	struct dev_pm_domain_list		*opp_pmdomain_tbl;
-	struct clk_bulk_data			*clock_tbl;
-	u32					clk_count;
 	struct reset_control_bulk_data		*resets;
 	struct reset_control_bulk_data		*controller_resets;
 	const struct iris_platform_data		*iris_platform_data;
