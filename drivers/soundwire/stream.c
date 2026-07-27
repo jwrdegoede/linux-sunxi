@@ -289,6 +289,18 @@ static int sdw_program_port_params(struct sdw_master_runtime *m_rt)
 	/* Program transport & port parameters for Slave(s) */
 	list_for_each_entry(s_rt, &m_rt->slave_rt_list, m_rt_node) {
 		list_for_each_entry(p_rt, &s_rt->port_list, port_node) {
+			p_rt->port_params.num = p_rt->num;
+			/*
+			 * Preserve any per-port BPS pre-set by compute_params()
+			 * (e.g. qcom driver derives BPS from qcom,ports-word-length
+			 * per DT).  Only fall back to the stream-wide BPS when the
+			 * per-port value was left at zero.  This lets a single
+			 * stream carry ports with different wire BPS — required by
+			 * WCD9378 HPH playback which mixes DP6 (2-bit PDM) and
+			 * DP7 (8-bit PCM) on the same stream.
+			 */
+			if (!p_rt->port_params.bps)
+				p_rt->port_params.bps = m_rt->stream->params.bps;
 			ret = sdw_program_slave_port_params(bus, s_rt, p_rt);
 			if (ret < 0)
 				return ret;
@@ -297,6 +309,9 @@ static int sdw_program_port_params(struct sdw_master_runtime *m_rt)
 
 	/* Program transport & port parameters for Master(s) */
 	list_for_each_entry(p_rt, &m_rt->port_list, port_node) {
+		p_rt->port_params.num = p_rt->num;
+		if (!p_rt->port_params.bps)
+			p_rt->port_params.bps = m_rt->stream->params.bps;
 		ret = sdw_program_master_port_params(bus, p_rt);
 		if (ret < 0)
 			return ret;
@@ -997,11 +1012,6 @@ static void sdw_port_free(struct sdw_port_runtime *p_rt)
 	kfree(p_rt);
 }
 
-static bool sdw_slave_port_allocated(struct sdw_slave_runtime *s_rt)
-{
-	return !list_empty(&s_rt->port_list);
-}
-
 static void sdw_slave_port_free(struct sdw_slave *slave,
 				struct sdw_stream_runtime *stream)
 {
@@ -1052,16 +1062,31 @@ static int sdw_slave_port_is_valid_range(struct device *dev, int num)
 static int sdw_slave_port_config(struct sdw_slave *slave,
 				 struct sdw_slave_runtime *s_rt,
 				 const struct sdw_port_config *port_config,
+				 unsigned int num_ports,
+				 unsigned int skip,
 				 bool is_bpt_stream)
 {
 	struct sdw_port_runtime *p_rt;
 	int ret;
-	int i;
+	unsigned int i = 0;
+	unsigned int cfg_i = 0;
 
-	i = 0;
+	/*
+	 * Multiple sdw_stream_add_slave() calls for the same slave/stream
+	 * (used by codecs that route more than one DAI through a shared
+	 * SoundWire stream — e.g. SDCA MFPU sources that need both audio
+	 * and optimisation ports on the wire) append new p_rt entries to
+	 * the tail of port_list.  Skip the first @skip entries (already
+	 * configured by earlier calls) and only fill in the newly-added
+	 * entries from @port_config[0 .. @num_ports - 1].
+	 */
 	list_for_each_entry(p_rt, &s_rt->port_list, port_node) {
+		if (i++ < skip)
+			continue;
+		if (cfg_i >= num_ports)
+			break;
 		if (!is_bpt_stream) {
-			ret = sdw_slave_port_is_valid_range(&slave->dev, port_config[i].num);
+			ret = sdw_slave_port_is_valid_range(&slave->dev, port_config[cfg_i].num);
 			if (ret < 0)
 				return ret;
 
@@ -1070,21 +1095,21 @@ static int sdw_slave_port_config(struct sdw_slave *slave,
 			 * the Slave or unavailable for the requested stream direction.
 			 */
 			if (!sdw_get_slave_dpn_prop(slave, s_rt->direction,
-						    port_config[i].num)) {
+						    port_config[cfg_i].num)) {
 				dev_err(&slave->dev,
 					"port %u not supported for %s\n",
-					port_config[i].num,
+					port_config[cfg_i].num,
 					s_rt->direction == SDW_DATA_DIR_TX ? "TX" : "RX");
 				return -EINVAL;
 			}
-		} else if (port_config[i].num) {
+		} else if (port_config[cfg_i].num) {
 			return -EINVAL;
 		}
 
-		ret = sdw_port_config(p_rt, port_config, i);
+		ret = sdw_port_config(p_rt, port_config, cfg_i);
 		if (ret < 0)
 			return ret;
-		i++;
+		cfg_i++;
 	}
 
 	return 0;
@@ -1378,7 +1403,7 @@ static int sdw_config_stream(struct device *dev,
 	if (stream_config->type != SDW_STREAM_PDM &&
 	    stream->params.bps &&
 	    stream->params.bps != stream_config->bps) {
-		dev_err(dev, "bps not matching, stream:%s\n", stream->name);
+		dev_err(dev, "bps not matching, stream:%s %d vs %d\n", stream->name, stream->params.bps, stream_config->bps);
 		return -EINVAL;
 	}
 
@@ -2145,8 +2170,10 @@ int sdw_stream_add_slave(struct sdw_slave *slave,
 {
 	struct sdw_slave_runtime *s_rt;
 	struct sdw_master_runtime *m_rt;
+	struct sdw_port_runtime *scan_p_rt;
 	bool alloc_master_rt = false;
 	bool alloc_slave_rt = false;
+	unsigned int existing_ports;
 
 	int ret;
 
@@ -2192,11 +2219,24 @@ int sdw_stream_add_slave(struct sdw_slave *slave,
 		alloc_slave_rt = true;
 	}
 
-	if (!sdw_slave_port_allocated(s_rt)) {
-		ret = sdw_slave_port_alloc(slave, s_rt, num_ports);
-		if (ret)
-			goto alloc_error;
-	}
+	/*
+	 * Snapshot the port count before allocating so we can tell which
+	 * p_rt entries belong to this call vs. earlier calls, and then
+	 * always append the requested ports.  This lets a slave contribute
+	 * more than one port to the same stream across multiple DAIs
+	 * (e.g. SDCA IT41 → DP6 audio and IT131 → DP7 optimisation), which
+	 * the previous "allocate only if empty" gate silently broke: the
+	 * second call would leave the tail unallocated and then
+	 * sdw_slave_port_config() would overwrite the first port's config
+	 * with the second call's entries.
+	 */
+	existing_ports = 0;
+	list_for_each_entry(scan_p_rt, &s_rt->port_list, port_node)
+		existing_ports++;
+
+	ret = sdw_slave_port_alloc(slave, s_rt, num_ports);
+	if (ret)
+		goto alloc_error;
 
 	ret =  sdw_master_rt_config(m_rt, stream_config);
 	if (ret)
@@ -2210,7 +2250,8 @@ int sdw_stream_add_slave(struct sdw_slave *slave,
 	if (ret)
 		goto unlock;
 
-	ret = sdw_slave_port_config(slave, s_rt, port_config,
+	ret = sdw_slave_port_config(slave, s_rt, port_config, num_ports,
+				    existing_ports,
 				    stream->type == SDW_STREAM_BPT);
 	if (ret)
 		goto unlock;
