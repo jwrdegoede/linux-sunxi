@@ -5748,7 +5748,8 @@
 
 			assigned-clocks = <&gcc GCC_USB20_MOCK_UTMI_CLK>,
 					  <&gcc GCC_USB20_MASTER_CLK>;
-			assigned-clock-rates = <19200000>, <200000000>;
+			assigned-clock-rates = <19200000>,
+					       <60000000>;
 
 			interrupts-extended = <&intc GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
 					      <&intc GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH>,
@@ -5764,7 +5765,7 @@
 			resets = <&gcc GCC_USB20_PRIM_BCR>;
 
 			power-domains = <&gcc GCC_USB20_PRIM_GDSC>;
-			required-opps = <&rpmhpd_opp_nom>;
+			required-opps = <&rpmhpd_opp_low_svs>;
 
 			iommus = <&apps_smmu 0x0ce0 0x0>;
 
