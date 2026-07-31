@@ -7,6 +7,7 @@
 #include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/spmi/spmi.h>
+#include "qcom-adc5-gen4.h"
 
 &spmi_bus0 {
 	pmic@0 {
@@ -43,6 +44,30 @@
 			#gpio-cells = <2>;
 			interrupt-controller;
 			#interrupt-cells = <2>;
+		};
+
+		pmk8850_vadc: adc@9000 {
+			compatible = "qcom,spmi-adc5-gen4";
+			reg = <0x9000>, <0x9100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x0 0x90 0x1 IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x91 0x1 IRQ_TYPE_EDGE_RISING>;
+			#thermal-sensor-cells = <1>;
+			#io-channel-cells = <1>;
+
+			channel@3 {
+				reg = <ADC5_GEN4_DIE_TEMP(0, 0)>;
+				label = "pmk8850_die_temp";
+			};
+
+			channel@44 {
+				reg = <ADC5_GEN4_AMUX1_THM_100K_PU(0, 0)>;
+				label = "pmk8850_therm_0";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,adc-tm;
+			};
 		};
 
 		pmk8850_rtc: rtc@6100 {
