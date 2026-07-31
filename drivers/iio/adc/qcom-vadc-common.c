@@ -720,6 +720,17 @@ u16 qcom_adc_tm5_gen2_temp_res_scale(int temp)
 }
 EXPORT_SYMBOL(qcom_adc_tm5_gen2_temp_res_scale);
 
+u16 qcom_adc_tm5_gen4_temp_res_scale(int temp)
+{
+	s64 resistance;
+
+	resistance = qcom_vadc_map_temp_voltage(adcmap7_100k,
+						ARRAY_SIZE(adcmap7_100k), temp);
+
+	return div64_s64(resistance * RATIO_MAX_ADC5_GEN4, resistance + R_PU_100K);
+}
+EXPORT_SYMBOL(qcom_adc_tm5_gen4_temp_res_scale);
+
 int qcom_adc5_hw_scale(enum vadc_scale_fn_type scaletype,
 		    unsigned int prescale_ratio,
 		    const struct adc5_data *data,
