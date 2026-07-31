@@ -12,3 +12,8 @@
 	model = "Qualcomm Technologies, Inc. Glymur CRD (SiP)";
 	compatible = "qcom,glymur-sip-crd", "qcom,glymur";
 };
+
+&pmcx0102_d_e0_temp_alarm {
+	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 3)>;
+	io-channel-names = "thermal";
+};

@@ -17,3 +17,8 @@
 	vdda-phy-supply = <&vreg_l3c1>;
 	vdda-pll-supply = <&vreg_l2c1>;
 };
+
+&pmh0110_h_e0_temp_alarm {
+	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 7)>;
+	io-channel-names = "thermal";
+};
