@@ -5464,11 +5464,13 @@
 
 			interrupts-extended = <&intc GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>,
 					      <&intc GIC_SPI 371 IRQ_TYPE_LEVEL_HIGH>,
+					      <&intc GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>,
 					      <&pdc 90 IRQ_TYPE_EDGE_BOTH>,
 					      <&pdc 60 IRQ_TYPE_EDGE_BOTH>,
 					      <&pdc 17 IRQ_TYPE_EDGE_BOTH>;
 			interrupt-names = "dwc_usb3",
 					  "pwr_event",
+					  "hs_phy_irq",
 					  "dp_hs_phy_irq",
 					  "dm_hs_phy_irq",
 					  "ss_phy_irq";
@@ -5554,11 +5556,13 @@
 
 			interrupts-extended = <&intc GIC_SPI 875 IRQ_TYPE_LEVEL_HIGH>,
 					      <&intc GIC_SPI 369 IRQ_TYPE_LEVEL_HIGH>,
+					      <&intc GIC_SPI 878 IRQ_TYPE_LEVEL_HIGH>,
 					      <&pdc 88 IRQ_TYPE_EDGE_BOTH>,
 					      <&pdc 87 IRQ_TYPE_EDGE_BOTH>,
 					      <&pdc 76 IRQ_TYPE_EDGE_BOTH>;
 			interrupt-names = "dwc_usb3",
 					  "pwr_event",
+					  "hs_phy_irq",
 					  "dp_hs_phy_irq",
 					  "dm_hs_phy_irq",
 					  "ss_phy_irq";
@@ -5644,11 +5648,13 @@
 
 			interrupts-extended = <&intc GIC_SPI 871 IRQ_TYPE_LEVEL_HIGH>,
 					      <&intc GIC_SPI 370 IRQ_TYPE_LEVEL_HIGH>,
+					      <&intc GIC_SPI 877 IRQ_TYPE_LEVEL_HIGH>,
 					      <&pdc 89 IRQ_TYPE_EDGE_BOTH>,
 					      <&pdc 81 IRQ_TYPE_EDGE_BOTH>,
 					      <&pdc 75 IRQ_TYPE_EDGE_BOTH>;
 			interrupt-names = "dwc_usb3",
 					  "pwr_event",
+					  "hs_phy_irq",
 					  "dp_hs_phy_irq",
 					  "dm_hs_phy_irq",
 					  "ss_phy_irq";
@@ -5734,14 +5740,14 @@
 
 			interrupts-extended = <&intc GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
 					      <&intc GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH>,
-					      <&pdc 92 IRQ_TYPE_EDGE_BOTH>,
+					      <&intc GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH>,
 					      <&pdc 57 IRQ_TYPE_EDGE_BOTH>,
-					      <&intc GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH>;
+					      <&pdc 92 IRQ_TYPE_EDGE_BOTH>;
 			interrupt-names = "dwc_usb3",
 					  "pwr_event",
+					  "hs_phy_irq",
 					  "dp_hs_phy_irq",
-					  "dm_hs_phy_irq",
-					  "hs_phy_irq";
+					  "dm_hs_phy_irq";
 
 			resets = <&gcc GCC_USB20_PRIM_BCR>;
 
@@ -5805,10 +5811,10 @@
 			assigned-clock-rates = <19200000>, <200000000>;
 
 			interrupts-extended = <&intc GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH>,
-					      <&intc GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH>,
-					      <&intc GIC_SPI 346 IRQ_TYPE_LEVEL_HIGH>,
-					      <&intc GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>,
-					      <&intc GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>,
+					      <&intc GIC_SPI 313 IRQ_TYPE_LEVEL_HIGH>,
+					      <&intc GIC_SPI 314 IRQ_TYPE_LEVEL_HIGH>,
+					      <&intc GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>,
+					      <&intc GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH>,
 					      <&pdc 12 IRQ_TYPE_LEVEL_HIGH>,
 					      <&pdc 11 IRQ_TYPE_LEVEL_HIGH>,
 					      <&pdc 14 IRQ_TYPE_LEVEL_HIGH>,
