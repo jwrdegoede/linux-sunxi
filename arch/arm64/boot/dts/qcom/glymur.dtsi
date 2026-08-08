@@ -719,6 +719,12 @@
 			mbox-names = "tx", "rx";
 			shmem = <&cpu_scp_lpri1>, <&cpu_scp_lpri0>;
 
+			/*
+			 * The CPUCP writes SCMI replies into the shmem but
+			 * never rings the completion doorbell, so poll.
+			 */
+			arm,no-completion-irq;
+
 			#address-cells = <1>;
 			#size-cells = <0>;
 
