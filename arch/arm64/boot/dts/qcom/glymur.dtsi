@@ -4894,7 +4894,9 @@
 			compatible = "qcom,glymur-adsp-pas", "qcom,sm8550-adsp-pas";
 			reg = <0x0 0x06800000 0x0 0x10000>;
 
-			iommus = <&apps_smmu 0x1000 0x0>;
+			iommus = <&apps_smmu 0x1000 0x0>,
+				 <&apps_smmu 0x1040 0x20>,
+				 <&apps_smmu 0x1080 0x0>;
 
 			interrupts-extended = <&pdc 6 IRQ_TYPE_EDGE_RISING>,
 					      <&smp2p_adsp_in 0 IRQ_TYPE_EDGE_RISING>,
