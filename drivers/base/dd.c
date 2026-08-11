@@ -1451,6 +1451,7 @@ static void device_reprobe_work_fn(struct work_struct *work)
 	struct device *dev = rp->dev;
 	struct device *parent = rp->parent;
 	bool detached = false;
+	int ret;
 
 	__device_driver_lock(dev, parent);
 	/*
@@ -1471,8 +1472,9 @@ static void device_reprobe_work_fn(struct work_struct *work)
 		 */
 		if (parent && dev->bus->need_parent_lock)
 			device_lock(parent);
-		if (device_attach(dev) < 0)
-			dev_err(dev, "re-probe failed, device left unbound\n");
+		ret = device_attach(dev);
+		if (ret < 0)
+			dev_err_probe(dev, ret, "re-probe failed, device left unbound\n");
 		if (parent && dev->bus->need_parent_lock)
 			device_unlock(parent);
 	}
