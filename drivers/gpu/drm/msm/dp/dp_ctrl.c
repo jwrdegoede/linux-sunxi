@@ -233,6 +233,19 @@ static int msm_dp_aux_link_configure(struct drm_dp_aux *aux,
 		return err;
 
 	if (link->use_rate_set) {
+		/*
+		 * Per eDP 1.4b, LINK_RATE_SET is only consulted while
+		 * LINK_BW_SET reads 00h, so the legacy selector has to be
+		 * cleared before the rate-set one is written. Drivers that
+		 * never touch LINK_BW_SET get this for free; we cannot assume
+		 * it, because firmware may have trained the panel and left its
+		 * own selection behind (on the ASUS Zenbook A16 the UEFI
+		 * leaves DP_LINK_BW_5_4 there).
+		 */
+		err = drm_dp_dpcd_writeb(aux, DP_LINK_BW_SET, 0);
+		if (err < 0)
+			return err;
+
 		DRM_DEBUG_DP("using LINK_RATE_SET: 0x%02x", link->rate_set);
 		err = drm_dp_dpcd_writeb(aux, DP_LINK_RATE_SET, link->rate_set);
 	} else {
@@ -1712,6 +1725,8 @@ static int msm_dp_ctrl_link_train(struct msm_dp_ctrl_private *ctrl,
 
 	link_info.num_lanes = ctrl->link->link_params.num_lanes;
 	link_info.rate = ctrl->link->link_params.rate;
+	link_info.rate_set = ctrl->link->link_params.rate_set;
+	link_info.use_rate_set = ctrl->link->link_params.use_rate_set;
 	link_info.capabilities = DP_LINK_CAP_ENHANCED_FRAMING;
 
 	msm_dp_aux_link_configure(ctrl->aux, &link_info);
@@ -2407,6 +2422,20 @@ int msm_dp_ctrl_on_link(struct msm_dp_ctrl *msm_dp_ctrl,
 		ctrl->link->link_params.rate = rate;
 		ctrl->link->link_params.num_lanes =
 			panel->link_info.num_lanes;
+		/*
+		 * The eDP 1.4 rate-set selection is computed into
+		 * panel->link_info, but every consumer reads link->link_params
+		 * -- without this copy use_rate_set can never be seen by
+		 * msm_dp_aux_link_configure(), and rate_set is always 0 in
+		 * msm_dp_ctrl_link_rate_down_shift().
+		 */
+		ctrl->link->link_params.rate_set =
+			panel->link_info.rate_set;
+		ctrl->link->link_params.use_rate_set =
+			panel->link_info.use_rate_set;
+		memcpy(ctrl->link->link_params.supported_rates,
+		       panel->link_info.supported_rates,
+		       sizeof(ctrl->link->link_params.supported_rates));
 		if (panel->msm_dp_mode.out_fmt_is_yuv_420)
 			pixel_rate >>= 1;
 	}
