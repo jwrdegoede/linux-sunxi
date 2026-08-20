@@ -990,7 +990,7 @@ out_free:
 static void h5_btrtl_open(struct h5 *h5)
 {
 	/*
-	 * Since h5_btrtl_resume() does a device_reprobe() the suspend handling
+	 * Since h5_btrtl_resume() schedules a device re-probe the suspend handling
 	 * done by the hci_suspend_notifier is not necessary; it actually causes
 	 * delays and a bunch of errors to get logged, so disable it.
 	 */
@@ -1047,46 +1047,15 @@ static int h5_btrtl_suspend(struct h5 *h5)
 	return 0;
 }
 
-struct h5_btrtl_reprobe {
-	struct device *dev;
-	struct work_struct work;
-};
-
-static void h5_btrtl_reprobe_worker(struct work_struct *work)
-{
-	struct h5_btrtl_reprobe *reprobe =
-		container_of(work, struct h5_btrtl_reprobe, work);
-	int ret;
-
-	ret = device_reprobe(reprobe->dev);
-	if (ret && ret != -EPROBE_DEFER)
-		dev_err(reprobe->dev, "Reprobe error %d\n", ret);
-
-	put_device(reprobe->dev);
-	kfree(reprobe);
-	module_put(THIS_MODULE);
-}
-
 static int h5_btrtl_resume(struct h5 *h5)
 {
-	if (test_bit(H5_WAKEUP_DISABLE, &h5->flags)) {
-		struct h5_btrtl_reprobe *reprobe;
+	if (test_bit(H5_WAKEUP_DISABLE, &h5->flags))
+		return device_schedule_reprobe(&h5->hu->serdev->dev, 0);
 
-		reprobe = kzalloc_obj(*reprobe);
-		if (!reprobe)
-			return -ENOMEM;
+	gpiod_set_value_cansleep(h5->device_wake_gpio, 1);
 
-		__module_get(THIS_MODULE);
-
-		INIT_WORK(&reprobe->work, h5_btrtl_reprobe_worker);
-		reprobe->dev = get_device(&h5->hu->serdev->dev);
-		queue_work(system_long_wq, &reprobe->work);
-	} else {
-		gpiod_set_value_cansleep(h5->device_wake_gpio, 1);
-
-		if (test_bit(H5_HW_FLOW_CONTROL, &h5->flags))
-			serdev_device_set_flow_control(h5->hu->serdev, true);
-	}
+	if (test_bit(H5_HW_FLOW_CONTROL, &h5->flags))
+		serdev_device_set_flow_control(h5->hu->serdev, true);
 
 	return 0;
 }
