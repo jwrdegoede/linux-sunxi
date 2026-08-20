@@ -4348,7 +4348,7 @@ static const char *rtw89_ppdu_str(struct rtw89_dev *rtwdev, u8 type, u8 subtype)
 	const struct rtw89_chip_info *chip = rtwdev->chip;
 	const struct rtw89_ppdu_info *ppdu_info;
 
-	if (type > ARRAY_SIZE(rtw89_ppdu_infos))
+	if (type >= ARRAY_SIZE(rtw89_ppdu_infos))
 		return "RSVD";
 
 	ppdu_info = &rtw89_ppdu_infos[type];
@@ -4778,6 +4778,7 @@ static const struct rtw89_disabled_dm_info {
 	DM_INFO(HW_SCAN),
 	DM_INFO(INACTIVE_PS),
 	DM_INFO(DIG_PD),
+	DM_INFO(VCORE),
 };
 
 static ssize_t

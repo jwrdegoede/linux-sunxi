@@ -2053,6 +2053,8 @@ enum rtw89_bb_link_rx_gain_table_type {
 	RTW89_BB_PS_LINK_RX_GAIN_TAB_MAX,
 };
 
+#define RTW89_BB_PS_LINK_ID_SKIP 0xfe
+
 enum rtw89_bb_ps_link_buf_id {
 	RTW89_BB_PS_LINK_BUF_0 = 0x00,
 	RTW89_BB_PS_LINK_BUF_1 = 0x01,
@@ -2335,6 +2337,9 @@ struct rtw89_h2c_arp_offload {
 #define RTW89_H2C_ARP_OFFLOAD_W0_PKT_ID GENMASK(31, 24)
 #define RTW89_H2C_ARP_OFFLOAD_W1_CONTENT GENMASK(31, 0)
 
+#define BT_H2C_FUNC_BT2ND 0x80
+#define BT_C2H_FUNC_BT2ND 0x80
+
 enum rtw89_btc_btf_h2c_class {
 	BTFC_SET = 0x10,
 	BTFC_GET = 0x11,
@@ -2499,6 +2504,76 @@ struct rtw89_h2c_cxinit {
 	u8 rsvd1;
 } __packed;
 
+struct rtw89_btc_trx_info_u8 {
+	u8 tx_lvl;
+	u8 rx_lvl;
+	u8 wl_rssi;
+	u8 bt_rssi;
+
+	s8 wl_tx_power[RTW89_PHY_NUM]; /* absolute Tx power (dBm), 0xff-> no BTC control */
+	s8 wl_rx_gain[RTW89_PHY_NUM];  /* rx gain table index (TBD.) */
+	s8 bt_tx_power[BTC_ALL_BT]; /* decrease Tx power (dB) */
+	s8 bt_rx_gain[BTC_ALL_BT];  /* LNA constrain level */
+	s8 zb_tx_power[BTC_ALL_BT];
+	s8 zb_rx_gain[BTC_ALL_BT];
+
+	u8 cn; /* condition_num */
+	s8 nhm;
+	u8 bt_profile;
+	u8 rsvd2;
+} __packed;
+
+struct rtw89_btc_trx_info_v7_u8 {
+	u8 tx_lvl;
+	u8 rx_lvl;
+	u8 wl_rssi;
+	u8 bt_rssi;
+
+	s8 wl_tx_power;
+	s8 wl_rx_gain;
+	s8 bt_tx_power;
+	s8 bt_rx_gain;
+	s8 zb_tx_power;
+	s8 zb_rx_gain;
+
+	u8 cn;
+	s8 nhm;
+	u8 bt_profile;
+	u8 rsvd2;
+} __packed;
+
+struct rtw89_btc_trx_info_le {
+	__le16 tx_rate;
+	__le16 rx_rate;
+
+	__le32 tx_tp;
+	__le32 rx_tp;
+	__le32 rx_err_ratio;
+} __packed;
+
+struct rtw89_h2c_cxtrx_v9 {
+	struct rtw89_h2c_cxhdr_v7 hdr;
+	struct rtw89_btc_trx_info_u8 v9_u8;
+	struct rtw89_btc_trx_info_le v9_le;
+} __packed;
+
+struct rtw89_h2c_cxtrx_v7 {
+	struct rtw89_h2c_cxhdr_v7 hdr;
+	struct rtw89_btc_trx_info_v7_u8 v7_u8;
+	struct rtw89_btc_trx_info_le v7_le;
+} __packed;
+
+struct rtw89_h2c_cxtxpwr_v7 {
+	struct rtw89_h2c_cxhdr_v7 hdr;
+	u8 pwr;
+} __packed;
+
+struct rtw89_h2c_cxtxpwr_v9 {
+	struct rtw89_h2c_cxhdr_v7 hdr;
+	u8 pwr;
+	u8 band;
+} __packed;
+
 #define RTW89_H2C_CXINIT_ANT_INFO_POS BIT(0)
 #define RTW89_H2C_CXINIT_ANT_INFO_DIVERSITY BIT(1)
 #define RTW89_H2C_CXINIT_ANT_INFO_BTG_POS GENMASK(3, 2)
@@ -2518,6 +2593,11 @@ struct rtw89_h2c_cxinit {
 struct rtw89_h2c_cxinit_v7 {
 	struct rtw89_h2c_cxhdr_v7 hdr;
 	struct rtw89_btc_init_info_v7 init;
+} __packed;
+
+struct rtw89_h2c_cxinit_v10 {
+	struct rtw89_h2c_cxhdr_v7 hdr;
+	struct rtw89_btc_init_info_v10 init;
 } __packed;
 
 static inline void RTW89_SET_FWCMD_CXROLE_CONNECT_CNT(void *cmd, u8 val)
@@ -2760,91 +2840,6 @@ static inline void RTW89_SET_FWCMD_CXCTRL_TRACE_STEP(void *cmd, u32 val)
 	le32p_replace_bits((__le32 *)((u8 *)(cmd) + 2), val, GENMASK(18, 3));
 }
 
-static inline void RTW89_SET_FWCMD_CXTRX_TXLV(void *cmd, u8 val)
-{
-	u8p_replace_bits((u8 *)cmd + 2, val, GENMASK(7, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_RXLV(void *cmd, u8 val)
-{
-	u8p_replace_bits((u8 *)cmd + 3, val, GENMASK(7, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_WLRSSI(void *cmd, u8 val)
-{
-	u8p_replace_bits((u8 *)cmd + 4, val, GENMASK(7, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_BTRSSI(void *cmd, u8 val)
-{
-	u8p_replace_bits((u8 *)cmd + 5, val, GENMASK(7, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_TXPWR(void *cmd, s8 val)
-{
-	u8p_replace_bits((u8 *)cmd + 6, val, GENMASK(7, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_RXGAIN(void *cmd, s8 val)
-{
-	u8p_replace_bits((u8 *)cmd + 7, val, GENMASK(7, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_BTTXPWR(void *cmd, s8 val)
-{
-	u8p_replace_bits((u8 *)cmd + 8, val, GENMASK(7, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_BTRXGAIN(void *cmd, s8 val)
-{
-	u8p_replace_bits((u8 *)cmd + 9, val, GENMASK(7, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_CN(void *cmd, u8 val)
-{
-	u8p_replace_bits((u8 *)cmd + 10, val, GENMASK(7, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_NHM(void *cmd, s8 val)
-{
-	u8p_replace_bits((u8 *)cmd + 11, val, GENMASK(7, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_BTPROFILE(void *cmd, u8 val)
-{
-	u8p_replace_bits((u8 *)cmd + 12, val, GENMASK(7, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_RSVD2(void *cmd, u8 val)
-{
-	u8p_replace_bits((u8 *)cmd + 13, val, GENMASK(7, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_TXRATE(void *cmd, u16 val)
-{
-	le16p_replace_bits((__le16 *)((u8 *)cmd + 14), val, GENMASK(15, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_RXRATE(void *cmd, u16 val)
-{
-	le16p_replace_bits((__le16 *)((u8 *)cmd + 16), val, GENMASK(15, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_TXTP(void *cmd, u32 val)
-{
-	le32p_replace_bits((__le32 *)((u8 *)cmd + 18), val, GENMASK(31, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_RXTP(void *cmd, u32 val)
-{
-	le32p_replace_bits((__le32 *)((u8 *)cmd + 22), val, GENMASK(31, 0));
-}
-
-static inline void RTW89_SET_FWCMD_CXTRX_RXERRRA(void *cmd, u32 val)
-{
-	le32p_replace_bits((__le32 *)((u8 *)cmd + 26), val, GENMASK(31, 0));
-}
-
 static inline void RTW89_SET_FWCMD_CXRFK_STATE(void *cmd, u32 val)
 {
 	le32p_replace_bits((__le32 *)((u8 *)(cmd) + 2), val, GENMASK(1, 0));
@@ -3063,6 +3058,8 @@ struct rtw89_h2c_scanofld_be {
 	__le32 w7;
 	__le32 w8;
 	__le32 w9; /* Added after SCAN_OFFLOAD_BE_V1 */
+	__le32 w10; /* Added after SCAN_OFFLOAD_BE_V2 */
+	__le32 w11; /* Added after SCAN_OFFLOAD_BE_V2 */
 	/* struct rtw89_h2c_scanofld_be_macc_role (flexible number) */
 	/* struct rtw89_h2c_scanofld_be_opch (flexible number) */
 } __packed;
@@ -4357,8 +4354,13 @@ enum rtw89_fw_element_id {
 	RTW89_FW_ELEMENT_ID_DIAG_MAC = 28,
 	RTW89_FW_ELEMENT_ID_TX_COMP = 29,
 
+	__RTW89_FW_ELEMENT_ID_INTL_TRANSITION,
 	RTW89_FW_ELEMENT_ID_NUM,
 };
+
+#define BITS_OF_RTW89_TXPWR_FW_ELEMENTS_TX_SHAPE \
+	(BIT(RTW89_FW_ELEMENT_ID_TX_SHAPE_LMT) | \
+	 BIT(RTW89_FW_ELEMENT_ID_TX_SHAPE_LMT_RU))
 
 #define BITS_OF_RTW89_TXPWR_FW_ELEMENTS_NO_6GHZ \
 	(BIT(RTW89_FW_ELEMENT_ID_TXPWR_BYRATE) | \
@@ -4366,21 +4368,35 @@ enum rtw89_fw_element_id {
 	 BIT(RTW89_FW_ELEMENT_ID_TXPWR_LMT_5GHZ) | \
 	 BIT(RTW89_FW_ELEMENT_ID_TXPWR_LMT_RU_2GHZ) | \
 	 BIT(RTW89_FW_ELEMENT_ID_TXPWR_LMT_RU_5GHZ) | \
-	 BIT(RTW89_FW_ELEMENT_ID_TX_SHAPE_LMT) | \
-	 BIT(RTW89_FW_ELEMENT_ID_TX_SHAPE_LMT_RU))
+	 BITS_OF_RTW89_TXPWR_FW_ELEMENTS_TX_SHAPE)
 
 #define BITS_OF_RTW89_TXPWR_FW_ELEMENTS \
 	(BITS_OF_RTW89_TXPWR_FW_ELEMENTS_NO_6GHZ | \
 	 BIT(RTW89_FW_ELEMENT_ID_TXPWR_LMT_6GHZ) | \
 	 BIT(RTW89_FW_ELEMENT_ID_TXPWR_LMT_RU_6GHZ))
 
-#define RTW89_AX_GEN_DEF_NEEDED_FW_ELEMENTS_NO_6GHZ \
+#define RTW89_AX_GEN_DEF_NEEDED_FW_ELEMENTS_BASE \
 	(BIT(RTW89_FW_ELEMENT_ID_BB_REG) | \
 	 BIT(RTW89_FW_ELEMENT_ID_RADIO_A) | \
 	 BIT(RTW89_FW_ELEMENT_ID_RADIO_B) | \
 	 BIT(RTW89_FW_ELEMENT_ID_RF_NCTL) | \
-	 BIT(RTW89_FW_ELEMENT_ID_TXPWR_TRK) | \
+	 BIT(RTW89_FW_ELEMENT_ID_TXPWR_TRK))
+
+#define RTW89_AX_GEN_DEF_NEEDED_FW_ELEMENTS_NO_6GHZ \
+	(RTW89_AX_GEN_DEF_NEEDED_FW_ELEMENTS_BASE | \
 	 BITS_OF_RTW89_TXPWR_FW_ELEMENTS_NO_6GHZ)
+
+#define RTW89_AX_GEN_DEF_NEEDED_FW_ELEMENTS \
+	(RTW89_AX_GEN_DEF_NEEDED_FW_ELEMENTS_BASE | \
+	 BITS_OF_RTW89_TXPWR_FW_ELEMENTS)
+
+#define RTW89_AX_GEN_DEF_NEEDED_FW_ELEMENTS_RTL8852A \
+	(RTW89_AX_GEN_DEF_NEEDED_FW_ELEMENTS_NO_6GHZ & \
+	 ~BITS_OF_RTW89_TXPWR_FW_ELEMENTS_TX_SHAPE)
+
+#define RTW89_AX_GEN_DEF_NEEDED_FW_ELEMENTS_RTL8851B \
+	(RTW89_AX_GEN_DEF_NEEDED_FW_ELEMENTS_NO_6GHZ & \
+	 ~BIT(RTW89_FW_ELEMENT_ID_RADIO_B))
 
 #define RTW89_BE_GEN_DEF_NEEDED_FW_ELEMENTS_BASE \
 	(BIT(RTW89_FW_ELEMENT_ID_BB_REG) | \
@@ -5391,6 +5407,7 @@ int rtw89_fw_h2c_tx_history(struct rtw89_dev *rtwdev, u16 mac_id);
 int rtw89_fw_h2c_drv_ctrl_fw(struct rtw89_dev *rtwdev);
 int rtw89_fw_h2c_cxdrv_init(struct rtw89_dev *rtwdev, u8 type);
 int rtw89_fw_h2c_cxdrv_init_v7(struct rtw89_dev *rtwdev, u8 type);
+int rtw89_fw_h2c_cxdrv_init_v10(struct rtw89_dev *rtwdev, u8 type);
 int rtw89_fw_h2c_cxdrv_role(struct rtw89_dev *rtwdev, u8 type);
 int rtw89_fw_h2c_cxdrv_role_v1(struct rtw89_dev *rtwdev, u8 type);
 int rtw89_fw_h2c_cxdrv_role_v2(struct rtw89_dev *rtwdev, u8 type);
@@ -5399,8 +5416,11 @@ int rtw89_fw_h2c_cxdrv_role_v8(struct rtw89_dev *rtwdev, u8 type);
 int rtw89_fw_h2c_cxdrv_osi_info(struct rtw89_dev *rtwdev, u8 type);
 int rtw89_fw_h2c_cxdrv_ctrl(struct rtw89_dev *rtwdev, u8 type);
 int rtw89_fw_h2c_cxdrv_ctrl_v7(struct rtw89_dev *rtwdev, u8 type);
-int rtw89_fw_h2c_cxdrv_trx(struct rtw89_dev *rtwdev, u8 type);
+int rtw89_fw_h2c_cxdrv_trx_v7(struct rtw89_dev *rtwdev, u8 type);
+int rtw89_fw_h2c_cxdrv_trx_v9(struct rtw89_dev *rtwdev, u8 type);
 int rtw89_fw_h2c_cxdrv_rfk(struct rtw89_dev *rtwdev, u8 type);
+int rtw89_fw_h2c_cxtxpwr_v7(struct rtw89_dev *rtwdev, u8 type);
+int rtw89_fw_h2c_cxtxpwr_v9(struct rtw89_dev *rtwdev, u8 type);
 int rtw89_fw_h2c_del_pkt_offload(struct rtw89_dev *rtwdev, u8 id);
 int rtw89_fw_h2c_add_pkt_offload(struct rtw89_dev *rtwdev, u8 *id,
 				 struct sk_buff *skb_ofld);

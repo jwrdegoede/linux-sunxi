@@ -1558,6 +1558,8 @@ static int rtw89_mac_power_switch(struct rtw89_dev *rtwdev, bool on)
 		if (!test_bit(RTW89_FLAG_PROBE_DONE, rtwdev->flags)) {
 			rtw89_mac_efuse_read_ecv(rtwdev);
 			mac->efuse_read_fw_secure(rtwdev);
+			rtw89_mac_efuse_read_thermal_k(rtwdev);
+			rtw89_mac_efuse_read_pwr_data(rtwdev);
 		}
 
 		set_bit(RTW89_FLAG_POWERON, rtwdev->flags);
@@ -1600,6 +1602,8 @@ int rtw89_mac_pwr_on(struct rtw89_dev *rtwdev)
 
 void rtw89_mac_pwr_off(struct rtw89_dev *rtwdev)
 {
+	rtw89_mac_set_vcore_reset(rtwdev);
+
 	rtw89_mac_power_switch(rtwdev, false);
 }
 
@@ -5167,7 +5171,7 @@ static void rtw89_mac_check_he_obss_narrow_bw_ru_iter(struct wiphy *wiphy,
 	elem = cfg80211_find_elem(WLAN_EID_EXT_CAPABILITY, ies->data,
 				  ies->len);
 
-	if (!elem || elem->datalen < 10 ||
+	if (!elem || elem->datalen < 11 ||
 	    !(elem->data[10] & WLAN_EXT_CAPA10_OBSS_NARROW_BW_RU_TOLERANCE_SUPPORT))
 		*tolerated = false;
 	rcu_read_unlock();
@@ -7475,6 +7479,7 @@ const struct rtw89_mac_gen_def rtw89_mac_gen_ax = {
 	.cfg_ppdu_status = rtw89_mac_cfg_ppdu_status_ax,
 	.cfg_phy_rpt = NULL,
 	.set_edcca_mode = NULL,
+	.set_vcore_cfg = NULL,
 
 	.dle_mix_cfg = dle_mix_cfg_ax,
 	.chk_dle_rdy = chk_dle_rdy_ax,
@@ -7500,6 +7505,8 @@ const struct rtw89_mac_gen_def rtw89_mac_gen_ax = {
 	.cnv_efuse_state = rtw89_cnv_efuse_state_ax,
 	.efuse_read_fw_secure = rtw89_efuse_read_fw_secure_ax,
 	.efuse_read_ecv = NULL,
+	.efuse_read_thermal_k = NULL,
+	.efuse_read_pwr_data = NULL,
 
 	.cfg_plt = rtw89_mac_cfg_plt_ax,
 	.get_plt_cnt = rtw89_mac_get_plt_cnt_ax,

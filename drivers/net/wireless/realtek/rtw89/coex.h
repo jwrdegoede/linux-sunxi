@@ -16,6 +16,8 @@ enum btc_mode {
 	BTC_MODE_WL,
 	BTC_MODE_BT,
 	BTC_MODE_WLOFF,
+	BTC_MODE_COTX,
+	BTC_MODE_MECHANISM_INIT,
 	BTC_MODE_MAX
 };
 
@@ -212,6 +214,10 @@ enum btc_chip_feature {
 	BTC_FEAT_NEW_BBAPI_FLOW = BIT(3), /* new btg_ctrl/pre_agc_ctrl */
 	BTC_FEAT_MLO_SUPPORT = BIT(4),
 	BTC_FEAT_H2C_MACRO = BIT(5),
+	BTC_FEAT_DUAL_BT = BIT(6),
+	BTC_FEAT_BT_6G = BIT(7),
+	BTC_FEAT_MULTI_PTA = BIT(8),
+	BTC_FEAT_DUAL_BTGA = BIT(9) /* the future A-Die */
 };
 
 enum btc_wl_mode {
@@ -266,6 +272,7 @@ enum btc_wl_gpio_debug {
 	BTC_DBG_USER_DEF = 31,
 };
 
+void rtw89_btc_init(struct rtw89_dev *rtwdev);
 void rtw89_btc_ntfy_poweron(struct rtw89_dev *rtwdev);
 void rtw89_btc_ntfy_poweroff(struct rtw89_dev *rtwdev);
 void rtw89_btc_ntfy_init(struct rtw89_dev *rtwdev, u8 mode);
@@ -329,7 +336,7 @@ static inline u16 rtw89_coex_query_bt_req_len(struct rtw89_dev *rtwdev,
 {
 	struct rtw89_btc *btc = &rtwdev->btc;
 
-	return btc->bt_req_len;
+	return btc->bt_req_len[phy_idx];
 }
 
 static inline u32 rtw89_get_antpath_type(u8 phy_map, u8 type)
@@ -382,6 +389,15 @@ void _slot_set_tbl(struct rtw89_btc *btc, u8 sid, u32 tbl)
 		btc->dm.slot.v1[sid].cxtbl = cpu_to_le32(tbl);
 	else if (btc->ver->fcxslots == 7)
 		btc->dm.slot.v7[sid].cxtbl = cpu_to_le32(tbl);
+}
+
+static inline
+void btc_dw2b(u8 *buf, size_t idx, u32 val)
+{
+	buf[idx] = u32_get_bits(val, MASKBYTE0);
+	buf[idx + 1] = u32_get_bits(val, MASKBYTE1);
+	buf[idx + 2] = u32_get_bits(val, MASKBYTE2);
+	buf[idx + 3] = u32_get_bits(val, MASKBYTE3);
 }
 
 #endif

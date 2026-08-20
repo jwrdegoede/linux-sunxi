@@ -355,7 +355,7 @@ static const struct rtw89_pmac_regs rtw8851b_pmac_regs = {
 	.ampdu_crc_err_mask = B_CNT_AMPDU_RX_CRC32_ERR,
 };
 
-static const struct rtw89_btc_rf_trx_para rtw89_btc_8851b_rf_ul[] = {
+static const struct rtw89_btc_rf_trx_para_v0 rtw89_btc_8851b_rf_ul_v0[] = {
 	{255, 0, 0, 7}, /* 0 -> original */
 	{255, 2, 0, 7}, /* 1 -> for BT-connected ACI issue && BTG co-rx */
 	{255, 0, 0, 7}, /* 2 ->reserved for shared-antenna */
@@ -367,7 +367,7 @@ static const struct rtw89_btc_rf_trx_para rtw89_btc_8851b_rf_ul[] = {
 	{13, 1, 0, 7}
 };
 
-static const struct rtw89_btc_rf_trx_para rtw89_btc_8851b_rf_dl[] = {
+static const struct rtw89_btc_rf_trx_para_v0 rtw89_btc_8851b_rf_dl_v0[] = {
 	{255, 0, 0, 7}, /* 0 -> original */
 	{255, 2, 0, 7}, /* 1 -> reserved for shared-antenna */
 	{255, 0, 0, 7}, /* 2 ->reserved for shared-antenna */
@@ -2277,8 +2277,6 @@ static void rtw8851b_btc_init_cfg(struct rtw89_dev *rtwdev)
 
 	/* enable BT counter 0xda40[16,2] = 2b'11 */
 	rtw89_write32_set(rtwdev, R_AX_CSR_MODE, B_AX_BT_CNT_RST | B_AX_STATIS_BT_EN);
-
-	btc->cx.wl.status.map.init_ok = true;
 }
 
 static
@@ -2580,6 +2578,7 @@ static const struct rtw89_chip_ops rtw8851b_chip_ops = {
 	.set_txpwr_ul_tb_offset	= rtw8851b_set_txpwr_ul_tb_offset,
 	.digital_pwr_comp	= NULL,
 	.calc_rx_gain_normal	= NULL,
+	.path_diff_update	= NULL,
 	.pwr_on_func		= rtw8851b_pwr_on_func,
 	.pwr_off_func		= rtw8851b_pwr_off_func,
 	.query_rxdesc		= rtw89_core_query_rxdesc,
@@ -2636,7 +2635,8 @@ const struct rtw89_chip_info rtw8851b_chip_info = {
 	},
 	.try_ce_fw		= true,
 	.bbmcu_nr		= 0,
-	.needed_fw_elms		= 0,
+	.needed_fw_elms		= RTW89_AX_GEN_DEF_NEEDED_FW_ELEMENTS_RTL8851B |
+				  BIT(__RTW89_FW_ELEMENT_ID_INTL_TRANSITION),
 	.fw_blacklist		= NULL,
 	.fifo_size		= 196608,
 	.small_fifo_size	= true,
@@ -2730,10 +2730,10 @@ const struct rtw89_chip_info rtw8851b_chip_info = {
 	.rssi_tol		= 2,
 	.mon_reg_num		= ARRAY_SIZE(rtw89_btc_8851b_mon_reg),
 	.mon_reg		= rtw89_btc_8851b_mon_reg,
-	.rf_para_ulink_num	= ARRAY_SIZE(rtw89_btc_8851b_rf_ul),
-	.rf_para_ulink		= rtw89_btc_8851b_rf_ul,
-	.rf_para_dlink_num	= ARRAY_SIZE(rtw89_btc_8851b_rf_dl),
-	.rf_para_dlink		= rtw89_btc_8851b_rf_dl,
+	.rf_para_ulink_v0	= rtw89_btc_8851b_rf_ul_v0,
+	.rf_para_dlink_v0	= rtw89_btc_8851b_rf_dl_v0,
+	.rf_para_ulink_num_v0	= ARRAY_SIZE(rtw89_btc_8851b_rf_ul_v0),
+	.rf_para_dlink_num_v0	= ARRAY_SIZE(rtw89_btc_8851b_rf_dl_v0),
 	.rf_para_ulink_v9	= NULL,
 	.rf_para_dlink_v9	= NULL,
 	.rf_para_ulink_num_v9	= 0,

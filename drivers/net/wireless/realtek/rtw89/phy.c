@@ -5718,6 +5718,32 @@ static void rtw89_phy_antdiv_init(struct rtw89_dev *rtwdev)
 	rtw89_phy_antdiv_reg_init(rtwdev);
 }
 
+static void rtw89_phy_thermal_protect_vcore(struct rtw89_dev *rtwdev)
+{
+	struct rtw89_phy_stat *phystat = &rtwdev->phystat;
+	struct rtw89_hal *hal = &rtwdev->hal;
+	bool vcore_enabled = !!hal->thermal_prot_vmax;
+	u8 th_max = phystat->last_thermal_max;
+	u8 vlv = hal->thermal_prot_vlv;
+	u8 prot_th;
+
+	if (!vcore_enabled || (hal->disabled_dm_bitmap & BIT(RTW89_DM_VCORE)))
+		return;
+
+	prot_th = hal->thermal_prot_th - RTW89_THERMAL_PROT_VLV_TH_OFFSET;
+	if (th_max > prot_th && vlv < RTW89_THERMAL_PROT_VLV_MAX)
+		vlv++;
+	else if (th_max < prot_th - 2 && vlv > 0)
+		vlv--;
+	else
+		return;
+
+	rtw89_debug(rtwdev, RTW89_DBG_RFK_TRACK, "thermal protection vlv=%d\n", vlv);
+
+	hal->thermal_prot_vlv = vlv;
+	rtw89_mac_set_vcore_cfg(rtwdev, vlv);
+}
+
 static void rtw89_phy_thermal_protect(struct rtw89_dev *rtwdev)
 {
 	struct rtw89_phy_stat *phystat = &rtwdev->phystat;
@@ -5842,6 +5868,9 @@ static void rtw89_phy_stat_init(struct rtw89_dev *rtwdev)
 		memset(&bb->last_pkt_stat, 0, sizeof(bb->last_pkt_stat));
 
 		ewma_rssi_init(&bb->bcn_rssi);
+		bb->path_diff.raw = 0;
+		ewma_path_diff_init(&bb->path_diff.avg);
+		bb->path_diff.bf_smo_en = false;
 	}
 
 	rtwdev->hal.thermal_prot_lv = 0;
@@ -6183,6 +6212,7 @@ void rtw89_phy_stat_track(struct rtw89_dev *rtwdev)
 	struct rtw89_bb_ctx *bb;
 
 	rtw89_phy_stat_thermal_update(rtwdev);
+	rtw89_phy_thermal_protect_vcore(rtwdev);
 	rtw89_phy_thermal_protect(rtwdev);
 	rtw89_phy_stat_rssi_update(rtwdev);
 	rtw89_phy_stat_update(rtwdev);
@@ -6190,6 +6220,8 @@ void rtw89_phy_stat_track(struct rtw89_dev *rtwdev)
 	rtw89_for_each_active_bb(rtwdev, bb) {
 		bb->last_pkt_stat = bb->cur_pkt_stat;
 		memset(&bb->cur_pkt_stat, 0, sizeof(bb->cur_pkt_stat));
+
+		rtw89_chip_path_diff_update(rtwdev, bb);
 	}
 }
 
@@ -8978,6 +9010,7 @@ const struct rtw89_phy_gen_def rtw89_phy_gen_ax = {
 	.physts = &rtw89_physts_regs_ax,
 	.cfo = &rtw89_cfo_regs_ax,
 	.bb_wrap = NULL,
+	.nctl = NULL,
 	.phy0_phy1_offset = rtw89_phy0_phy1_offset_ax,
 	.config_bb_gain = rtw89_phy_config_bb_gain_ax,
 	.preinit_rf_nctl = rtw89_phy_preinit_rf_nctl_ax,
