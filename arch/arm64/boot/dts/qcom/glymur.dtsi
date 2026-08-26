@@ -9,6 +9,7 @@
 #include <dt-bindings/clock/qcom,glymur-gcc.h>
 #include <dt-bindings/clock/qcom,glymur-gpucc.h>
 #include <dt-bindings/clock/qcom,glymur-tcsr.h>
+#include <dt-bindings/clock/qcom,glymur-lpasscc.h>
 #include <dt-bindings/clock/qcom,glymur-videocc.h>
 #include <dt-bindings/clock/qcom,kaanapali-gxclkctl.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
@@ -5069,6 +5070,79 @@
 			};
 		};
 
+		lpass_rxmacro: codec@6a70000 {
+			compatible = "qcom,sm8650-lpass-rx-macro", "qcom,sm8550-lpass-rx-macro";
+			reg = <0 0x06a70000 0 0x1000>;
+			clocks = <&q6prmcc LPASS_CLK_ID_RX_CORE_TX_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+				 <&q6prmcc LPASS_HW_MACRO_VOTE LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+				 <&q6prmcc LPASS_HW_DCODEC_VOTE LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+				 <&q6prmcc LPASS_CLK_ID_TX_CORE_NPL_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+				 <&lpass_vamacro>;
+			clock-names = "mclk",
+				      "macro",
+				      "dcodec",
+				      "npl",
+				      "fsgen";
+
+			#clock-cells = <0>;
+			clock-output-names = "mclk";
+			#sound-dai-cells = <1>;
+		};
+	
+		swr1: soundwire@6a80000 {
+			compatible = "qcom,soundwire-v3.1.0";
+			reg = <0 0x06a80000 0 0x10000>;
+			clocks = <&lpass_rxmacro>;
+			clock-names = "iface";
+			interrupts = <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
+			label = "RX";
+
+			pinctrl-0 = <&rx_swr_active>;
+			pinctrl-names = "default";
+
+			resets = <&lpass_audiocc LPASS_AUDIO_SWR_RX_CGCR>;
+			reset-names = "swr_audio_cgcr";
+
+			#address-cells = <2>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+
+		lpass_txmacro: codec@6a90000 {
+			compatible = "qcom,sm8550-lpass-tx-macro";
+			reg = <0 0x06a90000 0 0x1000>;
+			clocks = <&q6prmcc LPASS_CLK_ID_TX_CORE_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+				 <&q6prmcc LPASS_HW_MACRO_VOTE LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+				 <&q6prmcc LPASS_HW_DCODEC_VOTE LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+				 <&q6prmcc LPASS_CLK_ID_TX_CORE_NPL_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+				 <&lpass_vamacro>;
+			clock-names = "mclk",
+				      "macro",
+				      "dcodec",
+				      "npl",
+				      "fsgen";
+
+			#clock-cells = <0>;
+			clock-output-names = "mclk";
+			#sound-dai-cells = <1>;
+		};
+
+		lpass_audiocc: clock-controller@6a94000 {
+			compatible = "qcom,glymur-lpassaudiocc";
+			reg = <0 0x06a94000 0 0x1000>;
+			#clock-cells = <1>;
+			#reset-cells = <1>;
+		};
+		lpasscc: clock-controller@7680000 {
+			compatible = "qcom,glymur-lpasscc";
+			reg = <0 0x07680000 0 0x10000>;
+			#clock-cells = <1>;
+			#reset-cells = <1>;
+		};
+
+
+
 		swr0: soundwire@6c80000 {
 			compatible = "qcom,soundwire-v3.1.0";
 			reg = <0x0 0x06c80000 0x0 0x10000>;
@@ -5185,6 +5259,210 @@
 			#clock-cells = <0>;
 			clock-output-names = "fsgen";
 			#sound-dai-cells = <1>;
+		};
+
+		swr2: soundwire@7630000 {
+			compatible = "qcom,soundwire-v3.1.0";
+			reg = <0 0x07630000 0 0x10000>;
+			clocks = <&lpass_txmacro>;
+			clock-names = "iface";
+			interrupts = <GIC_SPI 761 IRQ_TYPE_LEVEL_HIGH>;
+//				     <GIC_SPI 520 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "core";//, "wakeup";
+			label = "TX";
+			//TODO
+			resets = <&lpasscc LPASS_AUDIO_SWR_TX_CGCR>;
+			reset-names = "swr_audio_cgcr";
+
+			pinctrl-0 = <&tx_swr_active>;
+			pinctrl-names = "default";
+
+			//qcom,din-ports = <4>;
+			//qcom,dout-ports = <1>;
+//TODO
+#if 0
+1125  //  {mport, sport, slave,  en_chan, s_win, off1, off2, hstart, hstop, wd_len, bp_mode, bgp_ctrl, lane_ctrl}
+{   {0,      0,     0}, {0x0,     0,    0,    0,     0xFF,  0xFF,  0xFF,   0xFF,    0xFF,      0xFF} }, //unsupported
+1127    {   {1,     0,     0}, {0x0,     0,    0,    0,     0xFF,  0xFF,  0xFF,   0xFF,    0xFF,      0xFF} }, //PCM in not supported
+1128    {   {2,     1,     0}, {0x2,     1,   1,    0,     0xFF,    0xFF,   0xFF,    0xFF,     0xFF,    0} }, //Tx1
+1129  	{   {3,     3,     0}, {0x1,     3,    2,    0,     0xFF,  0xFF,  0xFF,   0xFF,    0xFF,      0} }, //Tx2
+1130  	{   {4,     4,     0}, {0x1,     3,    0,    0,     0xFF,  0xFF,  0xFF,   0xFF,    0xFF,      1} }, //Tx3
+1131  	{   {5,     0,     0}, {0x0,     0,    0, 0xFF,  0xFF,  0xFF,  0xFF,   0xFF,    0xFF,      0xFF} }, //SWR PCM not supported
+1132  	{   {6,      0,    0},  {0x0,     0,    0, 0xFF,  0xFF,  0xFF,  0xFF,   0xFF,    0xFF,      0xFF} }, //unsupported
+1133  	{   {7,      0,    0},  {0x0,     0,    0, 0xFF,  0xFF,  0xFF,  0xFF,   0xFF,    0xFF,      0xFF} }, //unsupported
+1134  	{   {9,      0,    0},  {0x0,     0,    0, 0xFF,  0xFF,  0xFF,  0xFF,   0xFF,    0xFF,      0xFF} }, //unsupported
+1135  	{   {10,      0,    0},  {0x0,     0,    0,   0,     0xFF,  0xFF,  0xFF,   0xFF,    0xFF,      0xFF} }, //unsupported
+1136  	{   {11,     0,    0},  {0x0,     0,    0,   0,     0xFF,  0xFF,  0xFF,   0xFF,    0xFF,      0xFF} }, //unsupported
+1137  	{   {12,     0,    0},  {0x0,     0,    0,   0,     0xFF,  0xFF,  0xFF,   0xFF,    0xFF,      0xFF} }, //unsupported
+1138  	{   {13,     0,    0},  {0x0,     0,    0,   0,     0xFF,  0xFF,  0xFF,   0xFF,    0xFF,      0xFF} }, //unsupported
+1139  	{   {14,     0,    0},  {0x0,     0,    0,   0,     0xFF,  0xFF,  0xFF,   0xFF,    0xFF,      0xFF} }, //unsupported
+1140  };
+1141
+#endif
+/*
+ * SI is encoded as (sample_interval - 1).  At 38.4MHz bus clock and 50x16
+ * frame shape the frame rate is 48kHz; for 48kHz capture on port 2 we need
+ * sample_interval=1 (every frame), so the encoded value here is 0x00.
+ */
+qcom,ports-sinterval-low =	/bits/ 8 <0x00 0x00 0x03 0x03 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+qcom,ports-offset1 =		/bits/ 8 <0x00 0x01 0x02 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+qcom,ports-offset2 =		/bits/ 8 <0x00 0xff 0x00 0x00 0xff 0xff 0xff 0xff 0x00 0x00 0x00 0x00 0x00 0x00>;
+qcom,ports-hstart =		/bits/ 8 <0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff>;
+/* HStop=0x0F for master port 2 (DP2 capture) per DataPool.xml CFG_1 MgrCfg */
+qcom,ports-hstop =		/bits/ 8 <0xff 0x0f 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff>;
+qcom,ports-word-length =	/bits/ 8 <0xff 0x01 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff>;
+qcom,ports-block-pack-mode =	/bits/ 8 <0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff>;
+qcom,ports-block-group-count =	/bits/ 8 <0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff>;
+/*
+ * Slave (WCD9378/Tambora) port lane control on the TX/control bus.  Ports 1-4
+ * are TX/capture.  Ports 6,7 are the playback sink ports (DP6 HPH 2bit/2ch,
+ * DP7 CLASSH 8bit/1ch).  Per the Tambora HW/SW doc, RX/playback data uses the
+ * Tambora compute data lanes DATA2/DATA3 which correspond to RX SWR manager
+ * DATA0/DATA1 (Tambora lane 2 <-> RX lane 0, Tambora lane 3 <-> RX lane 1).
+ *
+ * The slave lane here must match the RX (swr1) master port that sources the
+ * data (selected via qcom,rx-port-mapping):
+ *   DP6 -> swr1 port 1 (2bit, RX lane 1) -> Tambora DATA3 (lane 3)
+ *   DP7 -> swr1 port 2 (8bit, RX lane 0) -> Tambora DATA2 (lane 2)
+ *
+ * DP2 (capture) uses lane 1 per DataPool.xml CFG_1 PeriphCfg.LaneCtrl=0x01.
+ */
+qcom,ports-lane-control =	/bits/ 8 <0xff 0x01 0x00 0x01 0xff 0x03 0x02 0xff 0xff 0xff 0xff 0xff 0xff 0xff>;
+
+			#address-cells = <2>;
+			#size-cells = <0>;
+			#sound-dai-cells = <1>;
+			status = "disabled";
+		};
+
+		/*
+		 * Multi-lane (aggregated) SoundWire master — wraps the TX and RX
+		 * SWR master IP blocks (same addresses as swr2 and swr1) into one
+		 * logical bus with multiple data lanes.  Used in SDCA "compute
+		 * mode" where a single peripheral (e.g. WCD9378) consumes lanes
+		 * from both IPs.  Disabled by default; board files enable this OR
+		 * swr1/swr2, not both.
+		 */
+		swr_compute: soundwire-compute@7630000 {
+			compatible = "qcom,soundwire-multilane-v3.1.0";
+
+			reg       = <0 0x07630000 0 0x10000>,
+				    <0 0x06a80000 0 0x10000>;
+			reg-names = "primary", "secondary";
+
+			clocks      = <&lpass_txmacro>, <&lpass_rxmacro>;
+			clock-names = "primary", "secondary";
+
+			interrupts      = <GIC_SPI 761 IRQ_TYPE_LEVEL_HIGH>,
+					  <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "primary", "secondary";
+
+			resets      = <&lpasscc LPASS_AUDIO_SWR_TX_CGCR>,
+				      <&lpass_audiocc LPASS_AUDIO_SWR_RX_CGCR>;
+			reset-names = "primary", "secondary";
+
+			pinctrl-names = "default";
+			pinctrl-0     = <&tx_swr_active>, <&rx_swr_active>;
+
+			/* Tambora compute mode:
+			 *   lane 0 (ctrl + TX) → primary bank
+			 *   lane 1 (TX)        → primary bank
+			 *   lane 2 (RX)        → secondary bank
+			 *   lane 3 (RX)        → secondary bank
+			 */
+			qcom,lane-banks = /bits/ 8 <0 0 1 1>;
+
+			/*
+			 * Per-port arrays describe the unified bus.  Each port's
+			 * qcom,ports-lane-control selects its lane; the driver
+			 * routes the DPN register writes to the primary bank
+			 * (lanes 0/1) or secondary bank (lanes 2/3) accordingly.
+			 *
+			 * Port 2 (DP2 capture, lane 1, primary):
+			 *   sinterval=0, off1=1, hstop=0x0f, word-length=1
+			 * Port 6 (DP6 HPH stereo 2-bit, lane 3, secondary):
+			 *   sinterval=3, off1=0, hstop=0x0f, word-length=1
+			 * Port 7 (DP7 CLASS-H mono 8-bit, lane 2, secondary):
+			 *   sinterval=31, off1=0, hstop=0x0f, word-length=7
+			 * Port 8 (DP8 DRE stereo 5-bit BPC, lane 2, secondary):
+			 *   sinterval=31, off1=11, off2=11, BPC=1, word-length=4
+			 */
+			qcom,ports-sinterval =
+				/bits/ 16 <0x00 0x01 0x03 0x03 0x00 0x03 0x1f 0x1f 0 0 0 0 0 0>;
+			qcom,ports-offset1 =
+				/bits/ 8 <0x00 0x01 0x02 0x00 0x00 0x00 0x00 0x0b 0 0 0 0 0 0>;
+			qcom,ports-offset2 =
+				/bits/ 8 <0x00 0x00 0x00 0x00 0xff 0x00 0x00 0x0b 0 0 0 0 0 0>;
+			qcom,ports-hstart =
+				/bits/ 8 <0xff 0xff 0xff 0xff 0xff 0x00 0x00 0x00 0xff 0xff 0xff 0xff 0xff 0xff>;
+			qcom,ports-hstop =
+				/bits/ 8 <0xff 0x0f 0xff 0xff 0xff 0x0f 0x0f 0x0f 0xff 0xff 0xff 0xff 0xff 0xff>;
+			/*
+			 * Wire BPS (DPN_BlockCtrl1 encoding: BPS - 1).
+			 *   port 2 (DP2 capture):    1-bit PDM  → 0
+			 *   port 6 (DP6 HPH):        2-bit PDM  → 1
+			 *   port 7 (DP7 CLASS-H):    8-bit PCM  → 7
+			 *   port 8 (DP8 DRE):        5-bit BPC  → 4
+			 */
+			qcom,ports-word-length =
+				/bits/ 8 <0xff 0xff 0xff 0xff 0xff 0x01 0x07 0x04 0xff 0xff 0xff 0xff 0xff 0xff>;
+			/*
+			 * DP7 slave BLOCK_PACK_MODE per QCRG line 146 must be
+			 * 0x00 (BPP).  The DataPool XML "MgrCfg" for DP7 says
+			 * BpMode=0xFF ("don't-program on master side"), but the
+			 * qcom driver uses one DTS value for both master AND
+			 * slave writes — so we go with the value the slave
+			 * requires (0x00 BPP).  Setting master BC3 to BPP
+			 * explicitly is harmless: BPP is the master's default
+			 * anyway, so behaviour is identical to don't-program.
+			 */
+			qcom,ports-block-pack-mode =
+				/bits/ 8 <0xff 0xff 0xff 0xff 0xff 0xff 0x00 0x01 0xff 0xff 0xff 0xff 0xff 0xff>;
+			qcom,ports-block-group-count =
+				/bits/ 8 <0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff>;
+			/*
+			 * Lane assignments per QCRG reference + 2026-07-10 sec-IP
+			 * probe (memory: wcd9378-hph-playback-multilane):
+			 *   DP2 (mic capture, 1-bit PDM)      → lane 1 (primary DATA1)
+			 *   DP6 (HPH audio, 2-bit PDM stereo) → lane 3 (sec DATA3)
+			 *   DP7 (Class-H envelope, 8-bit PCM) → lane 0 (primary DATA0)
+			 *   DP8 (DRE 5-bit BPC stereo)        → lane 2 (sec DATA2)
+			 *
+			 * qcom,lane-banks = <0 0 1 1> so lanes 0/1 route to primary
+			 * IP mmio and lanes 2/3 route to secondary IP mmio via
+			 * qcom_swrm_port_mmio().  Secondary-IP DPN writes get
+			 * QCOM_SWRM_SEC_DPN_OFFSET_SHIFT applied automatically.
+			 *
+			 * DP7 was originally on lane 2 (sec DATA2) but the sec IP's
+			 * port-2 slot is a SIMPLE-DP variant: BC1 register only has
+			 * bit 0 programmable (max 2-bit wire width) and HCTRL is
+			 * hardwired to 0.  The 8-bit envelope stream is physically
+			 * impossible on that slot.  Moving DP7 to lane 0 (primary
+			 * IP DATA0) uses a FULL v3.0 DPN slot that accepts full BC1
+			 * and HCTRL programming.  DP6 stays on sec IP because 2-bit
+			 * PDM is exactly what SIMPLE-DP supports.
+			 */
+			qcom,ports-lane-control =
+				/bits/ 8 <0xff 0x01 0x00 0x01 0xff 0x03 0x02 0x02 0xff 0xff 0xff 0xff 0xff 0xff>;
+			/*
+			 * Per-port intrinsic channel mask.  Describes the port's
+			 * SoundWire channel layout independent of the PCM stream
+			 * channel count:
+			 *   port 2 (DP2 mic capture):        mono   = 0x01
+			 *   port 6 (DP6 HPH stereo PDM):     stereo = 0x03
+			 *   port 7 (DP7 Class-H envelope):   mono   = 0x01
+			 *   port 8 (DP8 DRE stereo):         stereo = 0x03
+			 * The qcom driver uses these when programming the master
+			 * PORT_CTRL channel-enable field so both slots of a stereo
+			 * PDM port are transmitted even for a mono PCM opening.
+			 */
+			qcom,ports-ch-mask =
+				/bits/ 8 <0xff 0x01 0xff 0xff 0xff 0x03 0x01 0x03 0xff 0xff 0xff 0xff 0xff 0xff>;
+
+			#address-cells   = <2>;
+			#size-cells      = <0>;
+			#sound-dai-cells = <1>;
+			status = "disabled";
 		};
 
 		lpass_tlmm: pinctrl@7760000 {

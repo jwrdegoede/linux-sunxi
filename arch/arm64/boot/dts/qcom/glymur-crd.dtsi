@@ -271,7 +271,17 @@
 				"VA DMIC2", "vdd-micb",
 				"VA DMIC3", "vdd-micb",
 				"VA DMIC4", "vdd-micb",
-				"VA DMIC5", "vdd-micb";
+				"VA DMIC5", "vdd-micb",
+				"IT 41 Playback", "HPHL_OUT",
+				"IT 41 Playback", "HPHR_OUT",
+				/*
+				 * Bridge the TX macro SoundWire input to the
+				 * WCD9378 capture output terminal (OT 36, DP2)
+				 * so DAPM completes the codec->macro capture
+				 * path.  Without this the macro powers its
+				 * decimator but no data is pulled from the codec.
+				 */
+				"TX SWR_INPUT1", "OT 36 Capture";
 
 		wsa-dai-link {
 			link-name = "WSA Playback";
@@ -285,6 +295,45 @@
 					    <&swr0 0>, <&lpass_wsamacro 0>,
 					    <&right_woofer>, <&right_tweeter>,
 					    <&swr3 0>, <&lpass_wsa2macro 0>;
+			};
+
+			platform {
+				sound-dai = <&q6apm>;
+			};
+		};
+		/*
+		 * WCD9378 compute mode: swr2 is the bus master with swr1
+		 * acting as its lane provider (contributing DATA lanes 2
+		 * and 3), so both DAI links reference &swr2 as the
+		 * controller DAI.
+		 *   swr2 cell 0 = dout (playback)
+		 *   swr2 cell 1 = din  (capture)
+		 */
+		wcd-playback-dai-link {
+			link-name = "WCD Playback";
+
+			cpu {
+				sound-dai = <&q6apmbedai RX_CODEC_DMA_RX_0>;
+			};
+
+			codec {
+				sound-dai = <&wcd9378c 0>, <&swr2 0>, <&lpass_rxmacro 0>;
+			};
+
+			platform {
+				sound-dai = <&q6apm>;
+			};
+		};
+
+		wcd-capture-dai-link {
+			link-name = "WCD Capture";
+
+			cpu {
+				sound-dai = <&q6apmbedai TX_CODEC_DMA_TX_3>;
+			};
+
+			codec {
+				sound-dai = <&wcd9378c 18>, <&swr2 1>, <&lpass_txmacro 0>;
 			};
 
 			platform {
@@ -1229,6 +1278,82 @@
 		qcom,port-mapping = <4 5 6 7 13 15>;
 	};
 };
+/*
+ * WCD9378 compute-mode SoundWire.
+ *
+ * Two physical SWR IPs form ONE logical multi-master bus:
+ *
+ *   - swr1 (RX @ 0x06a80000) runs as the multi-master dependent.
+ *     It contributes DATA lanes 2/3 to swr2's bus and does not
+ *     enumerate slaves of its own.
+ *   - swr2 (TX @ 0x07630000) runs as the multi-master primary:
+ *     owns SWR_CLK, the control lane and DATA lanes 0/1, and hosts
+ *     wcd9378c as the sole SDCA slave.  The pair is described via
+ *     qcom,multi-master-mode / qcom,multi-master-peer on both nodes.
+ */
+&swr1 {
+	qcom,multi-master-mode = "dependent";
+	qcom,multi-master-peer = <&swr2 0>;
+	num-lanes = <2>;
+
+	status = "okay";
+};
+
+&swr2 {
+	/*
+	 * Unified-bus per-port arrays for WCD9378 SDCA compute mode.
+	 * Ports 2 (DP2 capture), 6/7/8 (DP6/7/8 playback) drive traffic.
+	 * lane_control routes each port to the owning IP: bus lanes 0/1
+	 * on swr2 (local), lanes 2/3 on swr1 (dependent).
+	 */
+	qcom,multi-master-mode = "primary";
+	qcom,multi-master-peer = <&swr1 5>;
+	num-lanes = <2>;
+
+	qcom,ports-sinterval-low =
+		/bits/ 8  <0x00 0x01 0x03 0x03 0x00 0x03 0x1f 0x1f 0 0 0 0 0 0>;
+	qcom,ports-offset1 =
+		/bits/ 8  <0x00 0x01 0x02 0x00 0x00 0x00 0x00 0x0b 0 0 0 0 0 0>;
+	qcom,ports-offset2 =
+		/bits/ 8  <0x00 0x00 0x00 0x00 0xff 0x00 0x00 0x0b 0 0 0 0 0 0>;
+	qcom,ports-hstart =
+		/bits/ 8  <0xff 0xff 0xff 0xff 0xff 0x00 0x00 0x00 0xff 0xff 0xff 0xff 0xff 0xff>;
+	qcom,ports-hstop =
+		/bits/ 8  <0xff 0x0f 0xff 0xff 0xff 0x0f 0x0f 0x0f 0xff 0xff 0xff 0xff 0xff 0xff>;
+	qcom,ports-word-length =
+		/bits/ 8  <0xff 0xff 0xff 0xff 0xff 0x01 0x07 0x04 0xff 0xff 0xff 0xff 0xff 0xff>;
+	qcom,ports-block-pack-mode =
+		/bits/ 8  <0xff 0xff 0xff 0xff 0xff 0xff 0x00 0x01 0xff 0xff 0xff 0xff 0xff 0xff>;
+	qcom,ports-block-group-count =
+		/bits/ 8  <0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff>;
+	qcom,ports-lane-control =
+		/bits/ 8  <0xff 0x01 0x00 0x01 0xff 0x03 0x02 0x02 0xff 0xff 0xff 0xff 0xff 0xff>;
+	qcom,ports-ch-mask =
+		/bits/ 8  <0xff 0x01 0xff 0xff 0xff 0x03 0x01 0x03 0xff 0xff 0xff 0xff 0xff 0xff>;
+
+	status = "okay";
+
+	wcd9378c: codec@3,0 {
+		compatible = "sdw20217011000";
+		reg = <0 3>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&wcd_default>;
+
+		qcom,sdca-compliant;
+
+		qcom,port-mapping = <2 2 3 4 5 6 7 8>;
+
+		reset-gpios = <&tlmm 191 GPIO_ACTIVE_LOW>;
+
+		vdd-buck-supply     = <&vreg_l15b_e0_1p8>;
+		vdd-rxtx-supply     = <&vreg_l15b_e0_1p8>;
+		vdd-io-supply       = <&vreg_l18b_e0_1p2>;
+		vdd-mic-bias-supply = <&vreg_bob1_e0>;
+
+		#sound-dai-cells = <1>;
+	};
+};
 
 &swr3 {
 	status = "okay";
@@ -1475,6 +1600,14 @@
 			drive-strength = <16>;
 			bias-disable;
 		};
+	};
+
+	wcd_default: wcd-reset-n-active-state {
+		pins = "gpio191";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-disable;
+		output-low;
 	};
 
 	wcn_wlan_bt_en: wcn-wlan-bt-en-state {
