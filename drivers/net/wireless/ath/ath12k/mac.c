@@ -13689,7 +13689,7 @@ int ath12k_mac_op_get_survey(struct ieee80211_hw *hw, int idx,
 		return -ENOENT;
 	}
 
-	ah_survey = &ah->survey[idx];
+	ah_survey = &ah->survey[sband_idx];
 
 	ath12k_mac_update_bss_chan_survey(ar, &sband->channels[sband_idx]);
 
