@@ -20,5 +20,6 @@
 #define TCSR_USB3_1_CLKREF_EN					10
 #define TCSR_USB4_1_CLKREF_EN					11
 #define TCSR_USB4_2_CLKREF_EN					12
+#define TCSR_UFS_CLKREF_EN					TCSR_PCIE_4_CLKREF_EN
 
 #endif
