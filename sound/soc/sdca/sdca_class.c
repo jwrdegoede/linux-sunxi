@@ -139,6 +139,20 @@ err:
 	pm_runtime_put_sync(drv->dev);
 }
 
+static void sdca_class_cancel_boot_work(void *data)
+{
+	struct sdca_class_drv *drv = data;
+
+	/*
+	 * If boot_work never got to run, class_boot_work() also never
+	 * released the pm_runtime reference that sdca_class_probe() took
+	 * with pm_runtime_get_noresume().  Drop it here so the device
+	 * isn't stuck non-idle after devres unwinds.
+	 */
+	if (cancel_work_sync(&drv->boot_work))
+		pm_runtime_put_noidle(drv->dev);
+}
+
 /**
  * sdca_class_probe - SDCA class SoundWire slave probe helper
  * @sdw: SoundWire slave
@@ -202,6 +216,10 @@ int sdca_class_probe(struct sdw_slave *sdw,
 		return ret;
 	}
 
+	ret = devm_add_action_or_reset(dev, sdca_class_cancel_boot_work, drv);
+	if (ret)
+		return ret;
+
 	queue_work(system_long_wq, &drv->boot_work);
 
 	return 0;
@@ -230,14 +248,13 @@ static int class_sdw_probe(struct sdw_slave *sdw, const struct sdw_device_id *id
  * sdca_class_remove - SDCA class SoundWire slave remove helper
  * @drv: caller-owned sdca_class_drv (the one handed to sdca_class_probe()).
  *
- * Cancels the deferred boot work so devres can safely free @drv and the
- * embedding codec priv without racing class_boot_work.  Codec-specific
- * SoundWire drivers that call sdca_class_probe() must call this from
- * their .remove with the same drv pointer they passed to probe.
+ * Boot-work cancellation is now handled by a devm action installed in
+ * sdca_class_probe(); this remains as a no-op remove hook for symmetry
+ * with sdca_class_probe(), and to give codec drivers a stable API to
+ * call from their .remove.
  */
 void sdca_class_remove(struct sdca_class_drv *drv)
 {
-	cancel_work_sync(&drv->boot_work);
 }
 EXPORT_SYMBOL_NS_GPL(sdca_class_remove, "SND_SOC_SDCA_CLASS");
 
