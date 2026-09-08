@@ -246,6 +246,17 @@ properties:
     minimum: 1
     maximum: 8
 
+  qcom,ports-ch-mask:
+    $ref: /schemas/types.yaml#/definitions/uint8-array
+    description:
+      Per-port intrinsic SoundWire channel mask.  Used when programming
+      the master DPn PORT_CTRL channel-enable field so a port's slot
+      layout (e.g. stereo PDM) is transmitted independently of the PCM
+      stream's channel count.  0xff means the option is not applicable
+      for that port.
+    minItems: 3
+    maxItems: 17
+
   label:
     maxItems: 1
 
