@@ -1101,6 +1101,32 @@ static enum sdw_command_response qcom_swrm_xfer_msg(struct sdw_bus *bus,
 	struct qcom_swrm_ctrl *ctrl = to_qcom_sdw(bus);
 	int ret, i, len;
 
+	/* HW never asserts SPECIAL_CMD_ID_FINISHED for broadcasts here;
+	 * fan out to a unicast per enumerated slave. */
+	if (ctrl->is_primary && msg->dev_num == SDW_BROADCAST_DEV_NUM &&
+	    (msg->addr == SDW_SCP_FRAMECTRL_B0 ||
+	     msg->addr == SDW_SCP_FRAMECTRL_B1)) {
+		struct sdw_slave *slave;
+		enum sdw_command_response resp;
+		u16 orig_dev_num = msg->dev_num;
+
+		list_for_each_entry(slave, &bus->slaves, node) {
+			if (slave->dev_num == SDW_ENUM_DEV_NUM ||
+			    slave->dev_num >= SDW_BROADCAST_DEV_NUM)
+				continue;
+
+			msg->dev_num = slave->dev_num;
+			resp = qcom_swrm_xfer_msg(bus, msg);
+			if (resp != SDW_CMD_OK) {
+				msg->dev_num = orig_dev_num;
+				return resp;
+			}
+		}
+
+		msg->dev_num = orig_dev_num;
+		return SDW_CMD_OK;
+	}
+
 	if (msg->page) {
 		if (ctrl->page1_cache[msg->dev_num] != msg->addr_page1) {
 			ret = qcom_swrm_cmd_fifo_wr_cmd(ctrl, msg->addr_page1,
