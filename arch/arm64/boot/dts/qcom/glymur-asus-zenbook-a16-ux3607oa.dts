@@ -595,8 +595,19 @@
 	status = "okay";
 };
 
+&camss_csiphy0_inep {
+	data-lanes = <1>;
+};
+
 &camss_csiphy4_inep {
 	data-lanes = <1 2>;
+};
+
+&cci0 {
+	pinctrl-0 = <&cci0_0_default>;
+	pinctrl-1 = <&cci0_0_sleep>;
+
+	status = "okay";
 };
 
 &cci1 {
@@ -604,6 +615,39 @@
 	pinctrl-1 = <&cci1_1_sleep>;
 
 	status = "okay";
+};
+
+&cci0_i2c0 {
+	camera@24 {
+		compatible = "himax,hm1092";
+		reg = <0x24>;
+
+		reset-gpios = <&tlmm 109 GPIO_ACTIVE_LOW>;
+
+		leds = <&privacy_led>;
+		led-names = "privacy";
+
+		clocks = <&camcc CAM_CC_MCLK0_CLK>;
+		assigned-clocks = <&camcc CAM_CC_MCLK0_CLK>;
+		assigned-clock-rates = <24000000>;
+
+		orientation = <MEDIA_ORIENTATION_FRONT>;
+
+		dvdd-supply = <&vreg_l4m>;
+		avdd-supply = <&vreg_l3m>;
+		dovdd-supply = <&vreg_l4m>;
+
+		pinctrl-0 = <&cam_mclk0_default>, <&cam_reset0_default>;
+		pinctrl-names = "default";
+
+		port {
+			hm1092_out_ep: endpoint {
+				data-lanes = <1>;
+				link-frequencies = /bits/ 64 <180000000>;
+				remote-endpoint = <&csiphy0_in_ep>;
+			};
+		};
+	};
 };
 
 &cci1_i2c1 {
@@ -637,6 +681,20 @@
 			};
 		};
 	};
+};
+
+&csiphy0 {
+	vdda-0p9-supply = <&vreg_l1f_e1>;
+	vdda-1p2-supply = <&vreg_l4f_e1>;
+
+	status = "okay";
+};
+
+&csiphy0_in_ep {
+	bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+	clock-lanes = <0>;
+	data-lanes = <1>;
+	remote-endpoint = <&hm1092_out_ep>;
 };
 
 &csiphy4 {
@@ -1170,6 +1228,13 @@
 
 	keyboard_mic_led: keyboard-mic-led-state {
 		pins = "gpio98";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+	};
+
+	cam_reset0_default: cam-reset0-default-state {
+		pins = "gpio109";
 		function = "gpio";
 		drive-strength = <2>;
 		bias-disable;
