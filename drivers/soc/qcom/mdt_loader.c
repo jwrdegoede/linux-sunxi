@@ -387,6 +387,9 @@ int qcom_mdt_load_no_init(struct device *dev, const struct firmware *fw,
 		mem_reloc = mem_phys;
 	}
 
+	dev_info(dev, "reloc %d min_addr 0x%08llx mem_phys 0x%08llx mem_reloc %08llx mem_size %08lx\n",
+		 relocate, min_addr, mem_phys, mem_reloc, mem_size);
+
 	for (i = 0; i < ehdr->e_phnum; i++) {
 		phdr = &phdrs[i];
 
@@ -395,7 +398,8 @@ int qcom_mdt_load_no_init(struct device *dev, const struct firmware *fw,
 
 		offset = phdr->p_paddr - mem_reloc;
 		if (offset < 0 || offset + phdr->p_memsz > mem_size) {
-			dev_err(dev, "segment outside memory range\n");
+			dev_err(dev, "segment outside memory range, p_paddr 0x%08x p_memsize 0x%08x offset %ld\n",
+				phdr->p_paddr, phdr->p_memsz, offset);
 			ret = -EINVAL;
 			break;
 		}
