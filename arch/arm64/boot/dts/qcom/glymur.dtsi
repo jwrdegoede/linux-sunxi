@@ -3408,6 +3408,8 @@
 				#size-cells = <2>;
 				ranges;
 
+				t-power-on-us = <80>;
+
 				port {
 					pcie4_port0_ep: endpoint {
 					};
@@ -3680,6 +3682,8 @@
 				#size-cells = <2>;
 				ranges;
 
+				t-power-on-us = <80>;
+
 				port {
 					pcie5_port0_ep: endpoint {
 					};
@@ -3895,6 +3899,8 @@
 				#address-cells = <3>;
 				#size-cells = <2>;
 				ranges;
+
+				t-power-on-us = <80>;
 
 				port {
 					pcie6_port0_ep: endpoint {
@@ -4167,6 +4173,8 @@
 				#address-cells = <3>;
 				#size-cells = <2>;
 				ranges;
+
+				t-power-on-us = <80>;
 
 				port {
 					pcie3b_port0_ep: endpoint {
