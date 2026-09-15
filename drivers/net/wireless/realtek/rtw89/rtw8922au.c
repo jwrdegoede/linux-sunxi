@@ -74,10 +74,16 @@ static const struct usb_device_id rtw_8922au_id_table[] = {
 };
 MODULE_DEVICE_TABLE(usb, rtw_8922au_id_table);
 
+static int rtw8922au_probe(struct usb_interface *intf,
+			   const struct usb_device_id *id)
+{
+	return rtw89_usb_probe(intf, id, &rtw89_8922au_info);
+}
+
 static struct usb_driver rtw_8922au_driver = {
 	.name = KBUILD_MODNAME,
 	.id_table = rtw_8922au_id_table,
-	.probe = rtw89_usb_probe,
+	.probe = rtw8922au_probe,
 	.disconnect = rtw89_usb_disconnect,
 };
 module_usb_driver(rtw_8922au_driver);
