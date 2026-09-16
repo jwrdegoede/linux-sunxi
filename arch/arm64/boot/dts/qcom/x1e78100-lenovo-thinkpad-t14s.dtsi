@@ -53,26 +53,8 @@
 		#sound-dai-cells = <1>;
 	};
 
-	gpio-keys {
-		compatible = "gpio-keys";
-
-		pinctrl-0 = <&hall_int_n_default>;
-		pinctrl-names = "default";
-
-		switch-lid {
-			gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
-			linux,input-type = <EV_SW>;
-			linux,code = <SW_LID>;
-			wakeup-source;
-			wakeup-event-action = <EV_ACT_DEASSERTED>;
-		};
-	};
-
 	hdmi-bridge {
 		compatible = "realtek,rtd2171";
-
-		pinctrl-0 = <&hdmi_hpd_default>;
-		pinctrl-names = "default";
 
 		ports {
 			#address-cells = <1>;
@@ -1198,12 +1180,8 @@
 &i2c5 {
 	clock-frequency = <400000>;
 
+	acpi-path = "\\_SB.I2C6";
 	status = "okay";
-
-	fan-controller@36 {
-		compatible = "lenovo,thinkpad-t14s-fan-controller";
-		reg = <0x36>;
-	};
 
 	eusb5_repeater: redriver@43 {
 		compatible = "nxp,ptn3222";
@@ -1250,20 +1228,8 @@
 
 &i2c6 {
 	clock-frequency = <400000>;
-
+	acpi-path = "\\_SB.I2C7";
 	status = "okay";
-
-	embedded-controller@28 {
-		compatible = "lenovo,thinkpad-t14s-ec";
-		reg = <0x28>;
-
-		interrupts-extended = <&tlmm 66 IRQ_TYPE_LEVEL_LOW>;
-
-		pinctrl-0 = <&ec_int_n_default>;
-		pinctrl-names = "default";
-
-		wakeup-source;
-	};
 };
 
 &i2c7 {
@@ -1723,6 +1689,7 @@
 
 &tlmm {
 	acpi-path = "\\_SB.GIO0";
+	acpi-enable-gpio-events;
 
 	gpio-reserved-ranges = <34 2>, /* Unused */
 			       <44 4>, /* SPI (TPM) */
@@ -1743,12 +1710,6 @@
 			drive-strength = <2>;
 			bias-disable;
 		};
-	};
-
-	ec_int_n_default: ec-int-n-state {
-		pins = "gpio66";
-		function = "gpio";
-		bias-disable;
 	};
 
 	eusb3_reset_n: eusb3-reset-n-state {
@@ -1773,12 +1734,6 @@
 		drive-strength = <2>;
 		bias-disable;
 		output-low;
-	};
-
-	hdmi_hpd_default: hdmi-hpd-default-state {
-		pins = "gpio126";
-		function = "usb2_dp";
-		bias-disable;
 	};
 
 	nvme_reg_en: nvme-reg-en-state {
@@ -1813,12 +1768,6 @@
 		pins = "gpio70";
 		function = "gpio";
 		drive-strength = <16>;
-		bias-disable;
-	};
-
-	hall_int_n_default: hall-int-n-state {
-		pins = "gpio92";
-		function = "gpio";
 		bias-disable;
 	};
 
