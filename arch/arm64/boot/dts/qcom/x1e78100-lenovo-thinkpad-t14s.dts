@@ -10,8 +10,9 @@
 	compatible = "lenovo,thinkpad-t14s-lcd", "lenovo,thinkpad-t14s",
 		     "qcom,x1e78100", "qcom,x1e80100";
 
-#if 0
 	chosen {
+		acpi-hybrid-allowed-hids = "LNXTHERM", "PNP0C0D";
+#if 0
 		simplefb: framebuffer {
 			compatible = "simple-framebuffer";
 			status = "disabled";
@@ -29,8 +30,8 @@
 				 <&dispcc DISP_CC_MDSS_DPTX3_LINK_INTF_CLK>,
 				 <&dispcc DISP_CC_MDSS_DPTX3_PIXEL0_CLK>;
 		};
-	};
 #endif
+	};
 
 	backlight: backlight {
 		compatible = "pwm-backlight";
