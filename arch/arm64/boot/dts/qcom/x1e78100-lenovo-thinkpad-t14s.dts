@@ -10,6 +10,10 @@
 	compatible = "lenovo,thinkpad-t14s-lcd", "lenovo,thinkpad-t14s",
 		     "qcom,x1e78100", "qcom,x1e80100";
 
+	chosen {
+		acpi-hybrid-allowed-hids = "LNXTHERM", "PNP0C0D";
+	};
+
 	backlight: backlight {
 		compatible = "pwm-backlight";
 		pwms = <&pmk8550_pwm 0 4266537>;
