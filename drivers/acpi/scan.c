@@ -1874,7 +1874,7 @@ static int acpi_add_single_object(struct acpi_device **child,
 
 	acpi_init_device_object(device, handle, type, acpi_device_release);
 
-	if (type == ACPI_BUS_TYPE_DEVICE && dep_init) {
+	if ((type == ACPI_BUS_TYPE_DEVICE || type == ACPI_BUS_TYPE_THERMAL) && dep_init) {
 		mutex_lock(&acpi_dep_list_lock);
 		/*
 		 * Hold the lock until the acpi_tie_acpi_dev() call
@@ -2074,7 +2074,7 @@ static void acpi_scan_init_hotplug(struct acpi_device *adev)
 
 u32 __weak arch_acpi_add_auto_dep(acpi_handle handle) { return 0; }
 
-static u32 acpi_scan_check_dep(acpi_handle handle)
+static u32 acpi_scan_check_dep(acpi_handle handle, acpi_object_type acpi_type)
 {
 	struct acpi_handle_list dep_devices;
 	u32 count = 0;
@@ -2094,7 +2094,8 @@ static u32 acpi_scan_check_dep(acpi_handle handle)
 	 * 2. ACPI nodes describing USB ports.
 	 * Still, checking for _HID catches more then just these cases ...
 	 */
-	if (!acpi_has_method(handle, "_DEP") || !acpi_has_method(handle, "_HID"))
+	if (!acpi_has_method(handle, "_DEP") ||
+	    (acpi_type == ACPI_TYPE_DEVICE && !acpi_has_method(handle, "_HID")))
 		return count;
 
 	if (!acpi_evaluate_reference(handle, "_DEP", NULL, &dep_devices)) {
@@ -2134,7 +2135,7 @@ static acpi_status acpi_bus_check_add(acpi_handle handle, bool first_pass,
 			acpi_mipi_check_crs_csi2(handle);
 
 			/* Bail out if there are dependencies. */
-			if (acpi_scan_check_dep(handle) > 0) {
+			if (acpi_scan_check_dep(handle, acpi_type) > 0) {
 				/*
 				 * The entire CSI-2 connection graph needs to be
 				 * extracted before any drivers or scan handlers
@@ -2160,6 +2161,10 @@ static acpi_status acpi_bus_check_add(acpi_handle handle, bool first_pass,
 		break;
 
 	case ACPI_TYPE_THERMAL:
+		/* Bail out if there are dependencies. */
+		if (first_pass && acpi_scan_check_dep(handle, acpi_type) > 0)
+			return AE_CTRL_DEPTH;
+
 		type = ACPI_BUS_TYPE_THERMAL;
 		break;
 
