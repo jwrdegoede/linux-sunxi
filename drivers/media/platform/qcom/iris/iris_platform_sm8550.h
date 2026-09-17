@@ -8,10 +8,28 @@
 
 static const char * const sm8550_clk_reset_table[] = { "bus" };
 
-static const struct platform_clk_data sm8550_clk_table[] = {
-	{IRIS_AXI_CLK,  "iface"        },
-	{IRIS_CTRL_CLK, "core"         },
-	{IRIS_HW_CLK,   "vcodec0_core" },
+static const struct iris_power_domain_data sm8550_ctrl_data = {
+	.pd_names = (const char *[]) {
+		"venus",
+	},
+	.pd_cnt = 1,
+	.clk_names = (const char *[]) {
+		"iface", "core",
+	},
+	.clk_cnt = 2,
+};
+
+static const struct iris_power_domain_data sm8550_vcodec_data[] = {
+	{
+		.pd_names = (const char *[]) {
+			"vcodec0",
+		},
+		.pd_cnt = 1,
+		.clk_names = (const char *[]) {
+			"vcodec0_core",
+		},
+		.clk_cnt = 1,
+	},
 };
 
 static struct platform_inst_caps platform_inst_cap_sm8550 = {
