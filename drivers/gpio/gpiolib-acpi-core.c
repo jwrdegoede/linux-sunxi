@@ -1214,12 +1214,12 @@ out:
 static void acpi_gpiochip_request_regions(struct acpi_gpio_chip *achip)
 {
 	struct gpio_chip *chip = achip->chip;
-	acpi_handle handle = ACPI_HANDLE(chip->parent);
+	struct acpi_device *adev = to_acpi_device_node_any(chip->parent->fwnode);
 	acpi_status status;
 
 	INIT_LIST_HEAD(&achip->conns);
 	mutex_init(&achip->conn_lock);
-	status = acpi_install_address_space_handler(handle, ACPI_ADR_SPACE_GPIO,
+	status = acpi_install_address_space_handler(adev->handle, ACPI_ADR_SPACE_GPIO,
 						    acpi_gpio_adr_space_handler,
 						    NULL, achip);
 	if (ACPI_FAILURE(status))
@@ -1230,11 +1230,11 @@ static void acpi_gpiochip_request_regions(struct acpi_gpio_chip *achip)
 static void acpi_gpiochip_free_regions(struct acpi_gpio_chip *achip)
 {
 	struct gpio_chip *chip = achip->chip;
-	acpi_handle handle = ACPI_HANDLE(chip->parent);
+	struct acpi_device *adev = to_acpi_device_node_any(chip->parent->fwnode);
 	struct acpi_gpio_connection *conn, *tmp;
 	acpi_status status;
 
-	status = acpi_remove_address_space_handler(handle, ACPI_ADR_SPACE_GPIO,
+	status = acpi_remove_address_space_handler(adev->handle, ACPI_ADR_SPACE_GPIO,
 						   acpi_gpio_adr_space_handler);
 	if (ACPI_FAILURE(status)) {
 		dev_err(chip->parent,
@@ -1258,7 +1258,7 @@ void acpi_gpiochip_add(struct gpio_chip *chip)
 	if (!chip || !chip->parent)
 		return;
 
-	adev = ACPI_COMPANION(chip->parent);
+	adev = to_acpi_device_node_any(chip->parent->fwnode);
 	if (!adev)
 		return;
 
@@ -1287,17 +1287,17 @@ void acpi_gpiochip_add(struct gpio_chip *chip)
 void acpi_gpiochip_remove(struct gpio_chip *chip)
 {
 	struct acpi_gpio_chip *acpi_gpio;
-	acpi_handle handle;
+	struct acpi_device *adev;
 	acpi_status status;
 
 	if (!chip || !chip->parent)
 		return;
 
-	handle = ACPI_HANDLE(chip->parent);
-	if (!handle)
+	adev = to_acpi_device_node_any(chip->parent->fwnode);
+	if (!adev)
 		return;
 
-	status = acpi_get_data(handle, acpi_gpio_chip_dh, (void **)&acpi_gpio);
+	status = acpi_get_data(adev->handle, acpi_gpio_chip_dh, (void **)&acpi_gpio);
 	if (ACPI_FAILURE(status)) {
 		dev_warn(chip->parent, "Failed to retrieve ACPI GPIO chip\n");
 		return;
@@ -1305,7 +1305,7 @@ void acpi_gpiochip_remove(struct gpio_chip *chip)
 
 	acpi_gpiochip_free_regions(acpi_gpio);
 
-	acpi_detach_data(handle, acpi_gpio_chip_dh);
+	acpi_detach_data(adev->handle, acpi_gpio_chip_dh);
 	kfree(acpi_gpio);
 }
 
