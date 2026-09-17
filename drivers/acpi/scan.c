@@ -20,6 +20,7 @@
 #include <linux/kthread.h>
 #include <linux/dmi.h>
 #include <linux/dma-map-ops.h>
+#include <linux/of.h>
 #include <linux/platform_data/x86/apple.h>
 #include <linux/platform_device.h>
 #include <linux/pgtable.h>
@@ -2264,7 +2265,8 @@ static void acpi_default_enumeration(struct acpi_device *device)
 		return;
 	}
 
-	if (acpi_dt_hybrid)
+	if (acpi_dt_hybrid && of_property_match_string(of_chosen, "acpi-hybrid-allowed-hids",
+						       acpi_device_hid(device)) < 0)
 		return;
 
 	if (match_string(acpi_system_dev_ids, -1, acpi_device_hid(device)) >= 0) {
