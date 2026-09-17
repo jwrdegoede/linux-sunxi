@@ -1258,7 +1258,7 @@ void acpi_gpiochip_add(struct gpio_chip *chip)
 	if (!chip || !chip->parent)
 		return;
 
-	adev = ACPI_COMPANION(chip->parent);
+	adev = to_acpi_device_node_any(chip->parent->fwnode);
 	if (!adev)
 		return;
 
