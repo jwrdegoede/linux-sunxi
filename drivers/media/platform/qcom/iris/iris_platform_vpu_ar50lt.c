@@ -43,17 +43,30 @@ static const struct icc_info iris_icc_info_ar50lt[] = {
 	{ "video-mem",  1000, 6500000  },
 };
 
-static const char * const iris_pmdomain_table_ar50lt[] = { "venus", "vcodec0" };
-
 static const char * const iris_opp_pd_table_ar50lt[] = { "cx" };
 
-static const struct platform_clk_data iris_clk_table_ar50lt[] = {
-	{IRIS_CTRL_CLK,    "core"         },
-	{IRIS_AXI_CLK,     "iface"        },
-	{IRIS_AHB_CLK,     "bus"          },
-	{IRIS_HW_CLK,      "vcodec0_core" },
-	{IRIS_HW_AHB_CLK,  "vcodec0_bus"  },
-	{IRIS_THROTTLE_CLK, "throttle"    },
+static const struct iris_power_domain_data iris_ctrl_data_ar50lt = {
+	.pd_names = (const char *[]) {
+		"venus",
+	},
+	.pd_cnt = 1,
+	.clk_names = (const char *[]) {
+		"core", "iface", "bus",
+	},
+	.clk_cnt = 3,
+};
+
+static const struct iris_power_domain_data iris_vcodec_data_ar50lt[] = {
+	{
+		.pd_names = (const char *[]) {
+			"vcodec0",
+		},
+		.pd_cnt = 1,
+		.clk_names = (const char *[]) {
+			"vcodec0_core", "vcodec0_bus", "throttle",
+		},
+		.clk_cnt = 3,
+	},
 };
 
 static const char * const iris_opp_clk_table_ar50lt[] = {
@@ -91,12 +104,10 @@ const struct iris_platform_data qcm2290_data = {
 	.icc_tbl_size = ARRAY_SIZE(iris_icc_info_ar50lt),
 	.bw_tbl_dec = iris_bw_table_dec_ar50lt,
 	.bw_tbl_dec_size = ARRAY_SIZE(iris_bw_table_dec_ar50lt),
-	.pmdomain_tbl = iris_pmdomain_table_ar50lt,
-	.pmdomain_tbl_size = ARRAY_SIZE(iris_pmdomain_table_ar50lt),
+	.ctrl_data = &iris_ctrl_data_ar50lt,
+	.vcodec_data = iris_vcodec_data_ar50lt,
 	.opp_pd_tbl = iris_opp_pd_table_ar50lt,
 	.opp_pd_tbl_size = ARRAY_SIZE(iris_opp_pd_table_ar50lt),
-	.clk_tbl = iris_clk_table_ar50lt,
-	.clk_tbl_size = ARRAY_SIZE(iris_clk_table_ar50lt),
 	.opp_clk_tbl = iris_opp_clk_table_ar50lt,
 	/* Upper bound of DMA address range */
 	.dma_mask = 0xe0000000 - 1,

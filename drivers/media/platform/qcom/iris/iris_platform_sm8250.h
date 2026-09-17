@@ -15,10 +15,28 @@ static const struct bw_info sm8250_bw_table_dec[] = {
 
 static const char * const sm8250_opp_pd_table[] = { "mx", "mmcx" };
 
-static const struct platform_clk_data sm8250_clk_table[] = {
-	{IRIS_AXI_CLK,  "iface"        },
-	{IRIS_CTRL_CLK, "core"         },
-	{IRIS_HW_CLK,   "vcodec0_core" },
+static const struct iris_power_domain_data sm8250_ctrl_data = {
+	.pd_names = (const char *[]) {
+		"venus",
+	},
+	.pd_cnt = 1,
+	.clk_names = (const char *[]) {
+		"iface", "core",
+	},
+	.clk_cnt = 2,
+};
+
+static const struct iris_power_domain_data sm8250_vcodec_data[] = {
+	{
+		.pd_names = (const char *[]) {
+			"vcodec0",
+		},
+		.pd_cnt = 1,
+		.clk_names = (const char *[]) {
+			"vcodec0_core",
+		},
+		.clk_cnt = 1,
+	},
 };
 
 static const char * const sm8250_opp_clk_table[] = {
