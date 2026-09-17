@@ -15,12 +15,28 @@ static const struct bw_info sc7280_bw_table_dec[] = {
 
 static const char * const sc7280_opp_pd_table[] = { "cx" };
 
-static const struct platform_clk_data sc7280_clk_table[] = {
-	{IRIS_CTRL_CLK,    "core"         },
-	{IRIS_AXI_CLK,     "iface"        },
-	{IRIS_AHB_CLK,     "bus"          },
-	{IRIS_HW_CLK,      "vcodec_core"  },
-	{IRIS_HW_AHB_CLK,  "vcodec_bus"   },
+static const struct iris_power_domain_data sc7280_ctrl_data = {
+	.pd_names = (const char *[]) {
+		"venus",
+	},
+	.pd_cnt = 1,
+	.clk_names = (const char *[]) {
+		"iface", "core", "bus",
+	},
+	.clk_cnt = 3,
+};
+
+static const struct iris_power_domain_data sc7280_vcodec_data[] = {
+	{
+		.pd_names = (const char *[]) {
+			"vcodec0",
+		},
+		.pd_cnt = 1,
+		.clk_names = (const char *[]) {
+			"vcodec_core", "vcodec_bus",
+		},
+		.clk_cnt = 2,
+	},
 };
 
 static const char * const sc7280_opp_clk_table[] = {
