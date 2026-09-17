@@ -58,16 +58,20 @@ void iris_inst_put(struct iris_inst *inst)
 
 static int iris_add_session(struct iris_inst *inst)
 {
+	const struct iris_platform_data *plat = inst->core->iris_platform_data;
+	u32 max_session_count = plat->max_session_count;
 	struct iris_core *core = inst->core;
 	struct iris_inst *iter;
 	u32 count = 0;
+
+	max_session_count *= max(plat->num_cores, 1);
 
 	guard(mutex)(&core->lock);
 
 	list_for_each_entry(iter, &core->instances, list)
 		count++;
 
-	if (count >= core->iris_platform_data->max_session_count)
+	if (count >= max_session_count)
 		return -EBUSY;
 
 	list_add_tail(&inst->list, &core->instances);

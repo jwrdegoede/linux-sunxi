@@ -25,6 +25,7 @@ struct iris_hfi_session_ops;
  * @list: used for attach an instance to the core
  * @kref: reference count, keeps the instance alive while the IRQ thread uses it
  * @core: pointer to core structure
+ * @core_id: specifies the hardware core on which the session runs
  * @session_id: id of current video session
  * @hfi_session_ops: iris HFI session ops
  * @ctx_q_lock: lock to serialize queues related ioctls
@@ -73,6 +74,7 @@ struct iris_inst {
 	struct list_head		list;
 	struct kref			kref;
 	struct iris_core		*core;
+	u32				core_id;
 	u32				session_id;
 	const struct iris_hfi_session_ops	*hfi_session_ops;
 	struct mutex			ctx_q_lock;/* lock to serialize queues related ioctls */
