@@ -870,6 +870,7 @@ static const char * const acpi_honor_dep_ids[] = {
 	"RSCV0006", /* RISC-V RPMI SYSMSI */
 	"PNP0C0F",  /* PCI Link Device */
 	"ACPI0016", /* CXL/PCIe host bridge: CXL root (ACPI0017) depends on PCI root attach */
+	"QCOM0C10", /* I2C controller depended on by thermal-zones */
 	NULL
 };
 
