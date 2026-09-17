@@ -1873,25 +1873,26 @@ static int acpi_add_single_object(struct acpi_device **child,
 		return -ENOMEM;
 
 	acpi_init_device_object(device, handle, type, acpi_device_release);
+
+	if (type == ACPI_BUS_TYPE_DEVICE && dep_init) {
+		mutex_lock(&acpi_dep_list_lock);
+		/*
+		 * Hold the lock until the acpi_tie_acpi_dev() call
+		 * below to prevent concurrent acpi_scan_clear_dep()
+		 * from deleting a dependency list entry without
+		 * updating dep_unmet for the device.
+		 */
+		release_dep_lock = true;
+		acpi_scan_dep_init(device);
+	}
+
 	/*
 	 * Getting the status is delayed till here so that we can call
 	 * acpi_bus_get_status() and use its quirk handling.  Note that
 	 * this must be done before the get power-/wakeup_dev-flags calls.
 	 */
-	if (type == ACPI_BUS_TYPE_DEVICE || type == ACPI_BUS_TYPE_PROCESSOR) {
-		if (dep_init) {
-			mutex_lock(&acpi_dep_list_lock);
-			/*
-			 * Hold the lock until the acpi_tie_acpi_dev() call
-			 * below to prevent concurrent acpi_scan_clear_dep()
-			 * from deleting a dependency list entry without
-			 * updating dep_unmet for the device.
-			 */
-			release_dep_lock = true;
-			acpi_scan_dep_init(device);
-		}
+	if (type == ACPI_BUS_TYPE_DEVICE || type == ACPI_BUS_TYPE_PROCESSOR)
 		acpi_scan_init_status(device);
-	}
 
 	acpi_bus_get_power_flags(device);
 	acpi_bus_get_wakeup_device_flags(device);
