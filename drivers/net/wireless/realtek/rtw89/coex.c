@@ -3365,7 +3365,7 @@ static void _fw_set_gpio(struct rtw89_dev *rtwdev, u8 type, u32 val)
 		gpio->mux.data.dlen = CXDGPIO_SET_L2;
 		gpio->mux.data.sig = _get_gpiosig_for_ver(rtwdev,
 							  FIELD_GET(GENMASK(7, 0), val));
-		if (gpio->mux.data.sig == 0xff)
+		if (gpio->mux.data.sig >= BTC_DBG_NUM)
 			return;
 		gpio->mux.data.gpio = FIELD_GET(GENMASK(15, 8), val);
 		l2_h2c = gpio->mux.fmt;
@@ -4086,7 +4086,7 @@ static void _set_rf_trx_para(struct rtw89_dev *rtwdev)
 		ul_para_num = chip->rf_para_ulink_num_v0;
 		dl_para_num = chip->rf_para_dlink_num_v0;
 	} else {
-		rtw89_warn(rtwdev, "[BTC]%s(), No rf_para for verseion %d\n",
+		rtw89_warn(rtwdev, "[BTC]%s(), No rf_para for version %d\n",
 			   __func__, ver->fcxtrx);
 		goto next;
 	}
