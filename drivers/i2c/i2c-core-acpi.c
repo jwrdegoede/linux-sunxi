@@ -766,6 +766,18 @@ i2c_acpi_space_handler(u32 function, acpi_physical_address command,
 		}
 		break;
 
+	case ACPI_GSB_ACCESS_ATTRIB_RAW_BYTES:
+		if (action == ACPI_READ)
+			status = i2c_master_recv(client, gsb->data, info->access_length);
+		else
+			status = i2c_master_send(client, gsb->data, info->access_length);
+
+		if (status >= 0) {
+			gsb->len = status;
+			status = 0;
+		}
+		break;
+
 	default:
 		dev_warn(&adapter->dev, "protocol 0x%02x not supported for client 0x%02x\n",
 			 accessor_type, client->addr);
