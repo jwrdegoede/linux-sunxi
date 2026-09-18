@@ -767,11 +767,13 @@ i2c_acpi_space_handler(u32 function, acpi_physical_address command,
 		break;
 
 	case ACPI_GSB_ACCESS_ATTRIB_RAW_BYTES:
-		if (action == ACPI_READ)
+		if (action == ACPI_READ) {
 			status = i2c_master_recv(client, gsb->data, info->access_length);
-		else
+			dev_info(&adapter->dev, "received %d/%d bytes\n", status, info->access_length);
+		} else {
 			status = i2c_master_send(client, gsb->data, info->access_length);
-
+			dev_info(&adapter->dev, "send %d/%d bytes\n", status, info->access_length);
+		}
 		if (status >= 0) {
 			gsb->len = status;
 			status = 0;
