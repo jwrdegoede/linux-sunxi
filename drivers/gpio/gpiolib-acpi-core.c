@@ -365,10 +365,11 @@ static acpi_status acpi_gpiochip_alloc_event(struct acpi_resource *ares,
 	struct acpi_gpio_chip *acpi_gpio = context;
 	struct gpio_chip *chip = acpi_gpio->chip;
 	struct acpi_resource_gpio *agpio;
-	acpi_handle handle, evt_handle;
 	struct acpi_gpio_event *event;
 	irq_handler_t handler = NULL;
+	struct acpi_device *adev;
 	struct gpio_desc *desc;
+	acpi_handle evt_handle;
 	unsigned int pin;
 	int ret, irq;
 
@@ -378,7 +379,7 @@ static acpi_status acpi_gpiochip_alloc_event(struct acpi_resource *ares,
 	if (agpio->pin_table_length == 0)
 		return AE_OK;
 
-	handle = ACPI_HANDLE(chip->parent);
+	adev = to_acpi_device_node_any(chip->parent->fwnode);
 	pin = agpio->pin_table[0];
 
 	if (pin <= 255) {
@@ -386,11 +387,11 @@ static acpi_status acpi_gpiochip_alloc_event(struct acpi_resource *ares,
 		sprintf(ev_name, "_%c%02X",
 			agpio->triggering == ACPI_EDGE_SENSITIVE ? 'E' : 'L',
 			pin);
-		if (ACPI_SUCCESS(acpi_get_handle(handle, ev_name, &evt_handle)))
+		if (ACPI_SUCCESS(acpi_get_handle(adev->handle, ev_name, &evt_handle)))
 			handler = acpi_gpio_irq_handler;
 	}
 	if (!handler) {
-		if (ACPI_SUCCESS(acpi_get_handle(handle, "_EVT", &evt_handle)))
+		if (ACPI_SUCCESS(acpi_get_handle(adev->handle, "_EVT", &evt_handle)))
 			handler = acpi_gpio_irq_handler_evt;
 	}
 	if (!handler)
@@ -482,24 +483,27 @@ fail_free_desc:
 void acpi_gpiochip_request_interrupts(struct gpio_chip *chip)
 {
 	struct acpi_gpio_chip *acpi_gpio;
-	acpi_handle handle;
+	struct acpi_device *adev;
 	acpi_status status;
 
 	if (!chip->parent || !chip->to_irq)
 		return;
 
-	handle = ACPI_HANDLE(chip->parent);
-	if (!handle)
+	adev = ACPI_COMPANION(chip->parent);
+	/* Check if ACPI GPIO events are enabled for DT-ACPI hybrid mode */
+	if (!adev && device_property_read_bool(chip->parent, "acpi-enable-gpio-events"))
+		adev = to_acpi_device_node_any(chip->parent->fwnode);
+	if (!adev)
 		return;
 
-	status = acpi_get_data(handle, acpi_gpio_chip_dh, (void **)&acpi_gpio);
+	status = acpi_get_data(adev->handle, acpi_gpio_chip_dh, (void **)&acpi_gpio);
 	if (ACPI_FAILURE(status))
 		return;
 
 	if (acpi_quirk_skip_gpio_event_handlers())
 		return;
 
-	acpi_walk_resources(handle, METHOD_NAME__AEI,
+	acpi_walk_resources(adev->handle, METHOD_NAME__AEI,
 			    acpi_gpiochip_alloc_event, acpi_gpio);
 
 	if (acpi_gpio_add_to_deferred_list(&acpi_gpio->deferred_req_irqs_list_entry))
@@ -520,17 +524,17 @@ void acpi_gpiochip_free_interrupts(struct gpio_chip *chip)
 {
 	struct acpi_gpio_chip *acpi_gpio;
 	struct acpi_gpio_event *event, *ep;
-	acpi_handle handle;
+	struct acpi_device *adev;
 	acpi_status status;
 
 	if (!chip->parent || !chip->to_irq)
 		return;
 
-	handle = ACPI_HANDLE(chip->parent);
-	if (!handle)
+	adev = to_acpi_device_node_any(chip->parent->fwnode);
+	if (!adev)
 		return;
 
-	status = acpi_get_data(handle, acpi_gpio_chip_dh, (void **)&acpi_gpio);
+	status = acpi_get_data(adev->handle, acpi_gpio_chip_dh, (void **)&acpi_gpio);
 	if (ACPI_FAILURE(status))
 		return;
 
