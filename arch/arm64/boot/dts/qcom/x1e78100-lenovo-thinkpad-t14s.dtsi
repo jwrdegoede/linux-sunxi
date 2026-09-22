@@ -525,6 +525,117 @@
 		};
 	};
 
+	thermal-zones {
+		soc-thermal {
+			thermal-sensors = <&pmk8550_vadc ADC5_GEN3_AMUX1_GPIO_100K_PU(1)>;
+		};
+
+		keyboard-thermal {
+			critical-action = "shutdown";
+			polling-delay-passive = <500>;
+
+			thermal-sensors = <&pmk8550_vadc ADC5_GEN3_AMUX2_GPIO_100K_PU(1)>;
+
+			trips {
+
+				keyboard_alert0: trip-point0 {
+					temperature = <49000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+
+				keyboard_alert1: trip-point1 {
+					temperature = <51000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+
+				keyboard_alert2: trip-point2 {
+					temperature = <53000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+
+				keyboard-critical {
+					temperature = <73000>;
+					hysteresis = <1000>;
+					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&keyboard_alert0>;
+					cooling-device = <&cpu0 THERMAL_NO_LIMIT 6>,
+							 <&cpu1 THERMAL_NO_LIMIT 6>,
+							 <&cpu2 THERMAL_NO_LIMIT 6>,
+							 <&cpu3 THERMAL_NO_LIMIT 6>;
+				};
+
+				map1 {
+					trip = <&keyboard_alert1>;
+					cooling-device = <&cpu4 THERMAL_NO_LIMIT 6>,
+							 <&cpu5 THERMAL_NO_LIMIT 6>,
+							 <&cpu6 THERMAL_NO_LIMIT 6>,
+							 <&cpu7 THERMAL_NO_LIMIT 6>;
+				};
+
+				map2 {
+					trip = <&keyboard_alert2>;
+					cooling-device = <&cpu8 THERMAL_NO_LIMIT 6>,
+							 <&cpu9 THERMAL_NO_LIMIT 6>,
+							 <&cpu10 THERMAL_NO_LIMIT 6>,
+							 <&cpu11 THERMAL_NO_LIMIT 6>;
+
+				};
+			};
+		};
+
+		backcover-thermal {
+			critical-action = "shutdown";
+			polling-delay-passive = <400>;
+
+			thermal-sensors = <&pmk8550_vadc ADC5_GEN3_AMUX1_THM_100K_PU(1)>;
+
+			trips {
+				backcover_alert0: trip-point0 {
+					temperature = <64000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+
+				backcover-critical {
+					temperature = <73000>;
+					hysteresis = <1000>;
+					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&backcover_alert0>;
+					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		smb-thermal {
+			thermal-sensors = <&pmk8550_vadc ADC5_GEN3_AMUX2_THM_100K_PU(1)>;
+		};
+
+		sdx-thermal {
+			thermal-sensors = <&pmk8550_vadc ADC5_GEN3_AMUX3_THM_100K_PU(1)>;
+		};
+
+		east-thermal {
+			thermal-sensors = <&pmk8550_vadc ADC5_GEN3_AMUX4_THM_100K_PU(1)>;
+		};
+
+		west-thermal {
+			thermal-sensors = <&pmk8550_vadc ADC5_GEN3_AMUX5_THM_100K_PU(1)>;
+		};
+	};
+
 	connector-0 {
 		compatible = "pcie-m2-m-connector";
 		vpcie3v3-supply = <&vreg_nvme>;
@@ -1503,6 +1614,36 @@
 		bias-disable;
 		input-disable;
 		output-enable;
+	};
+};
+
+&pmk8550_vadc {
+	channel@144 {
+		qcom,adc-tm;
+	};
+
+	channel@145 {
+		qcom,adc-tm;
+	};
+
+	channel@146 {
+		qcom,adc-tm;
+	};
+
+	channel@147 {
+		qcom,adc-tm;
+	};
+
+	channel@148 {
+		qcom,adc-tm;
+	};
+
+	channel@14a {
+		qcom,adc-tm;
+	};
+
+	channel@14b {
+		qcom,adc-tm;
 	};
 };
 
