@@ -355,10 +355,7 @@ static const u8 rtw89_btc_8852b_bt_rssi_thres[BTC_BT_RSSI_THMAX] = {50, 40, 30, 
 
 static void rtw8852b_pwr_sps_ana(struct rtw89_dev *rtwdev)
 {
-	struct rtw89_efuse *efuse = &rtwdev->efuse;
-
-	if (efuse->rfe_type == 0x5)
-		rtw89_write16(rtwdev, R_AX_SPS_ANA_ON_CTRL2, RTL8852B_RFE_05_SPS_ANA);
+	rtw89_write16(rtwdev, R_AX_SPS_ANA_ON_CTRL2, RTL8852B_DEFAULT_SPS_ANA);
 }
 
 static void rtw8852b_pwr_sps_dig_off(struct rtw89_dev *rtwdev)

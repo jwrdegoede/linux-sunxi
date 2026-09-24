@@ -167,7 +167,7 @@ static struct ieee80211_rate rtw89_bitrates[] = {
 
 static const struct ieee80211_iface_limit rtw89_iface_limits[] = {
 	{
-		.max = 1,
+		.max = 2,
 		.types = BIT(NL80211_IFTYPE_STATION),
 	},
 	{
@@ -175,6 +175,10 @@ static const struct ieee80211_iface_limit rtw89_iface_limits[] = {
 		.types = BIT(NL80211_IFTYPE_P2P_CLIENT) |
 			 BIT(NL80211_IFTYPE_P2P_GO) |
 			 BIT(NL80211_IFTYPE_AP),
+	},
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_P2P_DEVICE),
 	},
 };
 
@@ -187,6 +191,10 @@ static const struct ieee80211_iface_limit rtw89_iface_limits_mcc[] = {
 		.max = 1,
 		.types = BIT(NL80211_IFTYPE_P2P_CLIENT) |
 			 BIT(NL80211_IFTYPE_P2P_GO),
+	},
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_P2P_DEVICE),
 	},
 };
 
@@ -2571,7 +2579,6 @@ static void rtw89_core_cancel_6ghz_probe_tx(struct rtw89_dev *rtwdev,
 	struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *)skb->data;
 	struct list_head *pkt_list = rtwdev->scan_info.pkt_list;
 	struct rtw89_pktofld_info *info;
-	const u8 *ies = mgmt->u.beacon.variable, *ssid_ie;
 	bool queue_work = false;
 
 	if (rx_status->band != NL80211_BAND_6GHZ)
@@ -2582,19 +2589,8 @@ static void rtw89_core_cancel_6ghz_probe_tx(struct rtw89_dev *rtwdev,
 		return;
 	}
 
-	ssid_ie = cfg80211_find_ie(WLAN_EID_SSID, ies, skb->len);
-
 	list_for_each_entry(info, &pkt_list[NL80211_BAND_6GHZ], list) {
 		if (ether_addr_equal(info->bssid, mgmt->bssid)) {
-			info->cancel = true;
-			queue_work = true;
-			continue;
-		}
-
-		if (!ssid_ie || ssid_ie[1] != info->ssid_len || info->ssid_len == 0)
-			continue;
-
-		if (memcmp(&ssid_ie[2], info->ssid, info->ssid_len) == 0) {
 			info->cancel = true;
 			queue_work = true;
 		}
@@ -4629,7 +4625,7 @@ static void rtw89_core_ba_work(struct work_struct *work)
 				    "failed to setup BA session for %pM:%2d: %d\n",
 				    sta->addr, tid, ret);
 			if (ret == -EINVAL)
-				set_bit(RTW89_TXQ_F_BLOCK_BA, &rtwtxq->flags);
+				set_bit(RTW89_TXQ_F_BLOCK_BA, rtwtxq->flags);
 		}
 skip_ba_work:
 		list_del_init(&rtwtxq->list);
@@ -4662,7 +4658,7 @@ void rtw89_core_free_sta_pending_forbid_ba(struct rtw89_dev *rtwdev,
 		struct ieee80211_txq *txq = rtw89_txq_to_txq(rtwtxq);
 
 		if (sta == txq->sta) {
-			clear_bit(RTW89_TXQ_F_FORBID_BA, &rtwtxq->flags);
+			clear_bit(RTW89_TXQ_F_FORBID_BA, rtwtxq->flags);
 			list_del_init(&rtwtxq->list);
 		}
 	}
@@ -4689,12 +4685,12 @@ static void rtw89_core_stop_tx_ba_session(struct rtw89_dev *rtwdev,
 	if (unlikely(!rtwsta) || unlikely(rtwsta->disassoc))
 		return;
 
-	if (!test_bit(RTW89_TXQ_F_AMPDU, &rtwtxq->flags) ||
-	    test_bit(RTW89_TXQ_F_FORBID_BA, &rtwtxq->flags))
+	if (!test_bit(RTW89_TXQ_F_AMPDU, rtwtxq->flags) ||
+	    test_bit(RTW89_TXQ_F_FORBID_BA, rtwtxq->flags))
 		return;
 
 	spin_lock_bh(&rtwdev->ba_lock);
-	if (!test_and_set_bit(RTW89_TXQ_F_FORBID_BA, &rtwtxq->flags))
+	if (!test_and_set_bit(RTW89_TXQ_F_FORBID_BA, rtwtxq->flags))
 		list_add_tail(&rtwtxq->list, &rtwdev->forbid_ba_list);
 	spin_unlock_bh(&rtwdev->ba_lock);
 
@@ -4713,7 +4709,7 @@ static void rtw89_core_txq_check_agg(struct rtw89_dev *rtwdev,
 	struct ieee80211_sta *sta = txq->sta;
 	struct rtw89_sta *rtwsta = sta_to_rtwsta_safe(sta);
 
-	if (test_bit(RTW89_TXQ_F_FORBID_BA, &rtwtxq->flags))
+	if (test_bit(RTW89_TXQ_F_FORBID_BA, rtwtxq->flags))
 		return;
 
 	if (unlikely(skb->protocol == cpu_to_be16(ETH_P_PAE))) {
@@ -4724,10 +4720,10 @@ static void rtw89_core_txq_check_agg(struct rtw89_dev *rtwdev,
 	if (unlikely(!sta))
 		return;
 
-	if (unlikely(test_bit(RTW89_TXQ_F_BLOCK_BA, &rtwtxq->flags)))
+	if (unlikely(test_bit(RTW89_TXQ_F_BLOCK_BA, rtwtxq->flags)))
 		return;
 
-	if (test_bit(RTW89_TXQ_F_AMPDU, &rtwtxq->flags)) {
+	if (test_bit(RTW89_TXQ_F_AMPDU, rtwtxq->flags)) {
 		IEEE80211_SKB_CB(skb)->flags |= IEEE80211_TX_CTL_AMPDU;
 		return;
 	}
@@ -4905,7 +4901,7 @@ static void rtw89_forbid_ba_work(struct work_struct *w)
 
 	spin_lock_bh(&rtwdev->ba_lock);
 	list_for_each_entry_safe(rtwtxq, tmp, &rtwdev->forbid_ba_list, list) {
-		clear_bit(RTW89_TXQ_F_FORBID_BA, &rtwtxq->flags);
+		clear_bit(RTW89_TXQ_F_FORBID_BA, rtwtxq->flags);
 		list_del_init(&rtwtxq->list);
 	}
 	spin_unlock_bh(&rtwdev->ba_lock);
@@ -5496,6 +5492,9 @@ static void rtw89_track_ps_work(struct wiphy *wiphy, struct wiphy_work *work)
 	if (rtwdev->scanning)
 		return;
 
+	if (rtw89_chanctx_paused(rtwdev))
+		return;
+
 	if (rtwdev->lps_enabled && !rtwdev->btc.btc_ctrl_lps)
 		rtw89_enter_lps_track(rtwdev, RTW89_TFC_INTERVAL_100MS);
 }
@@ -5519,6 +5518,9 @@ static void rtw89_track_work(struct wiphy *wiphy, struct wiphy_work *work)
 
 	tfc_changed = rtw89_traffic_stats_track(rtwdev);
 	if (rtwdev->scanning)
+		return;
+
+	if (rtw89_chanctx_paused(rtwdev))
 		return;
 
 	rtw89_leave_lps(rtwdev);
@@ -5599,7 +5601,7 @@ void rtw89_core_release_all_bits_map(unsigned long *addr, unsigned int nbits)
 }
 
 int rtw89_core_acquire_sta_ba_entry(struct rtw89_dev *rtwdev,
-				    struct rtw89_sta_link *rtwsta_link, u8 tid,
+				    struct rtw89_sta *rtwsta, u8 tid,
 				    u8 *cam_idx)
 {
 	const struct rtw89_chip_info *chip = rtwdev->chip;
@@ -5637,7 +5639,7 @@ int rtw89_core_acquire_sta_ba_entry(struct rtw89_dev *rtwdev,
 	}
 
 	entry->tid = tid;
-	list_add_tail(&entry->list, &rtwsta_link->ba_cam_list);
+	list_add_tail(&entry->list, &rtwsta->ba_cam_list);
 
 	*cam_idx = idx;
 
@@ -5645,7 +5647,7 @@ int rtw89_core_acquire_sta_ba_entry(struct rtw89_dev *rtwdev,
 }
 
 int rtw89_core_release_sta_ba_entry(struct rtw89_dev *rtwdev,
-				    struct rtw89_sta_link *rtwsta_link, u8 tid,
+				    struct rtw89_sta *rtwsta, u8 tid,
 				    u8 *cam_idx)
 {
 	struct rtw89_cam_info *cam_info = &rtwdev->cam_info;
@@ -5654,7 +5656,7 @@ int rtw89_core_release_sta_ba_entry(struct rtw89_dev *rtwdev,
 
 	lockdep_assert_wiphy(rtwdev->hw->wiphy);
 
-	list_for_each_entry_safe(entry, tmp, &rtwsta_link->ba_cam_list, list) {
+	list_for_each_entry_safe(entry, tmp, &rtwsta->ba_cam_list, list) {
 		if (entry->tid != tid)
 			continue;
 
@@ -5691,6 +5693,7 @@ void rtw89_vif_type_mapping(struct rtw89_vif_link *rtwvif_link, bool assoc)
 		else
 			rtwvif_link->wifi_role = RTW89_WIFI_ROLE_AP;
 		break;
+	RTW89_TYPE_MAPPING(P2P_DEVICE);
 	RTW89_TYPE_MAPPING(ADHOC);
 	RTW89_TYPE_MAPPING(MONITOR);
 	RTW89_TYPE_MAPPING(MESH_POINT);
@@ -5724,6 +5727,10 @@ void rtw89_vif_type_mapping(struct rtw89_vif_link *rtwvif_link, bool assoc)
 		rtwvif_link->self_role = RTW89_SELF_ROLE_CLIENT;
 		rtwvif_link->addr_cam.sec_ent_mode = RTW89_ADDR_CAM_SEC_NORMAL;
 		break;
+	case NL80211_IFTYPE_P2P_DEVICE:
+		rtwvif_link->net_type = RTW89_NET_TYPE_NO_LINK;
+		rtwvif_link->self_role = RTW89_SELF_ROLE_CLIENT;
+		break;
 	case NL80211_IFTYPE_MONITOR:
 		break;
 	default:
@@ -5744,7 +5751,6 @@ int rtw89_core_sta_link_add(struct rtw89_dev *rtwdev,
 	int ret;
 
 	rtwsta_link->prev_rssi = 0;
-	INIT_LIST_HEAD(&rtwsta_link->ba_cam_list);
 	ewma_rssi_init(&rtwsta_link->avg_rssi);
 	ewma_snr_init(&rtwsta_link->avg_snr);
 	ewma_evm_init(&rtwsta_link->evm_1ss);
@@ -6029,13 +6035,13 @@ static void _rtw89_core_set_tid_config(struct rtw89_dev *rtwdev,
 
 		if (mask & BIT(NL80211_TID_CONFIG_ATTR_AMPDU_CTRL)) {
 			if (tid_conf->ampdu == NL80211_TID_CONFIG_ENABLE) {
-				clear_bit(RTW89_TXQ_F_FORBID_BA, &rtwtxq->flags);
+				clear_bit(RTW89_TXQ_F_FORBID_BA, rtwtxq->flags);
 			} else {
-				if (test_bit(RTW89_TXQ_F_AMPDU, &rtwtxq->flags))
+				if (test_bit(RTW89_TXQ_F_AMPDU, rtwtxq->flags))
 					ieee80211_stop_tx_ba_session(sta, txq->tid);
 				spin_lock_bh(&rtwdev->ba_lock);
 				list_del_init(&rtwtxq->list);
-				set_bit(RTW89_TXQ_F_FORBID_BA, &rtwtxq->flags);
+				set_bit(RTW89_TXQ_F_FORBID_BA, rtwtxq->flags);
 				spin_unlock_bh(&rtwdev->ba_lock);
 			}
 		}
@@ -7517,7 +7523,8 @@ static int rtw89_core_register_hw(struct rtw89_dev *rtwdev)
 	hw->wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) |
 				     BIT(NL80211_IFTYPE_AP) |
 				     BIT(NL80211_IFTYPE_P2P_CLIENT) |
-				     BIT(NL80211_IFTYPE_P2P_GO);
+				     BIT(NL80211_IFTYPE_P2P_GO) |
+				     BIT(NL80211_IFTYPE_P2P_DEVICE);
 
 	if (hal->ant_diversity) {
 		hw->wiphy->available_antennas_tx = 0x3;
