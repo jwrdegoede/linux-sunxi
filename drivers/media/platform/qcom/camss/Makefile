@@ -29,3 +29,5 @@ qcom-camss-objs += \
 		camss-format.o \
 
 obj-$(CONFIG_VIDEO_QCOM_CAMSS) += qcom-camss.o
+
+obj-$(CONFIG_VIDEO_QCOM_CAMSS_OPE) += ope/
