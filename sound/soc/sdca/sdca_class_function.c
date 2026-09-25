@@ -377,6 +377,16 @@ static int class_function_probe(struct auxiliary_device *auxdev,
 	if (ret)
 		return ret;
 
+	/*
+	 * sdca_parse_function() defaults reset_max_delay to 100ms when
+	 * the DisCo property is absent.  Mirror that here for the
+	 * populate_function path so codec drivers that forget to set it
+	 * do not end up passing 0 to regmap_read_poll_timeout() inside
+	 * sdca_reset_function(), which would spin forever.
+	 */
+	if (!drv->function->reset_max_delay)
+		drv->function->reset_max_delay = 100000;
+
 	ndefaults = sdca_regmap_count_constants(dev, drv->function);
 	if (ndefaults < 0)
 		return ndefaults;
