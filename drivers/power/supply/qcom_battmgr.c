@@ -39,6 +39,13 @@ enum qcom_battmgr_variant {
 #define NOTIF_BAT_INFO			0x81
 #define NOTIF_BAT_CHARGING_STATE	0x83
 
+/*
+ * Glymur firmware acks BATTMGR_REQUEST_NOTIFICATION but reports charger and
+ * battery state changes only as this notification from a separate owner.
+ */
+#define PMIC_GLINK_OWNER_BATTMGR_STATE	32782
+#define BATTMGR_STATE_NOTIFICATION	0x103
+
 #define BATTMGR_BAT_INFO		0x9
 
 #define BATTMGR_BAT_DISCHARGE_TIME	0xc
@@ -311,6 +318,7 @@ struct qcom_battmgr_wireless {
 struct qcom_battmgr {
 	struct device *dev;
 	struct pmic_glink_client *client;
+	struct pmic_glink_client *state_client;
 
 	enum qcom_battmgr_variant variant;
 
@@ -1611,6 +1619,27 @@ static void qcom_battmgr_callback(const void *data, size_t len, void *priv)
 		qcom_battmgr_sm8350_callback(battmgr, data, len);
 }
 
+static void qcom_battmgr_state_callback(const void *data, size_t len, void *priv)
+{
+	const struct pmic_glink_hdr *hdr = data;
+	struct qcom_battmgr *battmgr = priv;
+
+	if (len < sizeof(*hdr) || le32_to_cpu(hdr->type) != PMIC_GLINK_NOTIFY ||
+	    le32_to_cpu(hdr->opcode) != BATTMGR_STATE_NOTIFICATION)
+		return;
+
+	if (battmgr->bat_psy)
+		power_supply_changed(battmgr->bat_psy);
+	if (battmgr->ac_psy)
+		power_supply_changed(battmgr->ac_psy);
+	if (battmgr->usb_psy)
+		power_supply_changed(battmgr->usb_psy);
+}
+
+static void qcom_battmgr_state_pdr_notify(void *priv, int state)
+{
+}
+
 static void qcom_battmgr_enable_worker(struct work_struct *work)
 {
 	struct qcom_battmgr *battmgr = container_of(work, struct qcom_battmgr, enable_work);
@@ -1750,7 +1779,15 @@ static int qcom_battmgr_probe(struct auxiliary_device *adev,
 	if (IS_ERR(battmgr->client))
 		return PTR_ERR(battmgr->client);
 
+	battmgr->state_client = devm_pmic_glink_client_alloc(dev, PMIC_GLINK_OWNER_BATTMGR_STATE,
+							     qcom_battmgr_state_callback,
+							     qcom_battmgr_state_pdr_notify,
+							     battmgr);
+	if (IS_ERR(battmgr->state_client))
+		return PTR_ERR(battmgr->state_client);
+
 	pmic_glink_client_register(battmgr->client);
+	pmic_glink_client_register(battmgr->state_client);
 
 	return 0;
 }
