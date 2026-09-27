@@ -583,7 +583,8 @@ static int msm_dp_init_sub_modules(struct msm_dp_display_private *dp)
 
 	dp->ctrl = msm_dp_ctrl_get(dev, dp->link, dp->aux,
 			       phy, dp->ahb_base, dp->link_base,
-			       dp->mst2link_base, dp->mst3link_base);
+			       dp->mst2link_base, dp->mst3link_base,
+			       dp->msm_dp_display.is_edp);
 	if (IS_ERR(dp->ctrl)) {
 		rc = PTR_ERR(dp->ctrl);
 		DRM_ERROR("failed to initialize ctrl, rc = %d\n", rc);

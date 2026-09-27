@@ -37,7 +37,8 @@ struct msm_dp_ctrl *msm_dp_ctrl_get(struct device *dev,
 				    void __iomem *ahb_base,
 				    void __iomem *link_base,
 				    void __iomem *mst2link_base,
-				    void __iomem *mst3link_base);
+				    void __iomem *mst3link_base,
+				    bool is_edp);
 
 void msm_dp_ctrl_reset(struct msm_dp_ctrl *msm_dp_ctrl,
 		       struct msm_dp_panel *panel);
