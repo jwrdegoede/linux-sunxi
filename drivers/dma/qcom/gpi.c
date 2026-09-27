@@ -561,12 +561,12 @@ static inline void *to_virtual(const struct gpi_ring *const ring, phys_addr_t ad
 
 static inline u32 gpi_read_reg(struct gpii *gpii, void __iomem *addr)
 {
-	return readl_relaxed(addr);
+	return readl(addr);
 }
 
 static inline void gpi_write_reg(struct gpii *gpii, void __iomem *addr, u32 val)
 {
-	writel_relaxed(val, addr);
+	writel(val, addr);
 }
 
 static __always_inline void
