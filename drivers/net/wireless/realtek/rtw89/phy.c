@@ -525,7 +525,7 @@ void rtw89_phy_ra_update_sta_link(struct rtw89_dev *rtwdev,
 		ra->upd_bw_nss_mask = 1;
 
 	rtw89_debug(rtwdev, RTW89_DBG_RA,
-		    "ra updat: macid = %d, bw = %d, nss = %d, gi = %d %d",
+		    "ra update: macid = %d, bw = %d, nss = %d, gi = %d %d",
 		    ra->macid,
 		    ra->bw_cap,
 		    ra->ss_num,
@@ -659,7 +659,7 @@ rs_11ax:
 					  0, true))
 			goto out;
 
-	/* lagacy cannot be empty for nl80211_parse_tx_bitrate_mask, and
+	/* legacy cannot be empty for nl80211_parse_tx_bitrate_mask, and
 	 * require at least one basic rate for ieee80211_set_bitrate_mask,
 	 * so the decision just depends on if all bitrates are set or not.
 	 */
@@ -3221,6 +3221,17 @@ static void rtw89_phy_set_txpwr_limit_ru_ax(struct rtw89_dev *rtwdev,
 	}
 }
 
+static int get_max_agg_wait(struct ieee80211_link_sta *link_sta, u16 amsdu_len)
+{
+	struct ieee80211_sta *sta = link_sta->sta;
+	int max_agg_wait = amsdu_len / 1500 - 1;
+
+	if (sta->max_amsdu_subframes)
+		max_agg_wait = min(max_agg_wait, sta->max_amsdu_subframes - 1);
+
+	return max_agg_wait;
+}
+
 struct rtw89_phy_iter_ra_data {
 	struct rtw89_dev *rtwdev;
 	struct sk_buff *c2h;
@@ -3345,7 +3356,7 @@ static void __rtw89_phy_c2h_ra_rpt_iter(struct rtw89_sta_link *rtwsta_link,
 		*changed = true;
 	}
 
-	rtwsta_link->max_agg_wait = link_sta->agg.max_rc_amsdu_len / 1500 - 1;
+	rtwsta_link->max_agg_wait = get_max_agg_wait(link_sta, amsdu_len);
 }
 
 static void rtw89_phy_c2h_ra_rpt_iter(void *data, struct ieee80211_sta *sta)
@@ -3574,6 +3585,8 @@ static void rtw89_phy_c2h_rfk_rpt_log(struct rtw89_dev *rtwdev,
 			    "[IQK] iqk->fwk_status = %x\n", iqk->fwk_status);
 
 		for (i = 0; i < 2; i++) {
+			struct rtw89_iqk_info *iqk_info = &rtwdev->iqk;
+
 			rtw89_debug(rtwdev, RTW89_DBG_RFK,
 				    "[IQK] ======== Path %x  ========\n", i);
 			rtw89_debug(rtwdev, RTW89_DBG_RFK, "[IQK] iqk->iqk_band[%d] = %x\n",
@@ -3592,6 +3605,9 @@ static void rtw89_phy_c2h_rfk_rpt_log(struct rtw89_dev *rtwdev,
 				    i, iqk->iqk_tx_fail[i]);
 			rtw89_debug(rtwdev, RTW89_DBG_RFK, "[IQK] iqk->iqk_rx_fail[%d] = %x\n",
 				    i, iqk->iqk_rx_fail[i]);
+
+			iqk_info->iqk_rx_fail[0][i] = iqk->iqk_rx_fail[i];
+
 			for (j = 0; j < 6; j++)
 				rtw89_debug(rtwdev, RTW89_DBG_RFK,
 					    "[IQK] iqk->rftxgain[%d][%d] = %x\n",
@@ -8696,8 +8712,8 @@ static void rtw89_phy_edcca_log(struct rtw89_dev *rtwdev, struct rtw89_bb_ctx *b
 	rtw89_phy_write32_mask(rtwdev, edcca_p_regs->rpt_sel,
 			       edcca_p_regs->rpt_sel_mask, 0);
 	if (rtwdev->chip->chip_id == RTL8922A || rtwdev->chip->chip_id == RTL8922D) {
-		rtw89_phy_write32_mask(rtwdev, edcca_regs->rpt_sel_be,
-				       edcca_regs->rpt_sel_be_mask, 0);
+		rtw89_phy_write32_idx(rtwdev, edcca_regs->rpt_sel_be,
+				      edcca_regs->rpt_sel_be_mask, 0, bb->phy_idx);
 		per20_bitmap = rtw89_phy_read32_mask(rtwdev, edcca_p_regs->rpt_a,
 						     MASKBYTE0);
 	}
@@ -8722,16 +8738,16 @@ static void rtw89_phy_edcca_log(struct rtw89_dev *rtwdev, struct rtw89_bb_ctx *b
 	pwdb_s40 = u32_get_bits(tmp, MASKBYTE2);
 
 	if (rtwdev->chip->chip_id == RTL8922A || rtwdev->chip->chip_id == RTL8922D) {
-		rtw89_phy_write32_mask(rtwdev, edcca_regs->rpt_sel_be,
-				       edcca_regs->rpt_sel_be_mask, 4);
+		rtw89_phy_write32_idx(rtwdev, edcca_regs->rpt_sel_be,
+				      edcca_regs->rpt_sel_be_mask, 4, bb->phy_idx);
 		tmp = rtw89_phy_read32(rtwdev, edcca_p_regs->rpt_b);
 		pwdb[0] = u32_get_bits(tmp, MASKBYTE3);
 		pwdb[1] = u32_get_bits(tmp, MASKBYTE2);
 		pwdb[2] = u32_get_bits(tmp, MASKBYTE1);
 		pwdb[3] = u32_get_bits(tmp, MASKBYTE0);
 
-		rtw89_phy_write32_mask(rtwdev, edcca_regs->rpt_sel_be,
-				       edcca_regs->rpt_sel_be_mask, 5);
+		rtw89_phy_write32_idx(rtwdev, edcca_regs->rpt_sel_be,
+				      edcca_regs->rpt_sel_be_mask, 5, bb->phy_idx);
 		tmp = rtw89_phy_read32(rtwdev, edcca_p_regs->rpt_b);
 		pwdb[4] = u32_get_bits(tmp, MASKBYTE3);
 		pwdb[5] = u32_get_bits(tmp, MASKBYTE2);
