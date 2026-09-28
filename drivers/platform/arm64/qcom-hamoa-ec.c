@@ -16,16 +16,19 @@
 #include <linux/pm.h>
 #include <linux/slab.h>
 #include <linux/thermal.h>
+#include <linux/unaligned.h>
 
 #define EC_SCI_EVT_READ_CMD	0x05
 #define EC_FW_VERSION_CMD	0x0e
 #define EC_MODERN_STANDBY_CMD	0x23
+#define EC_THERMISTOR_TEMP_CMD	0x29	/* + thermistor_id (0-6) selects thermistor 1-7 */
 #define EC_FAN_DBG_CONTROL_CMD	0x30
 #define EC_SCI_EVT_CONTROL_CMD	0x35
 #define EC_THERMAL_CAP_CMD	0x42
 
 #define EC_FW_VERSION_RESP_LEN	4
 #define EC_THERMAL_CAP_RESP_LEN	3
+#define EC_THERMISTOR_TEMP_RESP_LEN	3
 #define EC_FAN_DEBUG_CMD_LEN	6
 #define EC_FAN_SPEED_DATA_SIZE	4
 
@@ -39,6 +42,7 @@
 #define EC_MAX_FAN_CNT		2
 #define EC_FAN_NAME_SIZE	20
 #define EC_FAN_MAX_PWM		255
+#define EC_MAX_THERMISTOR_CNT	7
 
 enum qcom_ec_sci_events {
 	EC_FAN1_STATUS_CHANGE_EVT = 0x30,
@@ -64,6 +68,7 @@ struct qcom_ec_thermal_cap {
 #define EC_THERMAL_FAN_CNT(x)		(FIELD_GET(GENMASK(1, 0), (x)))
 #define EC_THERMAL_FAN_TYPE(x)		(FIELD_GET(GENMASK(4, 2), (x)))
 #define EC_THERMAL_THERMISTOR_MASK(x)	(FIELD_GET(GENMASK(7, 0), (x)))
+#define EC_THERMISTOR_PRESENT(mask, id)	((mask) & BIT(id))
 	u8 fan_cnt;
 	u8 fan_type;
 	u8 thermistor_mask;
@@ -81,6 +86,12 @@ struct qcom_ec {
 	struct qcom_ec_thermal_cap thermal_cap;
 	struct qcom_ec_version version;
 	struct i2c_client *client;
+	struct qcom_ec_thermal_zone *ec_tz;
+};
+
+struct qcom_ec_thermal_zone {
+	struct qcom_ec *ec;
+	u8 thermistor_id;
 };
 
 static int qcom_ec_read(struct qcom_ec *ec, u8 cmd, u8 resp_len, u8 *resp)
@@ -182,6 +193,43 @@ static int qcom_ec_thermal_capabilities(struct device *dev)
 
 	return 0;
 }
+
+/*
+ * EC Thermistor Temperature (cmd 0x29 + thermistor_id, id 0-6 selects
+ * thermistor 1-7):
+ *
+ * Read Response:
+ * ----------------------------------------------------------------------
+ * | Offset	| Name		| Description				|
+ * ----------------------------------------------------------------------
+ * | 0x00	| Byte count	| Number of bytes in response (=2)	|
+ * ----------------------------------------------------------------------
+ * | 0x01 (LSB)| Temperature	| Signed 16-bit, unit of 0.1 degC,	|
+ * | 0x02 (MSB)|		| range -40..+125 degC			|
+ * ----------------------------------------------------------------------
+ */
+static int qcom_ec_thermistor_get_temp(struct thermal_zone_device *tz, int *temp)
+{
+	struct qcom_ec_thermal_zone *ec_tz = thermal_zone_device_priv(tz);
+	struct qcom_ec *ec = ec_tz->ec;
+	u8 resp[EC_THERMISTOR_TEMP_RESP_LEN];
+	s16 raw;
+	int ret;
+
+	ret = qcom_ec_read(ec, EC_THERMISTOR_TEMP_CMD + ec_tz->thermistor_id,
+			   EC_THERMISTOR_TEMP_RESP_LEN, resp);
+	if (ret < 0)
+		return ret;
+
+	raw = (s16)get_unaligned_le16(&resp[1]);
+	*temp = raw * 100;
+
+	return 0;
+}
+
+static const struct thermal_zone_device_ops qcom_ec_thermistor_ops = {
+	.get_temp = qcom_ec_thermistor_get_temp,
+};
 
 static irqreturn_t qcom_ec_irq(int irq, void *data)
 {
@@ -386,6 +434,32 @@ static int qcom_ec_probe(struct i2c_client *client)
 	ret = qcom_ec_thermal_capabilities(dev);
 	if (ret < 0)
 		return dev_err_probe(dev, ret, "Failed to read thermal capabilities\n");
+
+	if (ec->thermal_cap.thermistor_mask) {
+		ec->ec_tz = devm_kcalloc(dev, EC_MAX_THERMISTOR_CNT, sizeof(*ec->ec_tz),
+					 GFP_KERNEL);
+		if (!ec->ec_tz)
+			return -ENOMEM;
+
+		for (i = 0; i < EC_MAX_THERMISTOR_CNT; i++) {
+			struct qcom_ec_thermal_zone *ec_tz = &ec->ec_tz[i];
+			struct thermal_zone_device *tzd;
+
+			if (!EC_THERMISTOR_PRESENT(ec->thermal_cap.thermistor_mask, i))
+				continue;
+
+			ec_tz->ec = ec;
+			ec_tz->thermistor_id = i;
+
+			tzd = devm_thermal_of_zone_register(dev, i, ec_tz, &qcom_ec_thermistor_ops);
+			if (IS_ERR(tzd)) {
+				ret = PTR_ERR(tzd);
+				if (ret != -ENODEV)
+					dev_warn(dev, "Failed to register thermistor%u zone: %d\n",
+						 i, ret);
+			}
+		}
+	}
 
 	if (ec->thermal_cap.fan_cnt == 0) {
 		dev_warn(dev, FW_BUG "Failed to get fan count, firmware update required\n");
