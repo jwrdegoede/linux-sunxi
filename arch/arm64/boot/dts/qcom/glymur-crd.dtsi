@@ -651,9 +651,11 @@
 
 	status = "okay";
 
-	embedded-controller@76 {
+	ec: embedded-controller@76 {
 		compatible = "qcom,glymur-crd-ec", "qcom,hamoa-crd-ec";
 		reg = <0x76>;
+
+		#thermal-sensor-cells = <1>;
 
 		interrupts-extended = <&tlmm 66 IRQ_TYPE_EDGE_FALLING>;
 
@@ -1091,6 +1093,47 @@
 		vdd-1p8-supply = <&vreg_l15b_e0_1p8>;
 		vdd-io-supply = <&vreg_l18b_e0_1p2>;
 		qcom,port-mapping = <4 5 6 7 13 15>;
+	};
+};
+
+&thermal_zones {
+	ec-back-cover {
+		polling-delay = <10000>;
+		thermal-sensors = <&ec 2>;
+
+		trips {
+			trip-point0 {
+				temperature = <90000>;
+				hysteresis = <5000>;
+				type = "hot";
+			};
+		};
+	};
+
+	ec-keyboard {
+		polling-delay = <10000>;
+		thermal-sensors = <&ec 1>;
+
+		trips {
+			trip-point0 {
+				temperature = <90000>;
+				hysteresis = <5000>;
+				type = "hot";
+			};
+		};
+	};
+
+	ec-soc {
+		polling-delay = <10000>;
+		thermal-sensors = <&ec 0>;
+
+		trips {
+			trip-point0 {
+				temperature = <90000>;
+				hysteresis = <5000>;
+				type = "hot";
+			};
+		};
 	};
 };
 
