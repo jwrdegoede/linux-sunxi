@@ -15,6 +15,9 @@ description:
   EC running on different MCU chips. The EC handles things like fan control,
   temperature sensors, access to EC internal state changes.
 
+allOf:
+  - $ref: /schemas/thermal/thermal-sensor.yaml#
+
 properties:
   compatible:
     oneOf:
@@ -35,6 +38,14 @@ properties:
   interrupts:
     maxItems: 1
 
+  "#thermal-sensor-cells":
+    description:
+      The EC exposes up to 7 onboard thermistors (indices 0-6). Which
+      indices are physically populated on a given board is discovered at
+      runtime from EC firmware capabilities; a board may reference any index
+      0-6.
+    const: 1
+
 required:
   - compatible
   - reg
@@ -52,6 +63,7 @@ examples:
         embedded-controller@76 {
             compatible = "qcom,hamoa-crd-ec";
             reg = <0x76>;
+            #thermal-sensor-cells = <1>;
 
             interrupts-extended = <&tlmm 66 IRQ_TYPE_LEVEL_HIGH>;
         };
