@@ -202,11 +202,12 @@ static int __maybe_unused qcom_mhi_qrtr_pm_resume_early(struct device *dev)
 		return rc;
 	}
 
+	/* Send our HELLO before receiving the remote's service requests. */
+	qrtr_endpoint_hello(&qdev->ep);
+
 	rc = qcom_mhi_qrtr_queue_dl_buffers(mhi_dev);
 	if (rc)
 		return rc;
-
-	qrtr_endpoint_hello(&qdev->ep);
 
 	return 0;
 }

@@ -632,7 +632,9 @@ void qrtr_endpoint_hello(struct qrtr_endpoint *ep)
 	node->hello_sent = false;
 	mutex_unlock(&node->ep_lock);
 
-	schedule_delayed_work(&node->say_hello, 0);
+	/* Finish the first HELLO attempt before the transport enables RX. */
+	mod_delayed_work(system_percpu_wq, &node->say_hello, 0);
+	flush_delayed_work(&node->say_hello);
 }
 EXPORT_SYMBOL_GPL(qrtr_endpoint_hello);
 
