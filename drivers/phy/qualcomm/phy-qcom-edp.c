@@ -625,7 +625,7 @@ static int qcom_edp_configure_pcs_v8(const struct qcom_edp *edp)
 	writel(auxless_silence_cyc, edp->edp + DP_PHY_AUXLESS_SILENCE_CYC);
 	writel(0x08, edp->edp + DP_PHY_LFPS_CYC);
 	writel(lfps_period, edp->edp + DP_PHY_LFPS_PERIOD);
-	writel(0x2f, edp->edp + DP_PHY_CFG_1);
+	writel(0x0f, edp->edp + DP_PHY_CFG_1);
 
 	return 0;
 }
