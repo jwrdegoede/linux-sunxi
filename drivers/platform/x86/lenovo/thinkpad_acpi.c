@@ -428,8 +428,10 @@ struct tpacpi_led_classdev {
 	int led;
 };
 
+#ifdef CONFIG_X86
 /* brightness level capabilities */
 static unsigned int bright_maxlvl;	/* 0 = unknown */
+#endif
 
 #ifdef CONFIG_THINKPAD_ACPI_DEBUGFACILITIES
 static int dbg_wlswemul;
@@ -929,7 +931,6 @@ static const struct proc_ops dispatch_proc_ops = {
 static struct platform_device *tpacpi_pdev;
 static struct platform_device *tpacpi_sensors_pdev;
 static struct device *tpacpi_hwmon;
-static struct device *tpacpi_pprof;
 static struct input_dev *tpacpi_inputdev;
 static struct mutex tpacpi_inputdev_send_mutex;
 static LIST_HEAD(tpacpi_all_drivers);
@@ -6406,6 +6407,7 @@ static struct ibm_struct thermal_driver_data = {
 	.read = thermal_read,
 };
 
+#ifdef CONFIG_X86
 /*************************************************************************
  * Backlight/brightness subdriver
  */
@@ -6453,6 +6455,14 @@ static enum tpacpi_brightness_access_mode brightness_mode =
 		TPACPI_BRGHT_MODE_MAX;
 
 static unsigned int brightness_enable = 2; /* 2 = auto, 0 = no, 1 = yes */
+
+module_param_named(brightness_mode, brightness_mode, uint, 0444);
+MODULE_PARM_DESC(brightness_mode,
+		 "Selects brightness control strategy: 0=auto, 1=EC, 2=UCMS, 3=EC+NVRAM");
+
+module_param(brightness_enable, uint, 0444);
+MODULE_PARM_DESC(brightness_enable,
+		 "Enables backlight control when 1, disables when 0");
 
 static struct mutex brightness_mutex;
 
@@ -6966,6 +6976,11 @@ static struct ibm_struct brightness_driver_data = {
 	.suspend = brightness_suspend,
 	.shutdown = brightness_shutdown,
 };
+#else
+#define ibm_backlight_device NULL
+static void tpacpi_brightness_notify_change(void) {}
+static void __init tpacpi_detect_brightness_capabilities(void) {}
+#endif /* CONFIG_X86 */
 
 /*************************************************************************
  * Volume subdriver
@@ -9342,7 +9357,11 @@ static int mute_led_on_off(struct tp_led_table *t, bool state)
 		return -EIO;
 	}
 
+#ifdef CONFIG_X86
 	if (!acpi_evalf(hkey_handle, &output, t->name, "dd",
+#else
+	if (!acpi_evalf(hkey_handle, &output, t->name, "vd",
+#endif
 			state ? t->on_value : t->off_value))
 		return -EIO;
 
@@ -10380,12 +10399,16 @@ static struct ibm_struct proxsensor_driver_data = {
 static int dytc_control_amt(bool enable);
 static bool dytc_amt_active;
 
+static struct device *tpacpi_pprof;
 static enum platform_profile_option dytc_current_profile;
 static atomic_t dytc_ignore_event = ATOMIC_INIT(0);
 static DEFINE_MUTEX(dytc_mutex);
 static int dytc_capabilities;
 static bool dytc_mmc_get_available;
 static int profile_force;
+
+module_param(profile_force, int, 0444);
+MODULE_PARM_DESC(profile_force, "Force profile mode. -1=off, 1=MMC, 2=PSC");
 
 static int platform_psc_profile_lowpower = DYTC_MODE_PSC_LOWPOWER;
 static int platform_psc_profile_balanced = DYTC_MODE_PSC_BALANCE;
@@ -11925,9 +11948,10 @@ static int __must_check __init get_thinkpad_model_data(
 
 static int __init probe_for_thinkpad(void)
 {
+	struct acpi_device *hkey_dev;
 	int is_thinkpad;
 
-	if (acpi_disabled)
+	if (acpi_disabled && !acpi_dt_hybrid)
 		return -ENODEV;
 
 	/* It would be dangerous to run the driver in this case */
@@ -11944,6 +11968,11 @@ static int __init probe_for_thinkpad(void)
 
 	/* The EC handler is required */
 	tpacpi_acpi_handle_locate("ec", TPACPI_ACPI_EC_HID, &ec_handle);
+	if (!ec_handle) {
+		hkey_dev = acpi_dev_get_first_match_dev(TPACPI_ACPI_LENOVO_HKEY_V2_HID, NULL, -1);
+		if (hkey_dev)
+			ec_handle = acpi_device_handle(acpi_dev_parent(hkey_dev));
+	}
 	if (!ec_handle) {
 		if (is_thinkpad)
 			pr_err("Not yet supported ThinkPad detected!\n");
@@ -12033,10 +12062,12 @@ static struct ibm_init_struct ibms_init[] __initdata = {
 		.init = thermal_init,
 		.data = &thermal_driver_data,
 	},
+#ifdef CONFIG_X86
 	{
 		.init = brightness_init,
 		.data = &brightness_driver_data,
 	},
+#endif
 	{
 		.init = volume_init,
 		.data = &volume_driver_data,
@@ -12126,14 +12157,6 @@ module_param_named(fan_control, fan_control_allowed, bool, 0444);
 MODULE_PARM_DESC(fan_control,
 		 "Enables setting fan parameters features when true");
 
-module_param_named(brightness_mode, brightness_mode, uint, 0444);
-MODULE_PARM_DESC(brightness_mode,
-		 "Selects brightness control strategy: 0=auto, 1=EC, 2=UCMS, 3=EC+NVRAM");
-
-module_param(brightness_enable, uint, 0444);
-MODULE_PARM_DESC(brightness_enable,
-		 "Enables backlight control when 1, disables when 0");
-
 #ifdef CONFIG_THINKPAD_ACPI_ALSA_SUPPORT
 module_param_named(volume_mode, volume_mode, uint, 0444);
 MODULE_PARM_DESC(volume_mode,
@@ -12201,9 +12224,6 @@ module_param_named(uwb_state, tpacpi_uwb_emulstate, bool, 0);
 MODULE_PARM_DESC(uwb_state,
 		 "Initial state of the emulated UWB switch");
 #endif
-
-module_param(profile_force, int, 0444);
-MODULE_PARM_DESC(profile_force, "Force profile mode. -1=off, 1=MMC, 2=PSC");
 
 static void thinkpad_acpi_module_exit(void)
 {
