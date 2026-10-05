@@ -22869,6 +22869,7 @@ L:	linux-hwmon@vger.kernel.org
 L:	linux-arm-msm@vger.kernel.org
 S:	Maintained
 F:	Documentation/devicetree/bindings/hwmon/qcom,pm7250b-bcl.yaml
+F:	drivers/hwmon/qcom-bcl-hwmon.c
 
 QUALCOMM BLUETOOTH DRIVER
 M:	Bartosz Golaszewski <brgl@kernel.org>
