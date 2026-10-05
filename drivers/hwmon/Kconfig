@@ -1999,6 +1999,17 @@ config SENSORS_PWM_FAN
 	  This driver can also be built as a module. If so, the module
 	  will be called pwm-fan.
 
+config SENSORS_QCOM_SPMI_BCL
+	tristate "Qualcomm SPMI BCL hardware monitoring"
+	depends on SPMI
+	select REGMAP_SPMI
+	help
+	  Say yes here to enable support for Qualcomm battery over current
+	  and under voltage alarms monitor.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called qcom-bcl-hwmon.
+
 config SENSORS_QNAP_MCU_HWMON
 	tristate "QNAP MCU hardware monitoring"
 	depends on MFD_QNAP_MCU
