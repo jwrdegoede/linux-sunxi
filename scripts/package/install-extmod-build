@@ -20,6 +20,8 @@ mkdir -p "${destdir}"
 (
 	cd "${srctree}"
 	echo Makefile
+	# scripts/kallsyms.c includes this header
+	echo kernel/kallsyms_internal.h
 	find "arch/${SRCARCH}" -maxdepth 1 -name 'Makefile*'
 	find "arch/${SRCARCH}" -name generated -prune -o -name include -type d -print
 	find "arch/${SRCARCH}" -name Kbuild.platforms -o -name Platform
