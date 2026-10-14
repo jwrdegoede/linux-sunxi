@@ -666,6 +666,9 @@ static const char * const rtw89_regd_string[] = {
 	RTW89_DEF_REGD_STR(QATAR),
 	RTW89_DEF_REGD_STR(UK),
 	RTW89_DEF_REGD_STR(THAILAND),
+	RTW89_DEF_REGD_STR(NZ),
+	RTW89_DEF_REGD_STR(BR),
+	RTW89_DEF_REGD_STR(AR),
 };
 
 static_assert(ARRAY_SIZE(rtw89_regd_string) == RTW89_REGD_NUM);
@@ -1091,7 +1094,7 @@ static bool __rtw89_reg_6ghz_power_recalc(struct rtw89_dev *rtwdev)
 	int count = 0;
 	u8 index;
 
-	rtw89_for_each_rtwvif(rtwdev, rtwvif) {
+	rtw89_for_each_active_rtwvif(rtwdev, rtwvif) {
 		rtw89_vif_for_each_link(rtwvif, rtwvif_link, link_id) {
 			chan = rtw89_chan_get(rtwdev, rtwvif_link->chanctx_idx);
 			if (chan->band_type != RTW89_BAND_6G)
