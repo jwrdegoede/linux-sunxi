@@ -1837,6 +1837,7 @@ static const struct of_device_id lpg_of_table[] = {
 	{ .compatible = "qcom,pmi8998-lpg", .data = &pmi8998_lpg_data },
 	{ .compatible = "qcom,pmc8180c-lpg", .data = &pm8150l_lpg_data },
 	{ .compatible = "qcom,pmk8550-pwm", .data = &pmk8550_pwm_data },
+	{ .compatible = "qcom,pmk8850-pwm", .data = &pmk8550_pwm_data },
 	{}
 };
 MODULE_DEVICE_TABLE(of, lpg_of_table);
