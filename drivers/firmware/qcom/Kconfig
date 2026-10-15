@@ -79,4 +79,35 @@ config QCOM_QSEECOM_UEFISECAPP
 	  Select Y here to provide access to EFI variables on the aforementioned
 	  platforms.
 
+config QCOM_TEE_UEFISECAPP
+	tristate "Qualcomm TEE UEFI Secure App client driver"
+	depends on QCOMTEE
+	depends on EFI
+	help
+	  The QSEECOM protocol used for communicating with the Qualcomm Trusted
+	  Execution Environment (QTEE) is deprecated and replaced with the SMCInvoke
+	  protocol starting with the Qualcomm SM8x50 series. On platforms where the
+	  QSEECOM protocol still works (the QSEECOM driver probes) the driver does
+	  not support a listener interface with QTEE to enable writing of
+	  non-volatile EFI variables (via listener requests to Linux) in the Replay
+	  Protected Memory Block (RPMB) located on UFS/eMMC storage.
+	  Therefore on such platforms, the TEE based uefisecapp client driver
+	  (which communicates with QTEE via the SMCInvoke protocol) must be used
+	  to update such EFI variables through the RPMB service hosted in the QTEE
+	  supplicant user-space daemon (github.com/qualcomm/minkipc) which forwards
+	  RPMB packets to the RPMB device.
+	  NOTE: Qualcomm Compute platforms with SPI-NOR storage are an exception to
+	  this scenario. Since they do not have a firmware running on their SPI-NOR
+	  storage controller which must be programmed with a RPMB key, QTEE has a
+	  SPI-NOR driver which holds the key, and so the QSEECOM driver can be used
+	  for updating EFI variables on these platforms because QTEE never makes a
+	  listener request to Linux (QTEE doesn't need the Linux SPI-NOR driver).
+
+	  This module provides a TEE client driver for uefisecapp, installing efivar
+	  operations to allow the kernel and user-space access to EFI variables.
+
+	  Select m here to provide access to EFI variables on the aforementioned
+	  platforms if your Linux distribution has QTEE supplicant installed and
+	  running.
+
 endmenu
