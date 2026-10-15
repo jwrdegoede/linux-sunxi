@@ -36,6 +36,7 @@ properties:
           - qcom,pmi8994-lpg
           - qcom,pmi8998-lpg
           - qcom,pmk8550-pwm
+          - qcom,pmk8850-pwm
       - items:
           - enum:
               - qcom,pm6150l-lpg
@@ -161,6 +162,7 @@ allOf:
               - qcom,pmi8994-lpg
               - qcom,pmi8998-lpg
               - qcom,pmk8550-pwm
+              - qcom,pmk8850-pwm
     then:
       properties:
         nvmem: false
