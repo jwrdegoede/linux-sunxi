@@ -808,7 +808,15 @@
 };
 
 &pmk8850_rtc {
+	nvmem-cells = <&rtc_offset>;
+	nvmem-cell-names = "offset";
 	qcom,no-alarm;
+};
+
+&pmk8850_sdam_2 {
+	rtc_offset: rtc-offset@bc {
+		reg = <0xbc 0x4>;
+	};
 };
 
 &remoteproc_adsp {
