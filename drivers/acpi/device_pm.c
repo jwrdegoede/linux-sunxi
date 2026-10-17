@@ -188,7 +188,7 @@ int acpi_device_set_power(struct acpi_device *device, int state)
 		if (!device->power.states[ACPI_STATE_D3_COLD].flags.valid)
 			target_state = state;
 	} else if (!device->power.states[state].flags.valid) {
-		acpi_handle_debug(device->handle, "Power state %s not supported\n",
+		acpi_handle_info(device->handle, "Power state %s not supported\n",
 				  acpi_power_state_string(state));
 		return -ENODEV;
 	}
@@ -198,7 +198,7 @@ int acpi_device_set_power(struct acpi_device *device, int state)
 
 		parent = acpi_dev_parent(device);
 		if (parent && state < parent->power.state) {
-			acpi_handle_debug(device->handle,
+			acpi_handle_info(device->handle,
 					  "Cannot transition to %s for parent in %s\n",
 					  acpi_power_state_string(state),
 					  acpi_power_state_string(parent->power.state));
@@ -219,7 +219,7 @@ int acpi_device_set_power(struct acpi_device *device, int state)
 		 * (deeper) states to higher-power (shallower) states.
 		 */
 		if (state < device->power.state) {
-			acpi_handle_debug(device->handle,
+			acpi_handle_info(device->handle,
 					  "Cannot transition from %s to %s\n",
 					  acpi_power_state_string(device->power.state),
 					  acpi_power_state_string(state));
