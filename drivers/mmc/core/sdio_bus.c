@@ -373,11 +373,27 @@ static void sdio_acpi_set_handle(struct sdio_func *func)
 {
 	struct mmc_host *host = func->card->host;
 	u64 addr = ((u64)host->slotno << 16) | func->num;
+	struct acpi_device *adev;
 
 	acpi_preset_companion(&func->dev, ACPI_COMPANION(host->parent), addr);
+	adev = ACPI_COMPANION(&func->dev);
+	if (adev)
+		adev->power.flags.ignore_parent = true;
+}
+
+static void sdio_acpi_clear_handle(struct sdio_func *func)
+{
+	struct acpi_device *adev;
+
+	adev = ACPI_COMPANION(&func->dev);
+	if (adev) {
+		adev->power.flags.ignore_parent = false;
+		ACPI_COMPANION_SET(&func->dev, NULL);
+	}
 }
 #else
 static inline void sdio_acpi_set_handle(struct sdio_func *func) {}
+static inline void sdio_acpi_clear_handle(struct sdio_func *func) {}
 #endif
 
 static void sdio_set_of_node(struct sdio_func *func)
@@ -402,6 +418,8 @@ int sdio_add_func(struct sdio_func *func)
 	ret = device_add(&func->dev);
 	if (ret == 0)
 		sdio_func_set_present(func);
+	else
+		sdio_acpi_clear_handle(func);
 
 	return ret;
 }
@@ -414,6 +432,8 @@ int sdio_add_func(struct sdio_func *func)
  */
 void sdio_remove_func(struct sdio_func *func)
 {
+	sdio_acpi_clear_handle(func);
+
 	if (sdio_func_present(func))
 		device_del(&func->dev);
 
