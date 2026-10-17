@@ -243,6 +243,15 @@ err_vdev_release:
 	return ret;
 }
 
+static void iris_core_release(struct v4l2_device *v4l2_dev)
+{
+	struct iris_core *core = container_of(v4l2_dev, struct iris_core, v4l2_dev);
+
+	mutex_destroy(&core->lock);
+	put_device(core->dev);
+	kfree(core);
+}
+
 static void iris_remove(struct platform_device *pdev)
 {
 	struct iris_core *core;
@@ -251,18 +260,20 @@ static void iris_remove(struct platform_device *pdev)
 	if (!core)
 		return;
 
+	video_unregister_device(core->vdev_dec);
+	video_unregister_device(core->vdev_enc);
+
 	disable_delayed_work_sync(&core->sys_error_handler);
 
 	iris_core_deinit(core);
 
-	video_unregister_device(core->vdev_dec);
-	video_unregister_device(core->vdev_enc);
+	devm_free_irq(core->dev, core->irq, core);
 
 	v4l2_device_unregister(&core->v4l2_dev);
 
 	iris_unreserve_iova_region(core->dev, core->iova_state);
 
-	mutex_destroy(&core->lock);
+	v4l2_device_put(&core->v4l2_dev);
 }
 
 static void iris_sys_error_handler(struct work_struct *work)
@@ -281,53 +292,64 @@ static int iris_probe(struct platform_device *pdev)
 	u64 dma_mask;
 	int ret;
 
-	core = devm_kzalloc_obj(&pdev->dev, *core);
+	core = kzalloc_obj(*core);
 	if (!core)
 		return -ENOMEM;
-	core->dev = dev;
+	core->dev = get_device(dev);
+
+	core->v4l2_dev.release = iris_core_release;
+	kref_init(&core->v4l2_dev.ref);
 
 	core->state = IRIS_CORE_DEINIT;
 	mutex_init(&core->lock);
 	init_completion(&core->core_init_done);
 
 	core->response_packet = devm_kzalloc(core->dev, IFACEQ_CORE_PKT_SIZE, GFP_KERNEL);
-	if (!core->response_packet)
-		return -ENOMEM;
+	if (!core->response_packet) {
+		ret = -ENOMEM;
+		goto err_put_core;
+	}
 
 	INIT_LIST_HEAD(&core->instances);
 	INIT_DELAYED_WORK(&core->sys_error_handler, iris_sys_error_handler);
 
 	core->reg_base = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(core->reg_base))
-		return PTR_ERR(core->reg_base);
+	if (IS_ERR(core->reg_base)) {
+		ret = PTR_ERR(core->reg_base);
+		goto err_put_core;
+	}
 
 	core->irq = platform_get_irq(pdev, 0);
-	if (core->irq < 0)
-		return core->irq;
+	if (core->irq < 0) {
+		ret = core->irq;
+		goto err_put_core;
+	}
 
 	core->iris_platform_data = of_device_get_match_data(core->dev);
 
 	core->ubwc_cfg = qcom_ubwc_config_get_data();
-	if (IS_ERR(core->ubwc_cfg))
-		return PTR_ERR(core->ubwc_cfg);
+	if (IS_ERR(core->ubwc_cfg)) {
+		ret = PTR_ERR(core->ubwc_cfg);
+		goto err_put_core;
+	}
 
 	ret = devm_request_threaded_irq(core->dev, core->irq, iris_hfi_isr,
 					iris_hfi_isr_handler,
 					IRQF_TRIGGER_HIGH | IRQF_NO_AUTOEN,
 					"iris", core);
 	if (ret)
-		return ret;
+		goto err_put_core;
 
 	iris_init_ops(core);
 
 	ret = iris_init_resources(core);
 	if (ret)
-		return ret;
+		goto err_put_core;
 
 	ret = iris_reserve_iova_region(dev, &core->iova_state, IRIS_NP_RESERVE_IOVA_START,
 				       IRIS_NP_RESERVE_IOVA_SIZE);
 	if (ret)
-		return ret;
+		goto err_put_core;
 
 	ret = v4l2_device_register(dev, &core->v4l2_dev);
 	if (ret)
@@ -368,6 +390,8 @@ err_v4l2_unreg:
 	v4l2_device_unregister(&core->v4l2_dev);
 err_unresv_iova_region:
 	iris_unreserve_iova_region(dev, core->iova_state);
+err_put_core:
+	v4l2_device_put(&core->v4l2_dev);
 
 	return ret;
 }
