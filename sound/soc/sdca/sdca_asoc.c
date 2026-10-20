@@ -1781,3 +1781,26 @@ int sdca_asoc_hw_params(struct device *dev, struct regmap *regmap,
 	return 0;
 }
 EXPORT_SYMBOL_NS(sdca_asoc_hw_params, "SND_SOC_SDCA");
+
+/**
+ * sdca_asoc_dai_is_pdm - True if the DAI is routed to a PDM data-port terminal
+ * @function: Pointer to the Function information.
+ * @dai: Pointer to the ASoC DAI.
+ *
+ * Return: true for SDCA_TERM_TYPE_RAW_PDM_MIC and
+ * SDCA_TERM_TYPE_PDM_RENDER_STREAM, false otherwise.
+ */
+bool sdca_asoc_dai_is_pdm(struct sdca_function_data *function,
+			  struct snd_soc_dai *dai)
+{
+	struct sdca_entity *entity = &function->entities[dai->id];
+
+	switch (entity->iot.type) {
+	case SDCA_TERM_TYPE_RAW_PDM_MIC:
+	case SDCA_TERM_TYPE_PDM_RENDER_STREAM:
+		return true;
+	default:
+		return false;
+	}
+}
+EXPORT_SYMBOL_NS(sdca_asoc_dai_is_pdm, "SND_SOC_SDCA");
