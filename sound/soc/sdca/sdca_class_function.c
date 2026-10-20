@@ -142,6 +142,9 @@ static int class_function_sdw_add_peripheral(struct snd_pcm_substream *substream
 
 	snd_sdw_params_to_config(substream, params, &sconfig, &pconfig);
 
+	if (sdca_asoc_dai_is_pdm(drv->function, dai))
+		sconfig.type = SDW_STREAM_PDM;
+
 	/*
 	 * FIXME: As also noted in sdca_asoc_get_port(), currently only
 	 * a single unshared port is supported for each DAI.
