@@ -112,4 +112,6 @@ int sdca_asoc_pde_poll_actual_ps(struct regmap *regmap,
 				 int from_ps, int to_ps,
 				 const struct sdca_pde_delay *pde_delays,
 				 int num_delays);
+bool sdca_asoc_dai_is_pdm(struct sdca_function_data *function,
+			  struct snd_soc_dai *dai);
 #endif // __SDCA_ASOC_H__
