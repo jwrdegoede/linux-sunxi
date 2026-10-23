@@ -720,6 +720,42 @@ struct param_id_sp_vi_channel_map_cfg {
 	uint32_t channel_mapping[];
 } __packed;
 
+/* VI per-speaker calibration event, raised every frame in calibration mode */
+#define EVENT_ID_VI_PER_SPKR_CALIBRATION	0x08001511
+
+/* Calibration state, as reported by struct vi_per_spkr_calib_param.state */
+#define VI_CALIBRATION_STATE_NORMAL_MODE	0 /* Not in calibration mode */
+#define VI_CALIBRATION_STATE_INACTIVE		1 /* Port not started */
+#define VI_CALIBRATION_STATE_WARM_UP		2 /* Warming up */
+#define VI_CALIBRATION_STATE_IN_PROGRESS	3 /* Calibration running */
+#define VI_CALIBRATION_STATE_SUCCESS		4 /* R0/T0 within range */
+#define VI_CALIBRATION_STATE_FAILED		5 /* R0/T0 out of range */
+#define VI_CALIBRATION_STATE_WAIT_FOR_VI	6 /* Waiting for V/I data */
+#define VI_CALIBRATION_STATE_VI_WAIT_TIMEOUT	7 /* Timed out waiting for V/I */
+#define VI_CALIBRATION_STATE_LOW_VI		8 /* V/I signal level too low */
+
+/**
+ * struct vi_per_spkr_calib_param - Per-speaker calibration result
+ * @state: Calibration state of this speaker.
+ * @r0_cali_q24: Measured DC resistance in ohms, Q24. Filled in regardless of
+ *		 @state, so it is meaningful for both VI_CALIBRATION_STATE_SUCCESS
+ *		 and VI_CALIBRATION_STATE_FAILED.
+ */
+struct vi_per_spkr_calib_param {
+	uint32_t state;
+	int32_t r0_cali_q24;
+} __packed;
+
+/**
+ * struct event_id_vi_per_spkr_calibration - Per-speaker VI calibration result
+ * @num_ch: Number of speakers the result covers.
+ * @cali_param: Per-speaker calibration state and measured resistance.
+ */
+struct event_id_vi_per_spkr_calibration {
+	uint32_t num_ch;
+	struct vi_per_spkr_calib_param cali_param[];
+} __packed;
+
 #define PARAM_ID_SAL_OUTPUT_CFG			0x08001016
 struct param_id_sal_output_config {
 	uint32_t bits_per_sample;

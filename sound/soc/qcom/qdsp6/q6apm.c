@@ -562,6 +562,58 @@ int q6apm_get_hw_pointer(struct q6apm_graph *graph, int dir)
 }
 EXPORT_SYMBOL_GPL(q6apm_get_hw_pointer);
 
+/*
+ * Convert a Q24 fixed-point value to its integer part, and to the first three
+ * decimal places of its fractional part.
+ */
+static int q6apm_q24_to_int_frac(int32_t val, int *frac)
+{
+	*frac = (int)(((s64)(val & 0xffffff) * 1000) >> 24);
+
+	return val >> 24;
+}
+
+static void q6apm_vi_calibration_event(struct device *dev,
+				       const struct apm_module_event *event,
+				       int payload_size)
+{
+	const struct event_id_vi_per_spkr_calibration *cali;
+	unsigned int num_ch, i;
+	int r0_int, r0_frac;
+
+	if (payload_size < 0 || payload_size < (int)(sizeof(*event) + sizeof(*cali))) {
+		dev_err(dev, "VI calibration event truncated (%d bytes)\n",
+			payload_size);
+		return;
+	}
+
+	cali = (const struct event_id_vi_per_spkr_calibration *)(event + 1);
+
+	/* Bound the array by the received payload, not by num_ch alone */
+	num_ch = (payload_size - sizeof(*event) - sizeof(*cali)) / sizeof(cali->cali_param[0]);
+	num_ch = min_t(unsigned int, cali->num_ch, num_ch);
+
+	for (i = 0; i < num_ch; i++) {
+		/* Only SUCCESS and FAILED carry a measured R0; both are worth reporting */
+		switch (cali->cali_param[i].state) {
+		case VI_CALIBRATION_STATE_SUCCESS:
+			break;
+		case VI_CALIBRATION_STATE_FAILED:
+			dev_dbg(dev, "VI calibration channel %u failed, R0/T0 out of range\n", i);
+			break;
+		default:
+			dev_dbg(dev, "VI calibration channel %u in state %u\n",
+				i, cali->cali_param[i].state);
+			continue;
+		}
+
+		r0_int = q6apm_q24_to_int_frac(cali->cali_param[i].r0_cali_q24, &r0_frac);
+		/* Raised every frame, so keep it at debug level */
+		dev_dbg(dev, "VI calibration channel %u: R0 %d.%03d ohms\n",
+			i, r0_int, r0_frac);
+	}
+}
+
 static int graph_callback(const struct gpr_resp_pkt *data, void *priv, int op)
 {
 	struct data_cmd_rsp_rd_sh_mem_ep_data_buffer_done_v2 *rd_done;
@@ -584,6 +636,9 @@ static int graph_callback(const struct gpr_resp_pkt *data, void *priv, int op)
 		case EVENT_ID_SH_MEM_PULL_PUSH_MODE_WATERMARK:
 			client_event = APM_CLIENT_EVENT_WATERMARK_EVENT;
 			graph->cb(client_event, hdr->token, data->payload, graph->priv);
+			break;
+		case EVENT_ID_VI_PER_SPKR_CALIBRATION:
+			q6apm_vi_calibration_event(dev, event, data->payload_size);
 			break;
 		}
 
