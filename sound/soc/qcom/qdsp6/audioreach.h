@@ -171,6 +171,9 @@ struct apm_module_conn_obj {
 	uint32_t dst_mod_ip_port_id;
 } __packed;
 
+#define APM_PARAM_ID_MODULE_CTRL_LINK_CFG	0x08001061
+#define APM_MODULE_PROP_ID_CTRL_LINK_INTENT_LIST	0x08001062
+
 #define APM_PARAM_ID_GAIN			0x08001006
 
 struct param_id_gain_cfg {
@@ -893,6 +896,19 @@ struct audioreach_graph_info {
 	uint32_t dst_mod_ip_port_id;
 };
 
+#define MAX_INTENTS 4
+
+struct audioreach_control_link {
+	uint32_t id;
+	uint32_t peer1_mod_inst_id;
+	uint32_t peer1_mod_port_id;
+	uint32_t peer2_mod_inst_id;
+	uint32_t peer2_mod_port_id;
+	uint32_t intent[MAX_INTENTS];
+	struct list_head node;
+	struct audioreach_sub_graph *sub_graph;
+};
+
 struct audioreach_sub_graph {
 	uint32_t sub_graph_id;
 	uint32_t perf_mode;
@@ -903,6 +919,8 @@ struct audioreach_sub_graph {
 	struct audioreach_graph_info *info;
 	uint32_t num_containers;
 	struct list_head container_list;
+	uint32_t num_control_links;
+	struct list_head control_link_list;
 };
 
 struct audioreach_container {

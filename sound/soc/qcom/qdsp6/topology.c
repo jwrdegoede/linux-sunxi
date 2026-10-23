@@ -97,6 +97,7 @@ static struct audioreach_sub_graph *audioreach_tplg_alloc_sub_graph(struct q6apm
 		return ERR_PTR(-ENOMEM);
 
 	INIT_LIST_HEAD(&sg->container_list);
+	INIT_LIST_HEAD(&sg->control_link_list);
 
 	mutex_lock(&apm->lock);
 	ret = idr_alloc_u32(&apm->sub_graphs_idr, sg, &sub_graph_id, sub_graph_id, GFP_KERNEL);
@@ -111,6 +112,51 @@ static struct audioreach_sub_graph *audioreach_tplg_alloc_sub_graph(struct q6apm
 	sg->sub_graph_id = sub_graph_id;
 
 	return sg;
+}
+
+static struct audioreach_control_link *audioreach_tplg_alloc_control_link(struct q6apm *apm,
+							    struct audioreach_sub_graph *sg,
+							    uint32_t control_link_id,
+							    bool *found)
+{
+	struct audioreach_control_link *link;
+	int ret;
+
+	if (!control_link_id)
+		return ERR_PTR(-EINVAL);
+
+	mutex_lock(&apm->lock);
+	link = idr_find(&apm->control_links_idr, control_link_id);
+	mutex_unlock(&apm->lock);
+
+	if (link) {
+		*found = true;
+		return link;
+	}
+	*found = false;
+
+	link = kzalloc_obj(*link);
+	if (!link)
+		return ERR_PTR(-ENOMEM);
+
+	mutex_lock(&apm->lock);
+	ret = idr_alloc_u32(&apm->control_links_idr, link, &control_link_id, control_link_id,
+			    GFP_KERNEL);
+	mutex_unlock(&apm->lock);
+
+	if (ret < 0) {
+		dev_err(apm->dev, "Failed to allocate Control Link ID (%x)\n", control_link_id);
+		kfree(link);
+		return ERR_PTR(ret);
+	}
+
+	link->id = control_link_id;
+	link->sub_graph = sg;
+	/* add to control link list */
+	list_add_tail(&link->node, &sg->control_link_list);
+	sg->num_control_links++;
+
+	return link;
 }
 
 static struct audioreach_container *audioreach_tplg_alloc_container(struct q6apm *apm,
@@ -346,6 +392,85 @@ audioreach_get_module_priv_data(const struct snd_soc_tplg_private *private)
 	}
 
 	return NULL;
+}
+
+static void audioreach_parse_control_link_tokens(struct q6apm *apm,
+						 struct audioreach_control_link *link,
+						 const struct snd_soc_tplg_vendor_array *cl_array)
+{
+	const struct snd_soc_tplg_vendor_value_elem *cl_elem = cl_array->value;
+	int tkn_count = 0;
+
+	while (tkn_count <= (le32_to_cpu(cl_array->num_elems) - 1)) {
+		switch (le32_to_cpu(cl_elem->token)) {
+		case AR_TKN_U32_CONTROL_LINK_IID:
+			link->id = le32_to_cpu(cl_elem->value);
+			break;
+		case AR_TKN_U32_CONTROL_LINK_PEER1_MOD_IID:
+			link->peer1_mod_inst_id = le32_to_cpu(cl_elem->value);
+			break;
+		case AR_TKN_U32_CONTROL_LINK_PEER1_MOD_PORT_ID:
+			link->peer1_mod_port_id = le32_to_cpu(cl_elem->value);
+			break;
+		case AR_TKN_U32_CONTROL_LINK_PEER2_MOD_IID:
+			link->peer2_mod_inst_id = le32_to_cpu(cl_elem->value);
+			break;
+		case AR_TKN_U32_CONTROL_LINK_PEER2_MOD_PORT_ID:
+			link->peer2_mod_port_id = le32_to_cpu(cl_elem->value);
+			break;
+		case AR_TKN_U32_CONTROL_LINK_INTENT0:
+			link->intent[0] = le32_to_cpu(cl_elem->value);
+			break;
+		case AR_TKN_U32_CONTROL_LINK_INTENT1:
+			link->intent[1] = le32_to_cpu(cl_elem->value);
+			break;
+		case AR_TKN_U32_CONTROL_LINK_INTENT2:
+			link->intent[2] = le32_to_cpu(cl_elem->value);
+			break;
+		case AR_TKN_U32_CONTROL_LINK_INTENT3:
+			link->intent[3] = le32_to_cpu(cl_elem->value);
+			break;
+		default:
+			dev_err(apm->dev, "Not a valid token %d for control link graph\n",
+				le32_to_cpu(cl_elem->token));
+			break;
+		}
+		tkn_count++;
+		cl_elem++;
+	}
+}
+
+static void audioreach_parse_cl_tokens(struct q6apm *apm, struct audioreach_sub_graph *sg,
+				       const struct snd_soc_tplg_private *private)
+{
+	const struct snd_soc_tplg_vendor_value_elem *cl_elem;
+	const struct snd_soc_tplg_vendor_array *cl_array;
+	struct audioreach_control_link *link;
+	int link_id, tkn_count, sz;
+	bool found = false;
+
+	for (sz = 0; sz < le32_to_cpu(private->size);) {
+		cl_array = (struct snd_soc_tplg_vendor_array *)((u8 *)private->array + sz);
+		cl_elem = cl_array->value;
+		sz = sz + le32_to_cpu(cl_array->size);
+		tkn_count = 0;
+
+		/* Module config blobs are not token tuples, stop here */
+		if (le32_to_cpu(cl_array->type) == SND_SOC_AR_TPLG_MODULE_CFG_TYPE)
+			break;
+
+		while (tkn_count <= (le32_to_cpu(cl_array->num_elems) - 1)) {
+			if (le32_to_cpu(cl_elem->token) == AR_TKN_U32_CONTROL_LINK_IID) {
+				link_id = le32_to_cpu(cl_elem->value);
+				link = audioreach_tplg_alloc_control_link(apm, sg, link_id, &found);
+				/* Skip on error or already parsed control link data */
+				if (!IS_ERR(link) && !found)
+					audioreach_parse_control_link_tokens(apm, link, cl_array);
+			}
+			tkn_count++;
+			cl_elem++;
+		}
+	}
 }
 
 static struct audioreach_sub_graph *audioreach_parse_sg_tokens(struct q6apm *apm,
@@ -616,6 +741,8 @@ static int audioreach_widget_load_module_common(struct snd_soc_component *compon
 	sg = audioreach_parse_sg_tokens(apm, &tplg_w->priv);
 	if (IS_ERR(sg))
 		return PTR_ERR(sg);
+
+	audioreach_parse_cl_tokens(apm, sg, &tplg_w->priv);
 
 	cont = audioreach_parse_cont_tokens(apm, sg, &tplg_w->priv);
 	if (IS_ERR(cont))
@@ -1108,6 +1235,13 @@ static int audioreach_widget_unload(struct snd_soc_component *scomp,
 		/* check if there are no more containers in the sub graph and remove it */
 		if (list_empty(&sg->container_list)) {
 			struct audioreach_graph_info *info = sg->info;
+			struct audioreach_control_link *link, *tmp;
+
+			list_for_each_entry_safe(link, tmp, &sg->control_link_list, node) {
+				idr_remove(&apm->control_links_idr, link->id);
+				list_del(&link->node);
+				kfree(link);
+			}
 
 			idr_remove(&apm->sub_graphs_idr, sg->sub_graph_id);
 			list_del(&sg->node);

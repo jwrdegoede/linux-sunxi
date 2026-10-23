@@ -900,6 +900,7 @@ static int apm_probe(gpr_device_t *gdev)
 	idr_init(&apm->graph_info_idr);
 	idr_init(&apm->sub_graphs_idr);
 	idr_init(&apm->containers_idr);
+	idr_init(&apm->control_links_idr);
 
 	idr_init(&apm->modules_idr);
 
