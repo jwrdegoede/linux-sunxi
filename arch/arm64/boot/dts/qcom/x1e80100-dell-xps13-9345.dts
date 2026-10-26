@@ -878,8 +878,32 @@
 
 &i2c5 {
 	clock-frequency = <100000>;
-	status = "disabled";
-	/* EC @0x3b */
+	status = "okay";
+
+	embedded-controller@3b {
+		compatible = "dell,xps13-9345-ec";
+		reg = <0x3b>;
+
+		interrupts-extended = <&tlmm 66 IRQ_TYPE_LEVEL_LOW>;
+
+		pinctrl-0 = <&ec_int_n_default>;
+		pinctrl-names = "default";
+
+		io-channels = <&pmk8550_vadc ADC5_GEN3_AMUX1_GPIO_100K_PU(1)>,
+			      <&pmk8550_vadc ADC5_GEN3_AMUX2_GPIO_100K_PU(1)>,
+			      <&pmk8550_vadc ADC5_GEN3_AMUX1_THM_100K_PU(1)>,
+			      <&pmk8550_vadc ADC5_GEN3_AMUX2_THM_100K_PU(1)>,
+			      <&pmk8550_vadc ADC5_GEN3_AMUX3_THM_100K_PU(1)>,
+			      <&pmk8550_vadc ADC5_GEN3_AMUX4_THM_100K_PU(1)>,
+			      <&pmk8550_vadc ADC5_GEN3_AMUX5_THM_100K_PU(1)>;
+		io-channel-names = "sys_therm1",
+				   "sys_therm2",
+				   "sys_therm3",
+				   "sys_therm4",
+				   "sys_therm5",
+				   "sys_therm6",
+				   "sys_therm7";
+	};
 };
 
 &i2c7 {
@@ -1170,6 +1194,37 @@
 	};
 };
 
+&pmk8550_vadc {
+	channel@144 {
+		label = "vph_pwr_therm";
+	};
+
+	channel@145 {
+		label = "usb_charger_right_therm";
+	};
+
+	channel@146 {
+		label = "ssd_conn_therm";
+	};
+
+	channel@147 {
+		label = "vreg_rtmr0_1p8_therm";
+	};
+
+	channel@148 {
+		label = "keyboard_therm";
+	};
+
+	channel@14a {
+		label = "lpddr5_therm";
+	};
+
+	/* Between Left USB charging controller and SSD connector */
+	channel@14b {
+		label = "sys_therm2";
+	};
+};
+
 &qupv3_0 {
 	status = "okay";
 };
@@ -1319,6 +1374,12 @@
 		pins = "gpio110";
 		function = "gpio";
 		drive-strength = <2>;
+		bias-disable;
+	};
+
+	ec_int_n_default: ec-int-n-state {
+		pins = "gpio66";
+		function = "gpio";
 		bias-disable;
 	};
 
