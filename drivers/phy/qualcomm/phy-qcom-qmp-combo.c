@@ -4416,8 +4416,9 @@ static int qmp_combo_dp_power_on(struct phy *phy)
 	const struct qmp_phy_cfg *cfg = qmp->cfg;
 	void __iomem *tx = qmp->dp_tx;
 	void __iomem *tx2 = qmp->dp_tx2;
+	int ret;
 
-	mutex_lock(&qmp->phy_mutex);
+	guard(mutex)(&qmp->phy_mutex);
 
 	qmp_combo_dp_serdes_init(qmp);
 
@@ -4428,11 +4429,13 @@ static int qmp_combo_dp_power_on(struct phy *phy)
 	cfg->configure_dp_tx(qmp);
 
 	/* Configure link rate, swing, etc. */
-	cfg->configure_dp_phy(qmp);
+	ret = cfg->configure_dp_phy(qmp);
+	if (ret) {
+		dev_err(qmp->dev, "DP PHY configuration failed: %d\n", ret);
+		return ret;
+	}
 
 	qmp->dp_powered_on = true;
-
-	mutex_unlock(&qmp->phy_mutex);
 
 	return 0;
 }
