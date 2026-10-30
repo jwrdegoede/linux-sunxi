@@ -115,11 +115,11 @@ static bool msm_separate_gpu_kms_auto(void)
 	int gpus = msm_count_gpus();
 	int display_subsystems = msm_count_mdss() + msm_count_mdp4();
 
-	if (gpus <= 0 || display_subsystems <= 0)
+	/* Single card if there is exactly one GPU and one display subsystem */
+	if (gpus == 1 && display_subsystems == 1)
 		return false;
 
-	/* Single card if there is exactly one GPU and one display subsystem */
-	return gpus > 1 || display_subsystems > 1;
+	return true;
 }
 
 bool msm_separate_gpu_kms_components(void)
