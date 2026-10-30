@@ -236,7 +236,7 @@ static const struct hdmi_platform_config hdmi_tx_8974_config = {
 
 static int msm_hdmi_bind(struct device *dev, struct device *master, void *data)
 {
-	struct msm_drm_private *priv = dev_get_drvdata(master);
+	struct msm_drm_private *priv = msm_drm_get_priv(master);
 	struct hdmi *hdmi = dev_get_drvdata(dev);
 	int err;
 
@@ -251,7 +251,7 @@ static int msm_hdmi_bind(struct device *dev, struct device *master, void *data)
 static void msm_hdmi_unbind(struct device *dev, struct device *master,
 		void *data)
 {
-	struct msm_drm_private *priv = dev_get_drvdata(master);
+	struct msm_drm_private *priv = msm_drm_get_priv(master);
 
 	if (priv->kms->hdmi) {
 		msm_hdmi_destroy(priv->kms->hdmi);

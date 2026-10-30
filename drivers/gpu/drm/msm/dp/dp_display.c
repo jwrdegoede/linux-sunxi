@@ -214,7 +214,7 @@ static int msm_dp_display_bind(struct device *dev, struct device *master,
 {
 	int rc = 0;
 	struct msm_dp_display_private *dp = dev_get_dp_display_private(dev);
-	struct msm_drm_private *priv = dev_get_drvdata(master);
+	struct msm_drm_private *priv = msm_drm_get_priv(master);
 	struct drm_device *drm = priv->dev;
 
 	dp->msm_dp_display.drm_dev = drm;
@@ -237,7 +237,7 @@ static void msm_dp_display_unbind(struct device *dev, struct device *master,
 			      void *data)
 {
 	struct msm_dp_display_private *dp = dev_get_dp_display_private(dev);
-	struct msm_drm_private *priv = dev_get_drvdata(master);
+	struct msm_drm_private *priv = msm_drm_get_priv(master);
 
 	of_dp_aux_depopulate_bus(dp->aux);
 
