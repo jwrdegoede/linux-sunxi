@@ -532,6 +532,7 @@ void msm_kms_pm_complete(struct device *dev);
 int msm_gpu_probe(struct platform_device *pdev);
 void msm_gpu_remove(struct platform_device *pdev);
 int msm_drv_probe(struct device *dev,
+	struct device_node *gpu_np,
 	int (*kms_init)(struct drm_device *dev),
 	struct msm_kms *kms);
 void msm_kms_shutdown(struct platform_device *pdev);

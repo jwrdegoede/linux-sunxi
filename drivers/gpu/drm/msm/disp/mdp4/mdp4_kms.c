@@ -553,7 +553,8 @@ static int mdp4_probe(struct platform_device *pdev)
 	if (IS_ERR(mdp4_kms->lut_clk))
 		return dev_err_probe(dev, PTR_ERR(mdp4_kms->lut_clk), "failed to get lut_clk\n");
 
-	return msm_drv_probe(&pdev->dev, mdp4_kms_init, &mdp4_kms->base.base);
+	return msm_drv_probe(&pdev->dev, NULL, mdp4_kms_init,
+			     &mdp4_kms->base.base);
 }
 
 static void mdp4_remove(struct platform_device *pdev)
