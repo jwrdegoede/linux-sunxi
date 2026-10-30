@@ -221,8 +221,13 @@ void msm_devfreq_cleanup(struct msm_gpu *gpu)
 	if (!has_devfreq(gpu))
 		return;
 
+	cancel_idle_work(df);
+	cancel_boost_work(df);
+
 	devfreq_cooling_unregister(gpu->cooling);
 	dev_pm_qos_remove_request(&df->boost_freq);
+	devm_devfreq_remove_device(&gpu->pdev->dev, df->devfreq);
+	df->devfreq = NULL;
 }
 
 void msm_devfreq_resume(struct msm_gpu *gpu)
