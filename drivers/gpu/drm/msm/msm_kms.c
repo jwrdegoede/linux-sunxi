@@ -218,8 +218,7 @@ struct drm_gpuvm *msm_kms_init_vm(struct drm_device *dev, struct device *mdss_de
 
 void msm_drm_kms_unregister(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
+	struct msm_drm_private *priv = msm_drm_get_priv(dev);
 	struct drm_device *ddev = priv->dev;
 
 	drm_atomic_helper_shutdown(ddev);
@@ -227,8 +226,7 @@ void msm_drm_kms_unregister(struct device *dev)
 
 void msm_drm_kms_uninit(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
+	struct msm_drm_private *priv = msm_drm_get_priv(dev);
 	struct drm_device *ddev = priv->dev;
 	struct msm_kms *kms = priv->kms;
 	int i;
@@ -262,7 +260,7 @@ void msm_drm_kms_uninit(struct device *dev)
 
 int msm_drm_kms_init(struct device *dev, const struct drm_driver *drv)
 {
-	struct msm_drm_private *priv = dev_get_drvdata(dev);
+	struct msm_drm_private *priv = msm_drm_get_priv(dev);
 	struct drm_device *ddev = priv->dev;
 	struct msm_kms *kms = priv->kms;
 	struct drm_crtc *crtc;
@@ -341,7 +339,7 @@ err_msm_uninit:
 
 int msm_kms_pm_prepare(struct device *dev)
 {
-	struct msm_drm_private *priv = dev_get_drvdata(dev);
+	struct msm_drm_private *priv = msm_drm_get_priv(dev);
 	struct drm_device *ddev = priv ? priv->dev : NULL;
 
 	if (!priv || !priv->kms)
@@ -352,7 +350,7 @@ int msm_kms_pm_prepare(struct device *dev)
 
 void msm_kms_pm_complete(struct device *dev)
 {
-	struct msm_drm_private *priv = dev_get_drvdata(dev);
+	struct msm_drm_private *priv = msm_drm_get_priv(dev);
 	struct drm_device *ddev = priv ? priv->dev : NULL;
 
 	if (!priv || !priv->kms)
@@ -363,7 +361,7 @@ void msm_kms_pm_complete(struct device *dev)
 
 void msm_kms_shutdown(struct platform_device *pdev)
 {
-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
+	struct msm_drm_private *priv = msm_drm_get_priv(&pdev->dev);
 	struct drm_device *drm = priv ? priv->dev : NULL;
 
 	/*
@@ -379,8 +377,7 @@ void msm_kms_shutdown(struct platform_device *pdev)
 
 void msm_drm_kms_post_init(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
+	struct msm_drm_private *priv = msm_drm_get_priv(dev);
 	struct drm_device *ddev = priv->dev;
 
 	drm_kms_helper_poll_init(ddev);

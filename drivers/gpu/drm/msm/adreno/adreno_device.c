@@ -209,10 +209,10 @@ bool adreno_has_gpu(struct device_node *node)
 
 static int adreno_bind(struct device *dev, struct device *master, void *data)
 {
+	struct msm_drm_private *priv = msm_drm_get_priv(master);
 	static struct adreno_platform_config config = {};
-	const struct adreno_info *info;
-	struct msm_drm_private *priv = dev_get_drvdata(master);
 	struct drm_device *drm = priv->dev;
+	const struct adreno_info *info;
 	struct msm_gpu *gpu;
 	int ret;
 
@@ -254,7 +254,7 @@ static int adreno_system_suspend(struct device *dev);
 static void adreno_unbind(struct device *dev, struct device *master,
 		void *data)
 {
-	struct msm_drm_private *priv = dev_get_drvdata(master);
+	struct msm_drm_private *priv = msm_drm_get_priv(master);
 	struct msm_gpu *gpu = dev_to_gpu(dev);
 
 	if (pm_runtime_enabled(dev))
