@@ -858,7 +858,8 @@ static int mdp5_dev_probe(struct platform_device *pdev)
 
 	mdp5_kms->base.base.irq = irq;
 
-	return msm_drv_probe(&pdev->dev, mdp5_kms_init, &mdp5_kms->base.base);
+	return msm_drv_probe(&pdev->dev, NULL, mdp5_kms_init,
+			     &mdp5_kms->base.base);
 }
 
 static void mdp5_dev_remove(struct platform_device *pdev)
