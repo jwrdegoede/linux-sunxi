@@ -529,10 +529,8 @@ struct msm_drm_private *msm_drm_get_priv(struct device *dev);
 int msm_kms_pm_prepare(struct device *dev);
 void msm_kms_pm_complete(struct device *dev);
 
-int msm_gpu_probe(struct platform_device *pdev,
-		  const struct component_ops *ops);
-void msm_gpu_remove(struct platform_device *pdev,
-		    const struct component_ops *ops);
+int msm_gpu_probe(struct platform_device *pdev);
+void msm_gpu_remove(struct platform_device *pdev);
 int msm_drv_probe(struct device *dev,
 	int (*kms_init)(struct drm_device *dev),
 	struct msm_kms *kms);

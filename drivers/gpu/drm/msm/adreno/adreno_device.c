@@ -271,24 +271,30 @@ static const struct component_ops a3xx_ops = {
 
 static int adreno_probe(struct platform_device *pdev)
 {
-	if (msm_separate_gpu_kms_components())
-		return msm_gpu_probe(pdev, &a3xx_ops);
+	int ret;
+
+	if (!msm_separate_gpu_kms_components())
+		return component_add(&pdev->dev, &a3xx_ops);
 
 	if (!adreno_has_gpu(pdev->dev.of_node))
 		return -ENODEV;
 
-	return component_add(&pdev->dev, &a3xx_ops);
+	ret = msm_gpu_probe(pdev);
+	if (ret)
+		return ret;
+
+	ret = component_add(&pdev->dev, &a3xx_ops);
+	if (ret)
+		msm_gpu_remove(pdev);
+
+	return ret;
 }
 
 static void adreno_remove(struct platform_device *pdev)
 {
-	struct device_node *node = pdev->dev.of_node;
-
-	if (of_device_is_compatible(node, "amd,imageon") ||
-	    (msm_separate_gpu_kms_components() && adreno_has_gpu(node)))
-		msm_gpu_remove(pdev, &a3xx_ops);
-	else
-		component_del(&pdev->dev, &a3xx_ops);
+	component_del(&pdev->dev, &a3xx_ops);
+	if (msm_separate_gpu_kms_components())
+		msm_gpu_remove(pdev);
 }
 
 static void adreno_shutdown(struct platform_device *pdev)
