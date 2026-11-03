@@ -154,6 +154,9 @@ static void iris_unreserve_iova_region(struct device *dev, struct dma_iova_state
 {
 	unsigned int i;
 
+	if (!device_iommu_mapped(dev))
+		return;
+
 	for (i = 0; dma_iova_size(&iova_state[i]); i++)
 		dma_iova_free(dev, &iova_state[i]);
 }
@@ -166,6 +169,9 @@ static int iris_reserve_iova_region(struct device *dev, struct dma_iova_state **
 	struct dma_iova_state *state;
 	unsigned int count = 0;
 	int ret = -ENOMEM;
+
+	if (!device_iommu_mapped(dev))
+		return 0;
 
 	state = devm_kzalloc_objs(dev, *state, BITS_PER_TYPE(dma_addr_t) + 1);
 	if (!state)
@@ -433,9 +439,11 @@ static int iris_probe(struct platform_device *pdev)
 
 	dma_mask = core->iris_platform_data->dma_mask;
 
-	ret = dma_set_mask_and_coherent(dev, dma_mask);
-	if (ret)
-		goto err_vdev_unreg_enc;
+	if (device_iommu_mapped(dev)) {
+		ret = dma_set_mask_and_coherent(dev, dma_mask);
+		if (ret)
+			goto err_vdev_unreg_enc;
+	}
 
 	dma_set_max_seg_size(&pdev->dev, DMA_BIT_MASK(32));
 	dma_set_seg_boundary(&pdev->dev, DMA_BIT_MASK(32));
