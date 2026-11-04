@@ -1530,6 +1530,14 @@ static void msm_dp_display_unprepare(struct msm_dp_display_private *dp)
 {
 	struct msm_dp *msm_dp_display = &dp->msm_dp_display;
 
+	/*
+	 * Failed link training leaves the link clocks off. Avoid accessing
+	 * link registers after a failed enable, but still release the
+	 * runtime-PM reference below.
+	 */
+	if (!msm_dp_display->power_on)
+		goto out;
+
 	/* dongle is still connected but sinks are disconnected */
 	if (dp->link->sink_count == 0)
 		msm_dp_link_psm_config(dp->link, &dp->panel->link_info, true);
@@ -1544,6 +1552,7 @@ static void msm_dp_display_unprepare(struct msm_dp_display_private *dp)
 
 	msm_dp_display->power_on = false;
 
+out:
 	pm_runtime_put_sync(&msm_dp_display->pdev->dev);
 
 	drm_dbg_dp(dp->drm_dev, "type=%d Done\n", msm_dp_display->connector_type);
