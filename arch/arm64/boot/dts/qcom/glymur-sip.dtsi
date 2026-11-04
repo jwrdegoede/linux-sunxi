@@ -193,6 +193,9 @@
 &pcie4_phy {
 	vdda-phy-supply = <&vreg_l1c1>;
 	vdda-pll-supply = <&vreg_l4f1>;
+
+	vdda-refgen0p9-supply = <&vreg_l1c1>;
+	vdda-refgen1p2-supply = <&vreg_l4f1>;
 };
 
 &pcie3_phy {
@@ -206,11 +209,17 @@
 &pcie5_phy {
 	vdda-phy-supply = <&vreg_l2f0>;
 	vdda-pll-supply = <&vreg_l4c0>;
+
+	vdda-refgen0p9-supply = <&vreg_l2f0>;
+	vdda-refgen1p2-supply = <&vreg_l4c0>;
 };
 
 &pcie6_phy {
 	vdda-phy-supply = <&vreg_l1c1>;
 	vdda-pll-supply = <&vreg_l4f1>;
+
+	vdda-refgen0p9-supply = <&vreg_l1c1>;
+	vdda-refgen1p2-supply = <&vreg_l4f1>;
 };
 
 &smb2370_j_e2_eusb2_repeater {
