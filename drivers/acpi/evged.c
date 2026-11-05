@@ -88,22 +88,31 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 	u8 trigger;
 	int ret;
 
-	if (ares->type == ACPI_RESOURCE_TYPE_END_TAG)
+	switch (ares->type) {
+	case ACPI_RESOURCE_TYPE_IRQ:
+	case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
+		if (!acpi_dev_resource_interrupt(ares, 0, &r)) {
+			dev_err(dev, "unable to parse IRQ resource\n");
+			return AE_ERROR;
+		}
+		if (ares->type == ACPI_RESOURCE_TYPE_IRQ) {
+			gsi = p->interrupts[0];
+			trigger = p->triggering;
+		} else {
+			gsi = pext->interrupts[0];
+			trigger = pext->triggering;
+		}
+
+		irq = r.start;
+		break;
+
+	case ACPI_RESOURCE_TYPE_END_TAG:
 		return AE_OK;
 
-	if (!acpi_dev_resource_interrupt(ares, 0, &r)) {
-		dev_err(dev, "unable to parse IRQ resource\n");
+	default:
+		dev_err(dev, "unknown IRQ resource type %u\n", ares->type);
 		return AE_ERROR;
 	}
-	if (ares->type == ACPI_RESOURCE_TYPE_IRQ) {
-		gsi = p->interrupts[0];
-		trigger = p->triggering;
-	} else {
-		gsi = pext->interrupts[0];
-		trigger = pext->triggering;
-	}
-
-	irq = r.start;
 
 	switch (gsi) {
 	case 0 ... 255:
