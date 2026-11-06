@@ -174,19 +174,12 @@ iommu_resv_region_get_type(struct device *dev,
 {
 	phys_addr_t end = start + length - 1;
 
-	/*
-	 * IOMMU regions without an associated physical region cannot be
-	 * mapped and are simply reservations.
-	 */
-	if (phys->start >= phys->end)
-		return IOMMU_RESV_RESERVED;
-
 	/* may be IOMMU_RESV_DIRECT_RELAXABLE for certain cases */
 	if (start == phys->start && end == phys->end)
 		return IOMMU_RESV_DIRECT;
 
-	dev_warn(dev, "treating non-direct mapping [%pr] -> [%pap-%pap] as reservation\n", phys,
-		 &start, &end);
+	dev_err(dev, "non-direct mapping [%pr] -> [%pap-%pap] is not supported\n", phys,
+		&start, &end);
 	return IOMMU_RESV_RESERVED;
 }
 
@@ -211,12 +204,14 @@ void of_iommu_get_resv_regions(struct device *dev, struct list_head *list)
 		struct resource phys;
 		int size;
 
-		memset(&phys, 0, sizeof(phys));
+		maps = of_get_property(it.node, "iommu-addresses", &size);
+		if (!maps)
+			continue;
 
 		/*
-		 * The "reg" property is optional and can be omitted by reserved-memory regions
-		 * that represent reservations in the IOVA space, which are regions that should
-		 * not be mapped.
+		 * "iommu-addresses" must be used in combination with a "reg" that provides
+		 * the physical address and size of this memory region, for an identity 1:1
+		 * IOVA mapping to that physical memory.
 		 */
 		if (of_property_present(it.node, "reg")) {
 			err = of_address_to_resource(it.node, 0, &phys);
@@ -225,11 +220,11 @@ void of_iommu_get_resv_regions(struct device *dev, struct list_head *list)
 					it.node, err);
 				continue;
 			}
-		}
-
-		maps = of_get_property(it.node, "iommu-addresses", &size);
-		if (!maps)
+		} else {
+			dev_err(dev, "%pOF: iommu-addresses requires a reg property\n",
+				it.node);
 			continue;
+		}
 
 		end = maps + size / sizeof(__be32);
 
@@ -256,6 +251,9 @@ void of_iommu_get_resv_regions(struct device *dev, struct list_head *list)
 					continue;
 				}
 				type = iommu_resv_region_get_type(dev, &phys, iova, length);
+
+				if (type != IOMMU_RESV_DIRECT)
+					continue;
 
 				region = iommu_alloc_resv_region(iova, length, prot, type,
 								 GFP_KERNEL);
