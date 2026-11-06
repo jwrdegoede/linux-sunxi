@@ -17,7 +17,9 @@
 #include <linux/interrupt.h>
 #include <linux/leds.h>
 #include <linux/lockdep.h>
+#include <linux/minmax.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/pm.h>
@@ -25,6 +27,15 @@
 #define T14S_EC_CMD_ECRD	0x02
 #define T14S_EC_CMD_ECWR	0x03
 #define T14S_EC_CMD_EVT		0xf0
+
+/*
+ * The Gen 7 (Snapdragon X2) EC uses a different command set over I2C, as
+ * described by the ACPI EC accessors in its firmware (RDEC, WREC, QEVT).
+ */
+#define T14S_GEN7_EC_CMD_RD	0x80
+#define T14S_GEN7_EC_CMD_WR	0x81
+#define T14S_GEN7_EC_CMD_EVT	0x84
+#define T14S_GEN7_EC_LED_MIC_MUTE	0x0e
 
 #define T14S_EC_REG_LED				0x0c
 #define T14S_EC_REG_KBD_BL1			0x0d
@@ -67,6 +78,15 @@
 #define T14S_EC_EVT_KEY_FN_F11			0x7a
 #define T14S_EC_EVT_KEY_FN_G			0x7e
 
+/* Gen 7 only */
+#define T14S_GEN7_EC_EVT_HKEY_1017		0x1c
+#define T14S_GEN7_EC_EVT_STATUS_35		0x35
+#define T14S_GEN7_EC_EVT_DYTC			0x3c
+#define T14S_GEN7_EC_EVT_STATUS_40		0x40
+#define T14S_GEN7_EC_EVT_STATUS_4B		0x4b
+#define T14S_GEN7_EC_EVT_STATUS_4E		0x4e
+#define T14S_GEN7_EC_EVT_HKEY_1016		0x76
+
 /* Hardware LED blink rate is 1 Hz (500ms off, 500ms on) */
 #define T14S_EC_BLINK_RATE_ON_OFF_MS		500
 
@@ -93,9 +113,24 @@ struct t14s_ec_led_classdev {
 	struct t14s_ec *ec;
 };
 
+struct t14s_ec;
+
+struct t14s_ec_variant {
+	const struct regmap_bus *regmap_bus;
+	int (*read_evt)(struct t14s_ec *ec, u8 *val);
+	/* EC has the second keyboard backlight and the modern standby registers */
+	bool has_kbd_bl2_and_standby;
+	/* mic mute LED is a generic LED (in T14S_EC_REG_LED) and not a bit in T14S_EC_REG_AUD */
+	bool mic_mute_led_generic;
+};
+
 struct t14s_ec {
 	struct regmap *regmap;
 	struct device *dev;
+	const struct t14s_ec_variant *variant;
+	/* serializes the multi-message Gen 7 EC transactions */
+	struct mutex xfer_lock;
+	enum led_brightness mic_mute_cache;
 	struct t14s_ec_led_classdev led_pwr_btn;
 	struct t14s_ec_led_classdev led_chrg_orange;
 	struct t14s_ec_led_classdev led_chrg_white;
@@ -205,6 +240,85 @@ out:
 	i2c_unlock_bus(client->adapter, I2C_LOCK_SEGMENT);
 	return ret;
 }
+
+static int t14s_gen7_ec_cmd_read(struct t14s_ec *ec, u8 cmd, u8 arg, u8 *val)
+{
+	struct i2c_client *client = to_i2c_client(ec->dev);
+	u8 req[2] = { cmd, arg };
+	struct i2c_msg msgs[2] = {
+		{ .addr = client->addr, .flags = 0, .len = 1, .buf = &req[0] },
+		{ .addr = client->addr, .flags = I2C_M_RD, .len = 1, .buf = val },
+	};
+	int ret;
+
+	guard(mutex)(&ec->xfer_lock);
+
+	ret = i2c_master_send(client, req, sizeof(req));
+	if (ret < 0)
+		return ret;
+
+	fsleep(5000);
+
+	ret = i2c_transfer(client->adapter, msgs, ARRAY_SIZE(msgs));
+	if (ret < 0)
+		return ret;
+
+	return ret == ARRAY_SIZE(msgs) ? 0 : -EIO;
+}
+
+static int t14s_gen7_ec_write(void *context, unsigned int reg,
+			      unsigned int val)
+{
+	struct t14s_ec *ec = context;
+	struct i2c_client *client = to_i2c_client(ec->dev);
+	u8 buf[3] = { T14S_GEN7_EC_CMD_WR, reg, val };
+	int ret;
+
+	guard(mutex)(&ec->xfer_lock);
+
+	ret = i2c_master_send(client, buf, sizeof(buf));
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int t14s_gen7_ec_read(void *context, unsigned int reg,
+			     unsigned int *val)
+{
+	struct t14s_ec *ec = context;
+	u8 result;
+	int ret;
+
+	ret = t14s_gen7_ec_cmd_read(ec, T14S_GEN7_EC_CMD_RD, reg, &result);
+	if (ret)
+		return ret;
+
+	*val = result;
+	return 0;
+}
+
+static const struct regmap_bus t14s_gen7_ec_regmap_bus = {
+	.reg_write = t14s_gen7_ec_write,
+	.reg_read = t14s_gen7_ec_read,
+};
+
+static int t14s_gen7_ec_read_evt(struct t14s_ec *ec, u8 *val)
+{
+	return t14s_gen7_ec_cmd_read(ec, T14S_GEN7_EC_CMD_EVT, 0x00, val);
+}
+
+static const struct t14s_ec_variant t14s_ec_variant = {
+	.regmap_bus = &t14s_ec_regmap_bus,
+	.read_evt = t14s_ec_read_evt,
+	.has_kbd_bl2_and_standby = true,
+};
+
+static const struct t14s_ec_variant t14s_gen7_ec_variant = {
+	.regmap_bus = &t14s_gen7_ec_regmap_bus,
+	.read_evt = t14s_gen7_ec_read_evt,
+	.mic_mute_led_generic = true,
+};
 
 static void t14s_ec_write_sequence(struct t14s_ec *ec, u8 reg, u8 val, u8 cnt)
 {
@@ -318,6 +432,9 @@ static int t14s_kbd_bl_set(struct led_classdev *led_cdev,
 	if (ret < 0)
 		return ret;
 
+	if (!ec->variant->has_kbd_bl2_and_standby)
+		return 0;
+
 	val = FIELD_PREP(T14S_EC_KBD_BL2_MASK, brightness);
 	ret = regmap_update_bits(ec->regmap, T14S_EC_REG_KBD_BL2,
 				 T14S_EC_KBD_BL2_MASK, val);
@@ -338,7 +455,11 @@ static enum led_brightness t14s_kbd_bl_get(struct led_classdev *led_cdev)
 	if (ret < 0)
 		return ret;
 
-	return FIELD_GET(T14S_EC_KBD_BL1_MASK, val);
+	/*
+	 * When cycled with Fn+Space, the Gen 7 EC also uses 3 for the high
+	 * level, which looks the same as 2.
+	 */
+	return min(FIELD_GET(T14S_EC_KBD_BL1_MASK, val), 2);
 }
 
 static void t14s_kbd_bl_update(struct t14s_ec *ec)
@@ -383,6 +504,9 @@ static enum led_brightness t14s_mic_mute_led_get(struct led_classdev *led_cdev)
 	struct t14s_ec *ec = container_of(led_cdev, struct t14s_ec,
 					  led_mic_mute);
 
+	if (ec->variant->mic_mute_led_generic)
+		return ec->mic_mute_cache;
+
 	return t14s_audio_led_get(ec, T14S_EC_MIC_MUTE_LED);
 }
 
@@ -391,8 +515,19 @@ static int t14s_mic_mute_led_set(struct led_classdev *led_cdev,
 {
 	struct t14s_ec *ec = container_of(led_cdev, struct t14s_ec,
 					  led_mic_mute);
+	int ret;
 
-	return t14s_audio_led_set(ec, T14S_EC_MIC_MUTE_LED, brightness);
+	if (!ec->variant->mic_mute_led_generic)
+		return t14s_audio_led_set(ec, T14S_EC_MIC_MUTE_LED, brightness);
+
+	ret = regmap_write(ec->regmap, T14S_EC_REG_LED,
+			   T14S_GEN7_EC_LED_MIC_MUTE |
+			   (brightness ? T14S_EC_LED_ON : T14S_EC_LED_OFF));
+	if (ret < 0)
+		return ret;
+
+	ec->mic_mute_cache = brightness ? LED_ON : LED_OFF;
+	return 0;
 }
 
 static enum led_brightness t14s_spk_mute_led_get(struct led_classdev *led_cdev)
@@ -478,7 +613,7 @@ static irqreturn_t t14s_ec_irq_handler(int irq, void *data)
 	int ret;
 	u8 val;
 
-	ret = t14s_ec_read_evt(ec, &val);
+	ret = ec->variant->read_evt(ec, &val);
 	if (ret < 0) {
 		dev_err(ec->dev, "Failed to read event\n");
 		return IRQ_HANDLED;
@@ -553,6 +688,16 @@ static irqreturn_t t14s_ec_irq_handler(int irq, void *data)
 	case T14S_EC_EVT_KEY_FN_D:
 		dev_dbg(ec->dev, "FN + D - toggle privacy guard mode\n");
 		break;
+	case T14S_GEN7_EC_EVT_HKEY_1017:
+	case T14S_GEN7_EC_EVT_HKEY_1016:
+	case T14S_GEN7_EC_EVT_DYTC:
+	/* Status events the Gen 7 firmware does not act upon either */
+	case T14S_GEN7_EC_EVT_STATUS_35:
+	case T14S_GEN7_EC_EVT_STATUS_40:
+	case T14S_GEN7_EC_EVT_STATUS_4B:
+	case T14S_GEN7_EC_EVT_STATUS_4E:
+		dev_dbg(ec->dev, "EC event 0x%02x\n", val);
+		break;
 	default:
 		dev_info(ec->dev, "Unknown EC event: 0x%02x\n", val);
 		break;
@@ -572,9 +717,17 @@ static int t14s_ec_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	ec->dev = dev;
+	ec->variant = i2c_get_match_data(client);
+	if (!ec->variant)
+		ec->variant = &t14s_ec_variant;
+
+	ret = devm_mutex_init(dev, &ec->xfer_lock);
+	if (ret)
+		return ret;
+
 	i2c_set_clientdata(client, ec);
 
-	ec->regmap = devm_regmap_init(dev, &t14s_ec_regmap_bus,
+	ec->regmap = devm_regmap_init(dev, ec->variant->regmap_bus,
 				      ec, &t14s_ec_regmap_config);
 	if (IS_ERR(ec->regmap))
 		return dev_err_probe(dev, PTR_ERR(ec->regmap),
@@ -618,8 +771,9 @@ static int t14s_ec_suspend(struct device *dev)
 
 	led_classdev_suspend(&ec->kbd_backlight);
 
-	t14s_ec_write_sequence(ec, T14S_EC_REG_MODERN_STANDBY,
-			       T14S_EC_MODERN_STANDBY_ENTRY, 3);
+	if (ec->variant->has_kbd_bl2_and_standby)
+		t14s_ec_write_sequence(ec, T14S_EC_REG_MODERN_STANDBY,
+				       T14S_EC_MODERN_STANDBY_ENTRY, 3);
 
 	return 0;
 }
@@ -628,8 +782,9 @@ static int t14s_ec_resume(struct device *dev)
 {
 	struct t14s_ec *ec = dev_get_drvdata(dev);
 
-	t14s_ec_write_sequence(ec, T14S_EC_REG_MODERN_STANDBY,
-			       T14S_EC_MODERN_STANDBY_EXIT, 3);
+	if (ec->variant->has_kbd_bl2_and_standby)
+		t14s_ec_write_sequence(ec, T14S_EC_REG_MODERN_STANDBY,
+				       T14S_EC_MODERN_STANDBY_EXIT, 3);
 
 	led_classdev_resume(&ec->kbd_backlight);
 
@@ -637,13 +792,14 @@ static int t14s_ec_resume(struct device *dev)
 }
 
 static const struct of_device_id t14s_ec_of_match[] = {
-	{ .compatible = "lenovo,thinkpad-t14s-ec" },
+	{ .compatible = "lenovo,thinkpad-t14s-ec", .data = &t14s_ec_variant },
+	{ .compatible = "lenovo,thinkpad-t14s-gen7-ec", .data = &t14s_gen7_ec_variant },
 	{}
 };
 MODULE_DEVICE_TABLE(of, t14s_ec_of_match);
 
 static const struct i2c_device_id t14s_ec_i2c_id_table[] = {
-	{ .name = "thinkpad-t14s-ec" },
+	{ .name = "thinkpad-t14s-ec", .driver_data = (kernel_ulong_t)&t14s_ec_variant },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, t14s_ec_i2c_id_table);
