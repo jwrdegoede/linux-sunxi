@@ -65,15 +65,20 @@ static irqreturn_t acpi_ged_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+struct acpi_ged_request_interrupt_context {
+	struct acpi_ged_device *geddev;
+	int error;
+};
+
 static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
-					      void *context)
+					      void *_context)
 {
 	struct acpi_ged_event *event;
 	unsigned int irq;
 	unsigned int gsi;
 	unsigned int irqflags = IRQF_ONESHOT;
-	struct acpi_ged_device *geddev = context;
-	struct device *dev = geddev->dev;
+	struct acpi_ged_request_interrupt_context *context = _context;
+	struct device *dev = context->geddev->dev;
 	acpi_handle handle = ACPI_HANDLE(dev);
 	acpi_handle evt_handle;
 	struct resource r;
@@ -81,6 +86,7 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 	struct acpi_resource_extended_irq *pext = &ares->data.extended_irq;
 	char ev_name[5];
 	u8 trigger;
+	int ret;
 
 	if (ares->type == ACPI_RESOURCE_TYPE_END_TAG)
 		return AE_OK;
@@ -116,8 +122,10 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 	}
 
 	event = devm_kzalloc_obj(dev, *event);
-	if (!event)
+	if (!event) {
+		context->error = -ENOMEM;
 		return AE_ERROR;
+	}
 
 	event->gsi = gsi;
 	event->dev = dev;
@@ -127,19 +135,22 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 	if (r.flags & IORESOURCE_IRQ_SHAREABLE)
 		irqflags |= IRQF_SHARED;
 
-	if (request_threaded_irq(irq, NULL, acpi_ged_irq_handler,
-				 irqflags, "ACPI:Ged", event)) {
-		dev_err(dev, "failed to setup event handler for irq %u\n", irq);
+	ret = request_threaded_irq(irq, NULL, acpi_ged_irq_handler,
+				   irqflags, "ACPI:Ged", event);
+	if (ret) {
+		dev_err_probe(dev, ret, "requesting irq %u\n", irq);
+		context->error = ret;
 		return AE_ERROR;
 	}
 
 	dev_dbg(dev, "GED listening GSI %u @ IRQ %u\n", gsi, irq);
-	list_add_tail(&event->node, &geddev->event_list);
+	list_add_tail(&event->node, &context->geddev->event_list);
 	return AE_OK;
 }
 
 static int ged_probe(struct platform_device *pdev)
 {
+	struct acpi_ged_request_interrupt_context context;
 	struct acpi_ged_device *geddev;
 	acpi_status acpi_ret;
 
@@ -149,12 +160,14 @@ static int ged_probe(struct platform_device *pdev)
 
 	geddev->dev = &pdev->dev;
 	INIT_LIST_HEAD(&geddev->event_list);
+	context.geddev = geddev;
+	context.error = 0;
 	acpi_ret = acpi_walk_resources(ACPI_HANDLE(&pdev->dev), "_CRS",
-				       acpi_ged_request_interrupt, geddev);
-	if (ACPI_FAILURE(acpi_ret)) {
-		dev_err(&pdev->dev, "unable to parse the _CRS record\n");
-		return -EINVAL;
-	}
+				       acpi_ged_request_interrupt, &context);
+	if (ACPI_FAILURE(acpi_ret))
+		return dev_err_probe(&pdev->dev, context.error ? : -EINVAL,
+				     "parsing _CRS records\n");
+
 	platform_set_drvdata(pdev, geddev);
 
 	return 0;
