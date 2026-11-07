@@ -12052,6 +12052,7 @@ static struct ibm_init_struct ibms_init[] __initdata = {
 		.init = hotkey_init,
 		.data = &hotkey_driver_data,
 	},
+#if 0
 	{
 		.init = bluetooth_init,
 		.data = &bluetooth_driver_data,
@@ -12064,6 +12065,7 @@ static struct ibm_init_struct ibms_init[] __initdata = {
 		.init = uwb_init,
 		.data = &uwb_driver_data,
 	},
+#endif
 #ifdef CONFIG_THINKPAD_ACPI_VIDEO
 	{
 		.init = video_init,
@@ -12075,6 +12077,7 @@ static struct ibm_init_struct ibms_init[] __initdata = {
 		.init = kbdlight_init,
 		.data = &kbdlight_driver_data,
 	},
+#if 0
 	{
 		.init = light_init,
 		.data = &light_driver_data,
@@ -12083,10 +12086,12 @@ static struct ibm_init_struct ibms_init[] __initdata = {
 		.init = cmos_init,
 		.data = &cmos_driver_data,
 	},
+#endif
 	{
 		.init = led_init,
 		.data = &led_driver_data,
 	},
+#if 0
 	{
 		.init = beep_init,
 		.data = &beep_driver_data,
@@ -12109,10 +12114,12 @@ static struct ibm_init_struct ibms_init[] __initdata = {
 		.init = fan_init,
 		.data = &fan_driver_data,
 	},
+#endif
 	{
 		.init = mute_led_init,
 		.data = &mute_led_driver_data,
 	},
+#if 0
 	{
 		.init = tpacpi_battery_init,
 		.data = &battery_driver_data,
@@ -12149,6 +12156,7 @@ static struct ibm_init_struct ibms_init[] __initdata = {
 		.init = tpacpi_usbc_security_init,
 		.data = &usbc_security_driver_data,
 	},
+#endif
 };
 
 static int __init set_ibm_param(const char *val, const struct kernel_param *kp)
@@ -12366,6 +12374,7 @@ static int __init thinkpad_acpi_module_init(void)
 		thinkpad_acpi_module_exit();
 		return ret;
 	}
+	thinkpad_acpi_init_banner();
 	ret = probe_for_thinkpad();
 	if (ret) {
 		thinkpad_acpi_module_exit();
@@ -12374,7 +12383,6 @@ static int __init thinkpad_acpi_module_init(void)
 
 	/* Driver initialization */
 
-	thinkpad_acpi_init_banner();
 	tpacpi_check_outdated_fw();
 
 	TPACPI_ACPIHANDLE_INIT(ecrd);
