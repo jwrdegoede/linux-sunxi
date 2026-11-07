@@ -84,6 +84,7 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 	struct resource r;
 	struct acpi_resource_irq *p = &ares->data.irq;
 	struct acpi_resource_extended_irq *pext = &ares->data.extended_irq;
+	struct acpi_resource_gpio *agpio = &ares->data.gpio;
 	char ev_name[5];
 	u8 trigger;
 	int ret;
@@ -104,6 +105,18 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 		}
 
 		irq = r.start;
+		break;
+
+	case ACPI_RESOURCE_TYPE_GPIO:
+		ret = acpi_dev_gpio_irq_get(ACPI_COMPANION(dev), 0);
+		if (ret < 0) {
+			dev_err_probe(dev, ret, "getting GpioInt IRQ\n");
+			context->error = ret;
+			return AE_ERROR;
+		}
+
+		irq = ret;
+		gsi = agpio->pin_table[0];
 		break;
 
 	case ACPI_RESOURCE_TYPE_END_TAG:
