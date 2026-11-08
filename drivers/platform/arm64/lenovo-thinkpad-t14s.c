@@ -52,6 +52,7 @@
 #define T14S_EC_EVT_NONE			0x00
 #define T14S_EC_EVT_KEY_FN_4			0x13
 #define T14S_EC_EVT_KEY_FN_F7			0x16
+#define T14S_EC_EVT_KEY_FN_F12_GEN7		0x19
 #define T14S_EC_EVT_KEY_FN_SPACE		0x1f
 #define T14S_EC_EVT_KEY_TP_DOUBLE_TAP		0x20
 #define T14S_EC_EVT_AC_CONNECTED		0x26
@@ -79,6 +80,8 @@
 #define T14S_EC_EVT_KEY_FN_G			0x7e
 
 /* Gen 7 only */
+#define T14S_GEN7_EC_EVT_HKEY_1010		0x14
+#define T14S_GEN7_EC_EVT_HKEY_1011		0x15
 #define T14S_GEN7_EC_EVT_HKEY_1017		0x1c
 #define T14S_GEN7_EC_EVT_STATUS_35		0x35
 #define T14S_GEN7_EC_EVT_DYTC			0x3c
@@ -86,6 +89,7 @@
 #define T14S_GEN7_EC_EVT_STATUS_4B		0x4b
 #define T14S_GEN7_EC_EVT_STATUS_4E		0x4e
 #define T14S_GEN7_EC_EVT_HKEY_1016		0x76
+#define T14S_GEN7_EC_EVT_HKEY_1015		0x7b
 
 /* Hardware LED blink rate is 1 Hz (500ms off, 500ms on) */
 #define T14S_EC_BLINK_RATE_ON_OFF_MS		500
@@ -579,6 +583,7 @@ static const struct key_entry t14s_keymap[] = {
 	T14S_EC_KEY_ENTRY(FN_F10, KEY_SELECTIVE_SCREENSHOT),
 	T14S_EC_KEY_ENTRY(FN_F11, KEY_LINK_PHONE),
 	T14S_EC_KEY_ENTRY(FN_F12, KEY_BOOKMARKS),
+	T14S_EC_KEY_ENTRY(FN_F12_GEN7, KEY_BOOKMARKS),
 	T14S_EC_KEY_ENTRY(FN_SPACE, KEY_KBDILLUMTOGGLE),
 	T14S_EC_KEY_ENTRY(FN_ESC, KEY_FN_ESC),
 	T14S_EC_KEY_ENTRY(FN_TAB, KEY_ZOOM),
@@ -636,6 +641,7 @@ static irqreturn_t t14s_ec_irq_handler(int irq, void *data)
 	case T14S_EC_EVT_KEY_FN_4:
 	case T14S_EC_EVT_KEY_FN_F8:
 	case T14S_EC_EVT_KEY_FN_F12:
+	case T14S_EC_EVT_KEY_FN_F12_GEN7:
 	case T14S_EC_EVT_KEY_FN_TAB:
 	case T14S_EC_EVT_KEY_FN_F10:
 	case T14S_EC_EVT_KEY_FN_N:
@@ -688,9 +694,16 @@ static irqreturn_t t14s_ec_irq_handler(int irq, void *data)
 	case T14S_EC_EVT_KEY_FN_D:
 		dev_dbg(ec->dev, "FN + D - toggle privacy guard mode\n");
 		break;
-	case T14S_GEN7_EC_EVT_HKEY_1017:
-	case T14S_GEN7_EC_EVT_HKEY_1016:
 	case T14S_GEN7_EC_EVT_DYTC:
+	/*
+	 * Keys which send an EC event which the DSDT maps to a HKEY, which
+	 * also send a key-press over I2C-HID, so ignore the EC event.
+	 */
+	case T14S_GEN7_EC_EVT_HKEY_1010:
+	case T14S_GEN7_EC_EVT_HKEY_1011:
+	case T14S_GEN7_EC_EVT_HKEY_1015:
+	case T14S_GEN7_EC_EVT_HKEY_1016:
+	case T14S_GEN7_EC_EVT_HKEY_1017:
 	/* Status events the Gen 7 firmware does not act upon either */
 	case T14S_GEN7_EC_EVT_STATUS_35:
 	case T14S_GEN7_EC_EVT_STATUS_40:
