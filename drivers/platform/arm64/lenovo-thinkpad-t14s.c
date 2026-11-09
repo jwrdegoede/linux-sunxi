@@ -39,6 +39,9 @@
 
 #define T14S_EC_REG_LED				0x0c
 #define T14S_EC_REG_KBD_BL1			0x0d
+#define T14S_EC_REG_MODERN_STANDBY_GEN7		0xcf
+/* Gen 7 DSDT sets this bit on Windows modern standby entry */
+#define T14S_EC_MODERN_STANDBY_GEN7_ESLS	BIT(5)
 #define T14S_EC_REG_MODERN_STANDBY		0xe0
 #define T14S_EC_MODERN_STANDBY_ENTRY		BIT(1)
 #define T14S_EC_MODERN_STANDBY_EXIT		BIT(0)
@@ -107,6 +110,7 @@
 enum t14s_ec_led_status_t {
 	T14S_EC_LED_OFF =	0x00,
 	T14S_EC_LED_ON =	0x80,
+	T14S_EC_LED_GLOW =	0xa0, /* Gen 7 only, only works for power and lid LEDs */
 	T14S_EC_LED_BLINK =	0xc0,
 };
 
@@ -784,9 +788,15 @@ static int t14s_ec_suspend(struct device *dev)
 
 	led_classdev_suspend(&ec->kbd_backlight);
 
-	if (ec->variant->has_kbd_bl2_and_standby)
+	if (ec->variant == &t14s_ec_variant) {
 		t14s_ec_write_sequence(ec, T14S_EC_REG_MODERN_STANDBY,
 				       T14S_EC_MODERN_STANDBY_ENTRY, 3);
+	} else {
+		regmap_assign_bits(ec->regmap, T14S_EC_REG_MODERN_STANDBY_GEN7,
+				   T14S_EC_MODERN_STANDBY_GEN7_ESLS, 1);
+		t14s_led_set_status(ec, &ec->led_pwr_btn, T14S_EC_LED_GLOW);
+		t14s_led_set_status(ec, &ec->led_lid_logo_dot, T14S_EC_LED_GLOW);
+	}
 
 	return 0;
 }
@@ -795,9 +805,15 @@ static int t14s_ec_resume(struct device *dev)
 {
 	struct t14s_ec *ec = dev_get_drvdata(dev);
 
-	if (ec->variant->has_kbd_bl2_and_standby)
+	if (ec->variant == &t14s_ec_variant) {
 		t14s_ec_write_sequence(ec, T14S_EC_REG_MODERN_STANDBY,
 				       T14S_EC_MODERN_STANDBY_EXIT, 3);
+	} else {
+		regmap_assign_bits(ec->regmap, T14S_EC_REG_MODERN_STANDBY_GEN7,
+				   T14S_EC_MODERN_STANDBY_GEN7_ESLS, 0);
+		t14s_led_set_status(ec, &ec->led_pwr_btn, T14S_EC_LED_ON);
+		t14s_led_set_status(ec, &ec->led_lid_logo_dot, T14S_EC_LED_ON);
+	}
 
 	led_classdev_resume(&ec->kbd_backlight);
 
