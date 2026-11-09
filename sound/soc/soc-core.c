@@ -388,6 +388,15 @@ static struct snd_soc_pcm_runtime *soc_new_pcm_runtime(
 		return NULL;
 	}
 
+	/*
+	 * devm_kzalloc_flex() sets the __counted_by() counter to the number
+	 * of allocated elements, but ASoC uses num_components as the number
+	 * of populated components. It has to start at zero here, otherwise
+	 * snd_soc_rtd_add_component() writes past the allocated array and
+	 * for_each_rtd_components() stops at the first (empty) entry.
+	 */
+	rtd->num_components = 0;
+
 	rtd->dev = dev;
 	INIT_LIST_HEAD(&rtd->list);
 	for_each_pcm_streams(stream) {
