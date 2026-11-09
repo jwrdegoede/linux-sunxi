@@ -12264,6 +12264,14 @@ L:	platform-driver-x86@vger.kernel.org
 S:	Orphan
 F:	drivers/platform/x86/hp/tc1100-wmi.c
 
+HP OMNIBOOK 5 16 EMBEDDED CONTROLLER DRIVER
+M:	Rahul Pon <theflyingrahul@gmail.com>
+L:	platform-driver-x86@vger.kernel.org
+S:	Maintained
+F:	Documentation/ABI/testing/sysfs-driver-hp-omnibook-5-ec
+F:	Documentation/devicetree/bindings/embedded-controller/hp,omnibook-5-16-bf1xxx-ec.yaml
+F:	drivers/platform/arm64/hp-omnibook-5-ec.c
+
 HP WMI HARDWARE MONITOR DRIVER
 M:	James Seo <james@equiv.tech>
 L:	linux-hwmon@vger.kernel.org

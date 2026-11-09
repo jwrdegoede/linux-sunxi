@@ -1,0 +1,19 @@
+What:		/sys/bus/i2c/devices/<bus>-0076/kbd_backlight_timeout
+Date:		September 2026
+KernelVersion:	7.4
+Contact:	Rahul Pon <theflyingrahul@gmail.com>
+Description:
+		(RW) How long the keyboard backlight of the HP OmniBook 5 16
+		stays on after the last key press, as the embedded controller
+		applies it: "30s", "3min" or "always". The Fn key still turns
+		the backlight on and off.
+
+What:		/sys/bus/i2c/devices/<bus>-0076/kbd_backlight_level
+Date:		September 2026
+KernelVersion:	7.4
+Contact:	Rahul Pon <theflyingrahul@gmail.com>
+Description:
+		(RO) The keyboard backlight level of the HP OmniBook 5 16:
+		0 (off), 1 or 2. Only the backlight key changes it, inside the
+		embedded controller. The attribute is notified when the EC
+		reports a change.
