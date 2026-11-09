@@ -126,10 +126,6 @@ struct t14s_ec;
 struct t14s_ec_variant {
 	const struct regmap_bus *regmap_bus;
 	int (*read_evt)(struct t14s_ec *ec, u8 *val);
-	/* EC has the second keyboard backlight and the modern standby registers */
-	bool has_kbd_bl2_and_standby;
-	/* mic mute LED is a generic LED (in T14S_EC_REG_LED) and not a bit in T14S_EC_REG_AUD */
-	bool mic_mute_led_generic;
 };
 
 struct t14s_ec {
@@ -319,13 +315,11 @@ static int t14s_gen7_ec_read_evt(struct t14s_ec *ec, u8 *val)
 static const struct t14s_ec_variant t14s_ec_variant = {
 	.regmap_bus = &t14s_ec_regmap_bus,
 	.read_evt = t14s_ec_read_evt,
-	.has_kbd_bl2_and_standby = true,
 };
 
 static const struct t14s_ec_variant t14s_gen7_ec_variant = {
 	.regmap_bus = &t14s_gen7_ec_regmap_bus,
 	.read_evt = t14s_gen7_ec_read_evt,
-	.mic_mute_led_generic = true,
 };
 
 static void t14s_ec_write_sequence(struct t14s_ec *ec, u8 reg, u8 val, u8 cnt)
@@ -440,7 +434,7 @@ static int t14s_kbd_bl_set(struct led_classdev *led_cdev,
 	if (ret < 0)
 		return ret;
 
-	if (!ec->variant->has_kbd_bl2_and_standby)
+	if (ec->variant == &t14s_gen7_ec_variant)
 		return 0;
 
 	val = FIELD_PREP(T14S_EC_KBD_BL2_MASK, brightness);
@@ -512,10 +506,10 @@ static enum led_brightness t14s_mic_mute_led_get(struct led_classdev *led_cdev)
 	struct t14s_ec *ec = container_of(led_cdev, struct t14s_ec,
 					  led_mic_mute);
 
-	if (ec->variant->mic_mute_led_generic)
-		return ec->mic_mute_cache;
+	if (ec->variant == &t14s_ec_variant)
+		return t14s_audio_led_get(ec, T14S_EC_MIC_MUTE_LED);
 
-	return t14s_audio_led_get(ec, T14S_EC_MIC_MUTE_LED);
+	return ec->mic_mute_cache;
 }
 
 static int t14s_mic_mute_led_set(struct led_classdev *led_cdev,
@@ -525,7 +519,7 @@ static int t14s_mic_mute_led_set(struct led_classdev *led_cdev,
 					  led_mic_mute);
 	int ret;
 
-	if (!ec->variant->mic_mute_led_generic)
+	if (ec->variant == &t14s_ec_variant)
 		return t14s_audio_led_set(ec, T14S_EC_MIC_MUTE_LED, brightness);
 
 	ret = regmap_write(ec->regmap, T14S_EC_REG_LED,
