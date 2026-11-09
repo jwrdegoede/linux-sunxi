@@ -284,7 +284,7 @@ static int iris_reserve_iova_region(struct device *dev, struct dma_iova_state **
 	if (!device_iommu_mapped(dev))
 		return 0;
 
-	state = devm_kcalloc(dev, BITS_PER_TYPE(dma_addr_t) + 1, sizeof(*state), GFP_KERNEL);
+	state = devm_kzalloc_objs(dev, *state, BITS_PER_TYPE(dma_addr_t) + 1);
 	if (!state)
 		return ret;
 

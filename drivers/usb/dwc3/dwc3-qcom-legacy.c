@@ -675,8 +675,7 @@ static int dwc3_qcom_clk_init(struct dwc3_qcom *qcom, int count)
 
 	qcom->num_clocks = count;
 
-	qcom->clks = devm_kcalloc(dev, qcom->num_clocks,
-				  sizeof(struct clk *), GFP_KERNEL);
+	qcom->clks = devm_kzalloc_objs(dev, struct clk *, qcom->num_clocks);
 	if (!qcom->clks)
 		return -ENOMEM;
 
@@ -747,7 +746,7 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 	bool			ignore_pipe_clk;
 	bool			wakeup_source;
 
-	qcom = devm_kzalloc(&pdev->dev, sizeof(*qcom), GFP_KERNEL);
+	qcom = devm_kzalloc_obj(&pdev->dev, *qcom);
 	if (!qcom)
 		return -ENOMEM;
 

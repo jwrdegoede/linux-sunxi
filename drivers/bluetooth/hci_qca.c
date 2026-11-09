@@ -2391,7 +2391,7 @@ static int qca_init_regulators(struct qca_power *qca,
 	int ret;
 	int i;
 
-	bulk = devm_kcalloc(qca->dev, num_vregs, sizeof(*bulk), GFP_KERNEL);
+	bulk = devm_kzalloc_objs(qca->dev, *bulk, num_vregs);
 	if (!bulk)
 		return -ENOMEM;
 
@@ -2422,7 +2422,7 @@ static int qca_serdev_probe(struct serdev_device *serdev)
 	int err;
 	bool power_ctrl_enabled = true;
 
-	qcadev = devm_kzalloc(&serdev->dev, sizeof(*qcadev), GFP_KERNEL);
+	qcadev = devm_kzalloc_obj(&serdev->dev, *qcadev);
 	if (!qcadev)
 		return -ENOMEM;
 
@@ -2455,9 +2455,8 @@ static int qca_serdev_probe(struct serdev_device *serdev)
 	case QCA_WCN6855:
 	case QCA_WCN7850:
 	case QCA_QCC2072:
-		qcadev->bt_power = devm_kzalloc(&serdev->dev,
-						sizeof(struct qca_power),
-						GFP_KERNEL);
+		qcadev->bt_power = devm_kzalloc_obj(&serdev->dev,
+						    struct qca_power);
 		if (!qcadev->bt_power)
 			return -ENOMEM;
 		break;
@@ -2579,7 +2578,7 @@ static int qca_serdev_probe(struct serdev_device *serdev)
 			return PTR_ERR(qcadev->susclk);
 		}
 	}
-	
+
 	err = hci_uart_register_device(&qcadev->serdev_hu, &qca_proto);
 	if (err) {
 		BT_ERR("serdev registration failed");

@@ -2288,9 +2288,8 @@ static int qmp_ufs_register_clocks(struct qmp_ufs *qmp, struct device_node *np)
 	char name[64];
 	int ret;
 
-	clk_data = devm_kzalloc(qmp->dev,
-				struct_size(clk_data, hws, UFS_SYMBOL_CLOCKS),
-				GFP_KERNEL);
+	clk_data = devm_kzalloc_flex(qmp->dev, *clk_data, hws,
+				     UFS_SYMBOL_CLOCKS);
 	if (!clk_data)
 		return -ENOMEM;
 
@@ -2410,7 +2409,7 @@ static int qmp_ufs_probe(struct platform_device *pdev)
 	struct qmp_ufs *qmp;
 	int ret;
 
-	qmp = devm_kzalloc(dev, sizeof(*qmp), GFP_KERNEL);
+	qmp = devm_kzalloc_obj(dev, *qmp);
 	if (!qmp)
 		return -ENOMEM;
 

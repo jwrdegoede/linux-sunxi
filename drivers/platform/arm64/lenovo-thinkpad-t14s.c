@@ -712,7 +712,7 @@ static int t14s_ec_probe(struct i2c_client *client)
 	struct t14s_ec *ec;
 	int ret;
 
-	ec = devm_kzalloc(dev, sizeof(*ec), GFP_KERNEL);
+	ec = devm_kzalloc_obj(dev, *ec);
 	if (!ec)
 		return -ENOMEM;
 

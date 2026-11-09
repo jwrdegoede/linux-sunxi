@@ -210,7 +210,7 @@ static int qce_crypto_probe(struct auxiliary_device *auxdev,
 	struct resource res;
 	int ret;
 
-	qce = devm_kzalloc(dev, sizeof(*qce), GFP_KERNEL);
+	qce = devm_kzalloc_obj(dev, *qce);
 	if (!qce)
 		return -ENOMEM;
 
