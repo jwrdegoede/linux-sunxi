@@ -430,6 +430,24 @@ static const struct of_device_id qcom_smmu_client_of_match[] __maybe_unused = {
 	{ }
 };
 
+static const char * const qcom_smmu_500_tlbival_errata[] = {
+	"qcom,eliza-smmu-500",
+	"qcom,glymur-smmu-500",
+	"qcom,hawi-smmu-500",
+	"qcom,ipq9650-smmu-500",
+	"qcom,kaanapali-smmu-500",
+	"qcom,maili-smmu-500",
+	"qcom,milos-smmu-500",
+	"qcom,nord-smmu-500",
+	"qcom,sdx75-smmu-500",
+	"qcom,shikra-smmu-500",
+	"qcom,sm8550-smmu-500",
+	"qcom,sm8650-smmu-500",
+	"qcom,sm8750-smmu-500",
+	"qcom,x1e80100-smmu-500",
+	NULL,
+};
+
 static int qcom_smmu_init_context(struct arm_smmu_domain *smmu_domain,
 		struct io_pgtable_cfg *pgtbl_cfg, struct device *dev)
 {
@@ -439,6 +457,16 @@ static int qcom_smmu_init_context(struct arm_smmu_domain *smmu_domain,
 	int cbndx = smmu_domain->cfg.cbndx;
 
 	smmu_domain->cfg.flush_walk_prefer_tlbiasid = true;
+
+	/*
+	 * Qualcomm SMMU-500 has an issue with TLBIVA/TLBIVAL where only
+	 * the base-page-size entry at the base IOVA is invalidated. Force
+	 * the minimum page granule on affected SoCs to ensure the full range
+	 * is covered.
+	 */
+	if (of_device_compatible_match(smmu->dev->of_node,
+				       qcom_smmu_500_tlbival_errata))
+		smmu_domain->cfg.force_min_tlbival_granule = true;
 
 	client_match = qsmmu->data->client_match;
 
