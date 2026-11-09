@@ -132,8 +132,6 @@ struct t14s_ec {
 	struct regmap *regmap;
 	struct device *dev;
 	const struct t14s_ec_variant *variant;
-	/* serializes the multi-message Gen 7 EC transactions */
-	struct mutex xfer_lock;
 	enum led_brightness mic_mute_cache;
 	struct t14s_ec_led_classdev led_pwr_btn;
 	struct t14s_ec_led_classdev led_chrg_orange;
@@ -250,24 +248,28 @@ static int t14s_gen7_ec_cmd_read(struct t14s_ec *ec, u8 cmd, u8 arg, u8 *val)
 	struct i2c_client *client = to_i2c_client(ec->dev);
 	u8 req[2] = { cmd, arg };
 	struct i2c_msg msgs[2] = {
-		{ .addr = client->addr, .flags = 0, .len = 1, .buf = &req[0] },
+		{ .addr = client->addr, .flags = 0, .len = 2, .buf = &req[0] },
 		{ .addr = client->addr, .flags = I2C_M_RD, .len = 1, .buf = val },
 	};
 	int ret;
 
-	guard(mutex)(&ec->xfer_lock);
+	i2c_lock_bus(client->adapter, I2C_LOCK_SEGMENT);
 
-	ret = i2c_master_send(client, req, sizeof(req));
+	/* Send cmd + arg */
+	ret = __i2c_transfer(client->adapter, msgs, 1);
 	if (ret < 0)
-		return ret;
+		goto out;
 
-	fsleep(5000);
-
-	ret = i2c_transfer(client->adapter, msgs, ARRAY_SIZE(msgs));
+	/* Resend the cmd byte + read the value */
+	msgs[0].len = 1;
+	ret = __i2c_transfer(client->adapter, msgs, 2);
 	if (ret < 0)
-		return ret;
+		goto out;
 
-	return ret == ARRAY_SIZE(msgs) ? 0 : -EIO;
+	ret = ret == 2 ? 0 : EIO;
+out:
+	i2c_unlock_bus(client->adapter, I2C_LOCK_SEGMENT);
+	return ret;
 }
 
 static int t14s_gen7_ec_write(void *context, unsigned int reg,
@@ -277,8 +279,6 @@ static int t14s_gen7_ec_write(void *context, unsigned int reg,
 	struct i2c_client *client = to_i2c_client(ec->dev);
 	u8 buf[3] = { T14S_GEN7_EC_CMD_WR, reg, val };
 	int ret;
-
-	guard(mutex)(&ec->xfer_lock);
 
 	ret = i2c_master_send(client, buf, sizeof(buf));
 	if (ret < 0)
@@ -731,10 +731,6 @@ static int t14s_ec_probe(struct i2c_client *client)
 	ec->variant = i2c_get_match_data(client);
 	if (!ec->variant)
 		ec->variant = &t14s_ec_variant;
-
-	ret = devm_mutex_init(dev, &ec->xfer_lock);
-	if (ret)
-		return ret;
 
 	i2c_set_clientdata(client, ec);
 
