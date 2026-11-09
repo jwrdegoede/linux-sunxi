@@ -910,7 +910,7 @@
 &pcie4_phy {
 	vdda-phy-supply = <&vreg_l1c_e1_0p91>;
 	vdda-pll-supply = <&vreg_l4f_e1_1p2>;
-	vdda-refgen0p9-supply = <&vreg_l1c_e1_0p82>;
+	vdda-refgen0p9-supply = <&vreg_l1c_e1_0p91>;
 	vdda-refgen1p2-supply = <&vreg_l4f_e1_1p2>;
 
 	status = "okay";
@@ -973,7 +973,7 @@
 &pcie6_phy {
 	vdda-phy-supply = <&vreg_l1c_e1_0p91>;
 	vdda-pll-supply = <&vreg_l4f_e1_1p2>;
-	vdda-refgen0p9-supply = <&vreg_l1c_e1_0p82>;
+	vdda-refgen0p9-supply = <&vreg_l1c_e1_0p91>;
 	vdda-refgen1p2-supply = <&vreg_l4f_e1_1p2>;
 
 	status = "okay";
