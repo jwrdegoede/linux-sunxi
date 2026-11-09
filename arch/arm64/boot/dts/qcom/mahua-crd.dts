@@ -13,6 +13,22 @@
 	compatible = "qcom,mahua-crd", "qcom,mahua";
 };
 
+&mdss_dp0 {
+	status = "okay";
+};
+
+&mdss_dp0_out {
+	link-frequencies = /bits/ 64 <1620000000 2700000000 5400000000 8100000000>;
+};
+
+&mdss_dp1 {
+	status = "okay";
+};
+
+&mdss_dp1_out {
+	link-frequencies = /bits/ 64 <1620000000 2700000000 5400000000 8100000000>;
+};
+
 &pcie3b_phy {
 	vdda-phy-supply = <&vreg_l3c1>;
 	vdda-pll-supply = <&vreg_l2c1>;
