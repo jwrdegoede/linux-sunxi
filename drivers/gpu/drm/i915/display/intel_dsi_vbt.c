@@ -142,6 +142,9 @@ static const u8 *mipi_exec_send_packet(struct intel_dsi *intel_dsi,
 		    hs_mode ? "HS" : "LP", type, len, (int)len, data);
 
 	switch (type) {
+	case 0: /* Not in MIPI DSI specification, presumably nop like MIPI_DCS_NOP */
+		ret = 0;
+		break;
 	case MIPI_DSI_GENERIC_SHORT_WRITE_0_PARAM:
 		ret = mipi_dsi_generic_write(dsi_device, NULL, 0);
 		break;
