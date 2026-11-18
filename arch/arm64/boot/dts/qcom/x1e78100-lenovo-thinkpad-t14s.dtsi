@@ -1349,6 +1349,7 @@
 		reg = <0x10>;
 
 		hid-descr-addr = <0x1>;
+		post-power-on-delay-ms = <200>;
 		interrupts-extended = <&tlmm 51 IRQ_TYPE_LEVEL_LOW>;
 
 		vdd-supply = <&vreg_misc_3p3>;
